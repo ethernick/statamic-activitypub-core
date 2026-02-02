@@ -37,7 +37,7 @@ ActivityPub federation for Statamic 5.x sites.
 ## 🤝 Support
 
 - [Issues](https://worktree.ca/ethernick/statamic-activitypub-core/issues)
-- [Road Map](https://worktree.ca/ethernick/statamic-activitypub-core/projects)
+- [Road Map](https://worktree.ca/ethernick/statamic-activitypub-core/wiki/Road-Map)
 - [Wiki](https://worktree.ca/ethernick/statamic-activitypub-core/wiki) - Ongoing documentation
 
 ## 🤖 AI Disclosure
