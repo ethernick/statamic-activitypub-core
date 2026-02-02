@@ -1,0 +1,124 @@
+tabs:
+  main:
+    display: Main
+    sections:
+      -
+        fields:
+          -
+            handle: title
+            field:
+              type: text
+              required: true
+              display: Name
+              validate:
+                - required
+          -
+            handle: content
+            field:
+              type: markdown
+              display: Description
+          -
+            handle: avatar
+            field:
+              type: assets
+              display: Avatar
+              max_files: 1
+  sidebar:
+    display: Sidebar
+    sections:
+      -
+        fields:
+          -
+            handle: slug
+            field:
+              type: slug
+              localizable: true
+              validate: 'max:200'
+              display: Handle
+          -
+            handle: public_key
+            field:
+              type: textarea
+              display: 'Public Key'
+              visibility: hidden
+              read_only: true
+          -
+            handle: private_key
+            field:
+              type: textarea
+              display: 'Private Key'
+              visibility: hidden
+              read_only: true
+          -
+            handle: is_internal
+            field:
+              type: toggle
+              display: 'Is Internal'
+              default: true
+              instructions: 'Toggle on if this actor is internal to the site.'
+          -
+            handle: activitypub_id
+            field:
+              type: text
+              display: 'ActivityPub ID'
+              visibility: visible
+              read_only: true
+          -
+            handle: inbox_url
+            field:
+              type: text
+              display: 'Inbox URL'
+              visibility: hidden
+              read_only: true
+          -
+            handle: outbox_url
+            field:
+              type: text
+              display: 'Outbox URL'
+              visibility: hidden
+              read_only: true
+          -
+            handle: shared_inbox_url
+            field:
+              type: text
+              display: 'Shared Inbox URL'
+              visibility: hidden
+              read_only: true
+          -
+            handle: following_actors
+            field:
+              type: entries
+              display: 'Following Actors'
+              instructions: 'Actors that this actor is following.'
+              collections:
+                - actors
+              visibility: hidden
+              read_only: true
+          -
+            handle: followed_by_actors
+            field:
+              type: entries
+              display: 'Followed By Actors'
+              instructions: 'Actors that are following this actor.'
+              collections:
+                - actors
+              visibility: hidden
+              read_only: true
+          -
+            handle: blocks
+            field:
+              type: entries
+              display: 'Blocked Actors'
+              instructions: 'Actors that are blocked by this actor.'
+              collections:
+                - actors
+              visibility: hidden
+              read_only: true
+          -
+            handle: activitypub_collections
+            field:
+              type: terms
+              taxonomies:
+                - activitypub_collections
+              display: 'ActivityPub Collections'
+              mode: select

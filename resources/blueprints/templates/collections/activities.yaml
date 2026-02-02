@@ -1,0 +1,54 @@
+tabs:
+  main:
+    display: Main
+    sections:
+      -
+        fields:
+          -
+            handle: title
+            field:
+              type: text
+              required: true
+              validate:
+                - required
+          -
+            handle: actor
+            field:
+              type: actor_selector
+              display: Actor
+          -
+            handle: related_object
+            field:
+              type: entries
+              max_items: 1
+              display: 'Related Object'
+  sidebar:
+    display: Sidebar
+    sections:
+      -
+        fields:
+          -
+            handle: date
+            field:
+              type: date
+              required: true
+              default: now
+              validate:
+                - required
+              time_enabled: true
+              time_seconds_enabled: true
+          -
+            handle: is_internal
+            field:
+              type: toggle
+              display: Internal
+              default: true
+              visibility: hidden
+          -
+            handle: activitypub_collections
+            field:
+              type: terms
+              taxonomies:
+                - activitypub_collections
+              display: 'ActivityPub Collections'
+              mode: select

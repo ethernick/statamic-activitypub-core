@@ -1,0 +1,21 @@
+{
+    "name": "ethernick/statamic-activitypub-core",
+    "description": "ActivityPub functionality for Statamic",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Ethernick\\ActivityPubCore\\": "src"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "ActivityPub Core",
+            "description": "ActivityPub Functionality for Statamic"
+        },
+        "laravel": {
+            "providers": [
+                "Ethernick\\ActivityPubCore\\ActivityPubServiceProvider"
+            ]
+        }
+    }
+}

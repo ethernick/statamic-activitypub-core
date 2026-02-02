@@ -1,0 +1,103 @@
+tabs:
+  main:
+    display: Main
+    sections:
+      -
+        fields:
+          -
+            handle: title
+            field:
+              type: hidden
+              required: false
+              visibility: hidden
+              default: 'Generating...'
+          -
+            handle: content
+            field:
+              type: markdown
+              display: Content
+              localizable: true
+          -
+            handle: actor
+            field:
+              type: actor_selector
+              display: Actor
+          -
+            handle: author
+            field:
+              type: users
+              display: Author
+              default: current
+              localizable: true
+              max_items: 1
+              visibility: hidden
+  sidebar:
+    display: Sidebar
+    sections:
+      -
+        fields:
+          -
+            handle: slug
+            field:
+              type: slug
+              localizable: true
+              visibility: hidden
+              read_only: true
+              validate: 'max:200'
+          -
+            handle: date
+            field:
+              type: date
+              required: true
+              default: now
+              validate:
+                - required
+              time_enabled: true
+              time_seconds_enabled: true
+          -
+            handle: is_internal
+            field:
+              type: toggle
+              display: Internal
+              default: true
+              visibility: hidden
+          -
+            handle: activitypub_collections
+            field:
+              type: terms
+              taxonomies:
+                - activitypub_collections
+              display: 'ActivityPub Collections'
+              mode: select
+          -
+            handle: boost_count
+            field:
+              type: integer
+              display: 'Boost Count'
+              default: 0
+              read_only: true
+              visibility: hidden
+          -
+            handle: related_activity_count
+            field:
+              type: integer
+              display: 'Related Activity Count'
+              default: 0
+              read_only: true
+              visibility: hidden
+          -
+            handle: reply_count
+            field:
+              type: integer
+              display: 'Reply Count'
+              default: 0
+              read_only: true
+              visibility: hidden
+          -
+            handle: like_count
+            field:
+              type: integer
+              display: 'Like Count'
+              default: 0
+              read_only: true
+              visibility: hidden

@@ -1,0 +1,12 @@
+{
+"@context": "https://www.w3.org/ns/activitystreams",
+"id": "{{ url }}",
+"summary": "{{ summary }}",
+"type": "{{ type }}",
+"actor": "{{ actor_url }}",
+"object": {{ object_json | raw }},
+"to": {{ to | to_json }},
+"cc": {{ cc | to_json }},
+"published": "{{ published }}",
+"url": "{{ url }}"
+}

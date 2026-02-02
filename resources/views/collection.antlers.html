@@ -1,0 +1,18 @@
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold mb-2">{{ term:title }}</h1>
+    <p class="text-gray-600 mb-6">Collection for <a href="/@{{ actor:slug }}" class="text-blue-600 hover:underline">{{
+            actor:title }}</a></p>
+
+    <div class="space-y-4">
+        {{ entries }}
+        <div class="border p-4 rounded shadow-sm">
+            <h2 class="font-bold"><a href="{{ url }}">{{ title }}</a></h2>
+            <p class="text-sm text-gray-500">{{ date format="M d, Y" }}</p>
+        </div>
+        {{ /entries }}
+    </div>
+
+    <div class="mt-6">
+        {{ links }}
+    </div>
+</div>

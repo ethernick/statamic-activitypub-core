@@ -1,0 +1,75 @@
+{
+"@context": [
+"https://www.w3.org/ns/activitystreams",
+{
+"Hashtag": "as:Hashtag",
+"sensitive": "as:sensitive",
+"focalPoint": {
+"@container": "@list",
+"@id": "toot:focalPoint"
+},
+"quote": "https://w3id.org/fep/044f#quote",
+"quoteUri": "http://fedibird.com/ns#quoteUri",
+"_misskey_quote": "https://misskey-hub.net/ns#_misskey_quote",
+"quoteAuthorization": {
+"@id": "https://w3id.org/fep/044f#quoteAuthorization",
+"@type": "@id"
+},
+"gts": "https://gotosocial.org/ns#",
+"interactionPolicy": {
+"@id": "gts:interactionPolicy",
+"@type": "@id"
+},
+"canQuote": {
+"@id": "gts:canQuote",
+"@type": "@id"
+},
+"automaticApproval": {
+"@id": "gts:automaticApproval",
+"@type": "@id"
+}
+}
+],
+"type": "{{ type }}",
+"id": "{{ url }}",
+"attributedTo": "{{ actor_url }}",{{ if summary }}
+"summary": {{ summary | to_json }},{{ /if }}{{ if sensitive }}
+"sensitive": {{ sensitive | to_json }},{{ /if }}
+"content": {{ content | to_json }},
+"to": {{ to | to_json }},
+"cc": {{ cc | to_json }},
+{{ if oneOf }}
+"oneOf": {{ oneOf | to_json }},
+{{ /if }}
+{{ if anyOf }}
+"anyOf": {{ anyOf | to_json }},
+{{ /if }}
+{{ if endTime }}
+"endTime": "{{ endTime }}",
+{{ /if }}
+{{ if closed }}
+"closed": "{{ closed }}",
+{{ /if }}
+{{ if tag }}
+"tag": {{ tag | to_json }},
+{{ /if }}
+"replies": "{{ replies }}",
+"likes": {
+"id": "{{ likes_url }}",
+"type": "OrderedCollection",
+"totalItems": {{ likes_count }}
+},
+"shares": {
+"id": "{{ shares_url }}",
+"type": "OrderedCollection",
+"totalItems": {{ shares_count }}
+},
+"published": "{{ published }}",
+"url": "{{ url }}"{{ if interaction_policy }},
+"interactionPolicy": {{ interaction_policy | to_json }}{{ /if }}{{ if quote_url }},
+"quote": "{{ quote_url }}",
+"_misskey_quote": "{{ quote_url }}",
+"quoteUrl": "{{ quote_url }}",
+"quoteUri": "{{ quote_url }}"{{ if quote_authorization_stamp }},
+"quoteAuthorization": "{{ quote_authorization_stamp }}"{{ /if }}{{ /if }}
+}
