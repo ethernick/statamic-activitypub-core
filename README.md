@@ -1,6 +1,6 @@
 # ActivityPub Core for Statamic
 
-![Build: Passing](https://img.shields.io/badge/build-PASS-green?style=flat) ![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat) ![Version: Alpha](https://img.shields.io/badge/version-alpha-yellow?style=flat)
+![Build: Failing](https://img.shields.io/badge/build-FAIL-red?style=flat) ![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat) ![Version: Alpha](https://img.shields.io/badge/version-alpha-yellow?style=flat)
 
 ActivityPub federation for Statamic 5.x sites.
 
