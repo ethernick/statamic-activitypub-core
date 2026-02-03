@@ -1,0 +1,15 @@
+{
+  "name": "@ethernick/statamic-activitypub-core",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "production": "vite build"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0",
+    "vue": "^3.4.0"
+  }
+}

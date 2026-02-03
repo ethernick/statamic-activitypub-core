@@ -922,6 +922,10 @@ class InboxController extends CpController
         $apJson = $entry->get('activitypub_json');
         $payload = $apJson ? json_decode($apJson, true) : [];
 
+        if (!$date && !empty($payload['published'])) {
+            $date = \Carbon\Carbon::parse($payload['published']);
+        }
+
         // NOTES & POLLS Processing
         if (in_array($collection, ['notes', 'polls'])) {
             $note = $entry;
@@ -1037,8 +1041,8 @@ class InboxController extends CpController
                 'oembed' => $oembed,
                 'link_preview' => $linkPreview,
                 'needs_preview' => $needsPreview,
-                'date' => $date->format('M j, Y H:i'),
-                'date_human' => $date->diffForHumans(),
+                'date' => $date ? $date->format('M j, Y H:i') : null,
+                'date_human' => $date ? $date->diffForHumans() : null,
                 'actor' => $actor,
                 'counts' => [
                     'replies' => (int) $note->get('reply_count', 0),

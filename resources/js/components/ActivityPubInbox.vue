@@ -88,6 +88,7 @@
                                                 previewUrl: markdownPreviewUrl
                                             }"
                                             @input="val => replyContent = val"
+                                            @update:value="val => replyContent = val"
                                         />
                                         </div>
                                         <div class="flex justify-end gap-2 mt-3">
@@ -158,343 +159,262 @@
         </div>
 
         <!-- JSON Drawer Stack -->
-        <stack name="json-stack" v-if="jsonModal.open" @closed="closeJsonModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">ActivityPub JSON</h2>
-                    <button @click="closeJsonModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">&times;</button>
-                </div>
-                <div class="p-0 overflow-auto flex-1 bg-gray-50 dark:bg-dark-900">
-                     <vue-json-pretty 
-                        :data="jsonModal.content"
-                        :deep="4"
-                        :show-double-quotes="true"
-                        :show-line="true"
-                        :show-length="true"
-                        :highlight-mouseover-node="true">
-                     </vue-json-pretty>
-                </div>
-                <div class="p-4 border-t dark:border-dark-900 bg-gray-100 dark:bg-dark-800 flex justify-end">
-                     <button @click="closeJsonModal" class="btn">Close</button>
-                </div>
-            </div>
-        </stack>
+        <ap-stack :open="jsonModal.open" @closed="closeJsonModal" title="ActivityPub JSON" inset>
+            <pre class="ap-json-viewer" v-html="highlightJson(jsonModal.content)"></pre>
+            <template #footer-end>
+                <button @click="closeJsonModal" class="btn">Close</button>
+            </template>
+        </ap-stack>
 
         <!-- Create/Edit Note Stack -->
-        <stack name="create-note-stack" v-if="isCreatingNote" @closed="closeNoteModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-                
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">{{ editingNoteId ? 'Edit Note' : 'Create Note' }}</h2>
-                    <button @click="closeNoteModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">&times;</button>
-                </div>
-
-                <div class="p-6 flex-1 overflow-y-auto">
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2">Post As</label>
-                        <select v-model="newNote.actor" class="input-text w-full" :disabled="!!editingNoteId">
-                            <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-5 h-full flex flex-col">
-                        <label class="block text-sm font-bold mb-2">Content</label>
-                        <div class="mb-3">
-                            <input type="text" v-model="newNote.content_warning" placeholder="Content Warning (optional)" class="input-text w-full">
-                        </div>
-                        <div class="flex-1 min-h-[200px]">
-                            <markdown-fieldtype
-                                :value="newNote.content"
-                                :config="{
-                                    cheatsheet: true,
-                                    container: 'assets',
-                                    cheatsheet: true,
-                                    container: 'assets',
-                                    buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table'],
-                                    type: 'markdown'
-                                }"
-                                :meta="{
-                                    previewUrl: markdownPreviewUrl
-                                }"
-                                @input="val => newNote.content = val"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-4 border-t dark:border-dark-900 bg-gray-100 dark:bg-dark-800 flex justify-end gap-3">
-                    <button class="btn" @click="closeNoteModal">Cancel</button>
-                    <button class="btn-primary" @click="submitNote" :disabled="creating">
-                        {{ creating ? 'Saving...' : (editingNoteId ? 'Update' : 'Create') }}
-                    </button>
-                </div>
-
+        <ap-stack :open="isCreatingNote" @closed="closeNoteModal" :title="editingNoteId ? 'Edit Note' : 'Create Note'">
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Post As</label>
+                <select v-model="newNote.actor" class="input-text w-full" :disabled="!!editingNoteId">
+                    <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
+                </select>
             </div>
 
-        </stack>
+            <div class="mb-5 flex flex-col">
+                <label class="block text-sm font-bold mb-2">Content</label>
+                <div class="mb-3">
+                    <input type="text" v-model="newNote.content_warning" placeholder="Content Warning (optional)" class="input-text w-full">
+                </div>
+                <div class="min-h-[200px]">
+                    <markdown-fieldtype
+                        :value="newNote.content"
+                        :config="{
+                            cheatsheet: true,
+                            container: 'assets',
+                            buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table'],
+                            type: 'markdown'
+                        }"
+                        :meta="{
+                            previewUrl: markdownPreviewUrl
+                        }"
+                        @input="val => newNote.content = val"
+                        @update:value="val => newNote.content = val"
+                    />
+                </div>
+            </div>
+
+            <template #footer-end>
+                <button class="btn" @click="closeNoteModal">Cancel</button>
+                <button class="btn-primary" @click="submitNote" :disabled="creating">
+                    {{ creating ? 'Saving...' : (editingNoteId ? 'Update' : 'Create') }}
+                </button>
+            </template>
+        </ap-stack>
 
         <!-- Create Poll Stack -->
-        <stack name="create-poll-stack" v-if="isCreatingPoll" @closed="closePollModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">Create Poll</h2>
-                    <button @click="closePollModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">&times;</button>
-                </div>
-
-                <div class="p-6 flex-1 overflow-y-auto">
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2">Post As</label>
-                        <select v-model="newPoll.actor" class="input-text w-full">
-                            <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2">Question</label>
-                        <textarea v-model="newPoll.content" class="input-text w-full" rows="3" placeholder="Ask a question..."></textarea>
-                    </div>
-
-                    <div class="mb-5">
-                        <label class="flex items-center space-x-2 cursor-pointer">
-                            <input type="checkbox" v-model="newPoll.multiple_choice" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                            <span class="text-sm font-bold">Allow Multiple Choices (Checkboxes)</span>
-                        </label>
-                    </div>
-
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2">Options</label>
-                        <div class="text-xs text-gray-500 mb-2">Leave options empty for an open-ended question.</div>
-                        <div class="space-y-2">
-                             <div v-for="(opt, idx) in newPoll.options" :key="idx" class="flex items-center gap-2">
-                                <input type="text" v-model="newPoll.options[idx]" class="input-text w-full text-sm" placeholder="Option text">
-                                <button v-if="newPoll.options.length > 2" @click="removeOption(idx)" class="text-red-500 hover:text-red-700">&times;</button>
-                             </div>
-                        </div>
-                        <button @click="addOption" class="mt-2 text-sm text-blue-600 hover:text-blue-800">+ Add Option</button>
-                    </div>
-
-                </div>
-
-                <div class="p-4 border-t dark:border-dark-900 bg-gray-100 dark:bg-dark-800 flex justify-end gap-3">
-                    <button class="btn" @click="closePollModal">Cancel</button>
-                    <button class="btn-primary" @click="submitPoll" :disabled="creating">
-                        {{ creating ? 'Creating...' : 'Create Poll' }}
-                    </button>
-                </div>
+        <ap-stack :open="isCreatingPoll" @closed="closePollModal" title="Create Poll">
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Post As</label>
+                <select v-model="newPoll.actor" class="input-text w-full">
+                    <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
+                </select>
             </div>
-        </stack>
+
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Question</label>
+                <textarea v-model="newPoll.content" class="input-text w-full" rows="3" placeholder="Ask a question..."></textarea>
+            </div>
+
+            <div class="mb-5">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" v-model="newPoll.multiple_choice" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    <span class="text-sm font-bold">Allow Multiple Choices (Checkboxes)</span>
+                </label>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Options</label>
+                <div class="text-xs text-gray-500 mb-2">Leave options empty for an open-ended question.</div>
+                <div class="space-y-2">
+                     <div v-for="(opt, idx) in newPoll.options" :key="idx" class="flex items-center gap-2">
+                        <input type="text" v-model="newPoll.options[idx]" class="input-text w-full text-sm" placeholder="Option text">
+                        <button v-if="newPoll.options.length > 2" @click="removeOption(idx)" class="text-red-500 hover:text-red-700">&times;</button>
+                     </div>
+                </div>
+                <button @click="addOption" class="mt-2 text-sm text-blue-600 hover:text-blue-800">+ Add Option</button>
+            </div>
+
+            <template #footer-end>
+                <button class="btn" @click="closePollModal">Cancel</button>
+                <button class="btn-primary" @click="submitPoll" :disabled="creating">
+                    {{ creating ? 'Creating...' : 'Create Poll' }}
+                </button>
+            </template>
+        </ap-stack>
 
         <!-- Quote Stack -->
-        <stack name="quote-stack" v-if="isCreatingQuote" @closed="closeQuoteModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-
-                <!-- Header -->
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">Quote Post</h2>
-                    <button @click="closeQuoteModal"
-                        class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl leading-none">
-                        ×
-                    </button>
-                </div>
-
-                <!-- Content -->
-                <div class="p-6 flex-1 overflow-y-auto">
-                    <!-- Original Note Preview -->
-                    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">Quoting:</div>
-                        <activity-pub-note
-                            v-if="quotedNote"
-                            :note="quotedNote"
-                            :permissions="{ update: false, delete: false }"
-                            @reply="() => {}"
-                            @boost="() => {}"
-                            @quote="() => {}"
-                            @like="() => {}"
-                        />
-                    </div>
-
-                    <!-- Post As Selector -->
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">Post As</label>
-                        <select v-model="newQuote.actor" class="input-text w-full">
-                            <option v-for="actor in localActors" :key="actor.id" :value="actor.id">
-                                {{ actor.name }} ({{ actor.handle }})
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- Content Warning -->
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            Content Warning (Optional)
-                        </label>
-                        <input
-                            type="text"
-                            v-model="newQuote.content_warning"
-                            class="input-text w-full"
-                            placeholder="Content Warning (optional)">
-                    </div>
-
-                    <!-- Quote Commentary -->
-                    <div class="mb-5">
-                        <label class="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">
-                            Your Commentary
-                        </label>
-                        <markdown-fieldtype
-                            :value="newQuote.content"
-                            :config="{
-                                cheatsheet: true,
-                                container: 'assets',
-                                buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table'],
-                                type: 'markdown'
-                            }"
-                            @input="val => newQuote.content = val"
-                        />
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="p-4 border-t dark:border-dark-900 bg-gray-100 dark:bg-dark-800 flex justify-end gap-3">
-                    <button class="btn" @click="closeQuoteModal">Cancel</button>
-                    <button class="btn-primary" @click="submitQuote" :disabled="creating">
-                        {{ creating ? 'Posting...' : 'Quote' }}
-                    </button>
-                </div>
+        <ap-stack :open="isCreatingQuote" @closed="closeQuoteModal" title="Quote Post">
+            <!-- Original Note Preview -->
+            <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">Quoting:</div>
+                <activity-pub-note
+                    v-if="quotedNote"
+                    :note="quotedNote"
+                    :permissions="{ update: false, delete: false }"
+                    @reply="() => {}"
+                    @boost="() => {}"
+                    @quote="() => {}"
+                    @like="() => {}"
+                />
             </div>
-        </stack>
+
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Post As</label>
+                <select v-model="newQuote.actor" class="input-text w-full">
+                    <option v-for="actor in localActors" :key="actor.id" :value="actor.id">
+                        {{ actor.name }} ({{ actor.handle }})
+                    </option>
+                </select>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Content Warning (Optional)</label>
+                <input
+                    type="text"
+                    v-model="newQuote.content_warning"
+                    class="input-text w-full"
+                    placeholder="Content Warning (optional)">
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-sm font-bold mb-2">Your Commentary</label>
+                <markdown-fieldtype
+                    :value="newQuote.content"
+                    :config="{
+                        cheatsheet: true,
+                        container: 'assets',
+                        buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table'],
+                        type: 'markdown'
+                    }"
+                    @input="val => newQuote.content = val"
+                    @update:value="val => newQuote.content = val"
+                />
+            </div>
+
+            <template #footer-end>
+                <button class="btn" @click="closeQuoteModal">Cancel</button>
+                <button class="btn-primary" @click="submitQuote" :disabled="creating">
+                    {{ creating ? 'Posting...' : 'Quote' }}
+                </button>
+            </template>
+        </ap-stack>
 
         <!-- History Stack -->
-        <stack name="history-stack" v-if="isViewingHistory" @closed="closeHistoryModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">Activity History</h2>
-                    <button @click="closeHistoryModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">&times;</button>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto p-0">
-                    <div v-if="loadingHistory" class="py-8 text-center text-gray-500">
-                        Loading history...
-                    </div>
-                    <div v-else-if="relatedActivities.length === 0" class="py-8 text-center text-gray-500">
-                        No related activities found.
-                    </div>
-                    <div v-else class="flex flex-col divide-y dark:divide-dark-800">
-                         <div v-for="act in relatedActivities" :key="act.id" class="p-4 hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors">
-                            <div class="flex gap-3">
-                                <div class="flex-shrink-0">
-                                     <img :src="act.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" loading="lazy" class="w-10 h-10 rounded-full bg-gray-200 object-cover">
+        <ap-stack :open="isViewingHistory" @closed="closeHistoryModal" title="Activity History" inset>
+            <div v-if="loadingHistory" class="py-8 text-center text-gray-500">
+                Loading history...
+            </div>
+            <div v-else-if="relatedActivities.length === 0" class="py-8 text-center text-gray-500">
+                No related activities found.
+            </div>
+            <div v-else class="flex flex-col divide-y dark:divide-dark-800">
+                <div v-for="act in relatedActivities" :key="act.id" class="p-4 hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors">
+                    <div class="flex gap-3">
+                        <div class="flex-shrink-0">
+                            <img :src="act.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" loading="lazy" class="w-10 h-10 rounded-full bg-gray-200 object-cover">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-sm">{{ act.actor.name }}</span>
+                                    <span class="text-xs text-gray-500">{{ act.type }}</span>
                                 </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2">
-                                            <span class="font-bold text-sm">{{ act.actor.name }}</span>
-                                            <span class="text-xs text-gray-500">{{ act.type }}</span>
-                                        </div>
-                                        <span class="text-xs text-gray-400">{{ act.date_human }}</span>
-                                    </div>
-                                    <div class="text-sm mt-1 text-gray-700 dark:text-gray-300" v-html="act.content"></div>
-                                    
-                                    <div class="mt-2 flex items-center gap-3">
-                                         <button v-if="act.activitypub_json" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors" @click="viewJson(act)" title="View JSON">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                                            </svg>
-                                         </button>
-                                         <a v-if="act.object" :href="typeof act.object === 'string' ? act.object : act.object.id" target="_blank" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors" title="View Source">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                         </a>
-                                    </div>
-                                </div>
+                                <span class="text-xs text-gray-400">{{ act.date_human }}</span>
                             </div>
-                         </div>
+                            <div class="text-sm mt-1 text-gray-700 dark:text-gray-300" v-html="act.content"></div>
+
+                            <div class="mt-2 flex items-center gap-3">
+                                <button v-if="act.activitypub_json" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors" @click="viewJson(act)" title="View JSON">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                    </svg>
+                                </button>
+                                <a v-if="act.object" :href="typeof act.object === 'string' ? act.object : act.object.id" target="_blank" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors" title="View Source">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </stack>
+        </ap-stack>
 
         <!-- Thread Drawer Stack -->
-        <stack name="thread-stack" v-if="isViewingThread" @closed="closeThreadModal">
-            <div class="h-full w-full bg-white dark:bg-dark-900 flex flex-col">
-                <div class="p-4 border-b dark:border-dark-900 flex justify-between items-center bg-gray-100 dark:bg-dark-800">
-                    <h2 class="text-lg font-medium">Thread</h2>
-                    <button @click="closeThreadModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">&times;</button>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto p-0">
-                    <div v-if="loadingThread" class="py-8 text-center text-gray-500">
-                        Loading thread...
-                    </div>
-                    <div v-else-if="threadItems.length === 0" class="py-8 text-center text-gray-500">
-                        Thread is empty.
-                    </div>
-                    <div v-else class="flex flex-col">
-                         <div v-for="(item, idx) in threadItems" :key="item.id || idx" 
-                            class="relative"
-                            :class="{'bg-blue-50 dark:bg-dark-800': item.is_focus}">
-                             
-                             <!-- Thread Connector Line -->
-                             <div v-if="item.depth > 0" class="absolute left-6 top-0 bottom-0 border-l-2 border-gray-200 dark:border-gray-700"
-                                  :style="{ 'left': (item.depth * 1.5) + 'rem' }"></div>
+        <ap-stack :open="isViewingThread" @closed="closeThreadModal" title="Thread" inset>
+            <div v-if="loadingThread" class="py-8 text-center text-gray-500">
+                Loading thread...
+            </div>
+            <div v-else-if="threadItems.length === 0" class="py-8 text-center text-gray-500">
+                Thread is empty.
+            </div>
+            <div v-else class="flex flex-col">
+                <div v-for="(item, idx) in threadItems" :key="item.id || idx"
+                    class="relative"
+                    :class="{'bg-blue-50 dark:bg-dark-800': item.is_focus}">
 
-                             <div class="p-4 border-b dark:border-dark-800" :style="{ 'margin-left': (item.depth * 1.5) + 'rem' }">
-                                <activity-pub-note 
-                                    :note="item" 
-                                    :permissions="{ update: !!updateNoteUrl, delete: !!deleteUrl }"
-                                    @reply="toggleReply"
-                                    @boost="toggleBoost"
-                                    @like="toggleLike"
-                                    @history="viewHistory"
-                                    @thread="viewThread"
-                                    @json="viewJson"
-                                    @lightbox="params => openLightbox(params.attachments, params.index)"
-                                    @delete="deleteItem"
-                                    @edit="editNote"
-                                >
-                                <!-- ... slots ... -->
-                                    <template #reply-editor>
-                                        <div v-if="activeReplyId === item.id" class="mt-4 p-4 rounded-lg border shadow-sm animate-fade-in-down ap-reply-card">
-                                            <div class="flex flex-col gap-3">
-                                                 <div class="flex items-center gap-2">
-                                                    <label class="text-xs text-gray-500 uppercase font-bold">Reply As:</label>
-                                                    <select v-model="replyActorId" class="text-sm rounded-md shadow-sm ap-reply-input">
-                                                        <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
-                                                    </select>
-                                                 </div>
-                                                <div class="mb-3">
-                                                    <input type="text" v-model="replyContentWarning" placeholder="Content Warning (optional)" class="input-text w-full text-sm">
-                                                </div>
-                                                 <div class="min-h-[150px]">
-                                                    <markdown-fieldtype
-                                                        :value="replyContent"
-                                                        :config="{
-                                                            cheatsheet: true,
-                                                            container: 'assets',
-                                                            buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table']
-                                                        }"
-                                                        @input="val => replyContent = val"
-                                                    />
-                                                 </div>
-                                                 <div class="flex justify-end gap-2 mt-3">
-                                                     <button type="button" @click="activeReplyId = null" class="btn">Cancel</button>
-                                                     <button type="button" @click="submitReply(item)" class="btn-primary" :disabled="sendingReply">
-                                                         {{ sendingReply ? 'Sending...' : 'Reply' }}
-                                                     </button>
-                                                 </div>
-                                            </div>
+                    <!-- Thread Connector Line -->
+                    <div v-if="item.depth > 0" class="absolute left-6 top-0 bottom-0 border-l-2 border-gray-200 dark:border-gray-700"
+                         :style="{ 'left': (item.depth * 1.5) + 'rem' }"></div>
+
+                    <div class="p-4 border-b dark:border-dark-800" :style="{ 'margin-left': (item.depth * 1.5) + 'rem' }">
+                        <activity-pub-note
+                            :note="item"
+                            :permissions="{ update: !!updateNoteUrl, delete: !!deleteUrl }"
+                            @reply="toggleReply"
+                            @boost="toggleBoost"
+                            @like="toggleLike"
+                            @history="viewHistory"
+                            @thread="viewThread"
+                            @json="viewJson"
+                            @lightbox="params => openLightbox(params.attachments, params.index)"
+                            @delete="deleteItem"
+                            @edit="editNote"
+                        >
+                            <template #reply-editor>
+                                <div v-if="activeReplyId === item.id" class="mt-4 p-4 rounded-lg border shadow-sm animate-fade-in-down ap-reply-card">
+                                    <div class="flex flex-col gap-3">
+                                        <div class="flex items-center gap-2">
+                                            <label class="text-xs text-gray-500 uppercase font-bold">Reply As:</label>
+                                            <select v-model="replyActorId" class="text-sm rounded-md shadow-sm ap-reply-input">
+                                                <option v-for="actor in localActors" :key="actor.id" :value="actor.id">{{ actor.name }} ({{ actor.handle }})</option>
+                                            </select>
                                         </div>
-                                    </template>
-                                </activity-pub-note>
-                             </div>
-                             
-
-
-                         </div>
+                                        <div class="mb-3">
+                                            <input type="text" v-model="replyContentWarning" placeholder="Content Warning (optional)" class="input-text w-full text-sm">
+                                        </div>
+                                        <div class="min-h-[150px]">
+                                            <markdown-fieldtype
+                                                :value="replyContent"
+                                                :config="{
+                                                    cheatsheet: true,
+                                                    container: 'assets',
+                                                    buttons: ['bold', 'italic', 'unorderedlist', 'orderedlist', 'quote', 'link', 'image', 'table']
+                                                }"
+                                                @input="val => replyContent = val"
+                                                @update:value="val => replyContent = val"
+                                            />
+                                        </div>
+                                        <div class="flex justify-end gap-2 mt-3">
+                                            <button type="button" @click="activeReplyId = null" class="btn">Cancel</button>
+                                            <button type="button" @click="submitReply(item)" class="btn-primary" :disabled="sendingReply">
+                                                {{ sendingReply ? 'Sending...' : 'Reply' }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </activity-pub-note>
                     </div>
                 </div>
             </div>
-        </stack>
+        </ap-stack>
     </div>
 </template>
 
@@ -568,69 +488,126 @@ html.isdark .ap-reply-input {
     color: #d4d4d4; /* neutral-300 */
 }
 
-/* JSON Drawer Styles */
-.activitypub-json-drawer {
-    height: calc(100vh - 3.25rem);
-    right: 0;
-    width: 40vw;
-    margin-top: 3.25rem;
-    background-color: white;
-    --tw-shadow: 0 0 0 1px rgba(49, 49, 93, .05), 0 2px 5px 0 rgba(49, 49, 93, .075), 0 1px 3px 0 rgba(49, 49, 93, .15);
-    --tw-shadow-colored: 0 0 0 1px var(--tw-shadow-color), 0 2px 5px 0 var(--tw-shadow-color), 0 1px 3px 0 var(--tw-shadow-color);
-    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+/* JSON Viewer */
+.ap-json-viewer {
+    font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow: auto;
+    background-color: #f8fafc;
+    color: #1e293b;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+.ap-json-key   { color: #db2777; }
+.ap-json-string { color: #16a34a; }
+.ap-json-number { color: #2563eb; }
+.ap-json-bool  { color: #ea580c; }
+.ap-json-null  { color: #64748b; font-style: italic; }
+
+html.dark .ap-json-viewer,
+html.is-dark .ap-json-viewer,
+html.isdark .ap-json-viewer {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+}
+html.dark .ap-json-key,
+html.is-dark .ap-json-key,
+html.isdark .ap-json-key   { color: #f38ba8; }
+html.dark .ap-json-string,
+html.is-dark .ap-json-string,
+html.isdark .ap-json-string { color: #a6e3a1; }
+html.dark .ap-json-number,
+html.is-dark .ap-json-number,
+html.isdark .ap-json-number { color: #89b4fa; }
+html.dark .ap-json-bool,
+html.is-dark .ap-json-bool,
+html.isdark .ap-json-bool  { color: #fab387; }
+html.dark .ap-json-null,
+html.is-dark .ap-json-null,
+html.isdark .ap-json-null  { color: #6c7086; font-style: italic; }
+
+/* Button styles — S5 already defines these; S6 does not, so we provide equivalents */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    padding: 0.5rem 1rem;
+    height: 2.375rem;
+    border-radius: 0.25rem;
+    border: 1px solid #D3DDE7;
+    background: linear-gradient(180deg, #fff, #f9fafb);
+    background-clip: padding-box;
+    color: #1f2937;
+    cursor: pointer;
+    outline: none;
+}
+.btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #f3f4f6, #eef2ff);
+}
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    height: 2rem;
+}
+.btn-primary {
+    color: #fff;
+    background: linear-gradient(to bottom, #3b82f6, #2563eb);
+    background-clip: padding-box;
+    border: 1px solid #1d4ed8;
+    border-bottom-color: #1e40af;
+    box-shadow: inset 0 1px 0 0 #60a5fa, 0 1px 0 0 rgba(25,30,35,.05), 0 3px 2px -1px rgba(30,58,138,.15);
+}
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #2563eb, #1d4ed8);
+}
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
-/* Statamic Dark Mode Overrides - Non-scoped for reliability */
-html.is-dark .activitypub-json-drawer,
-html.dark .activitypub-json-drawer,
-html.isdark .activitypub-json-drawer {
-    background-color: #262626 !important; /* neutral-800 */
-    color: #d4d4d4; /* neutral-300 */
+/* Button dark mode */
+html.dark .btn,
+html.is-dark .btn,
+html.isdark .btn {
+    background: linear-gradient(180deg, #2d2d2d, #262626);
+    border-color: #444;
+    color: #e5e5e5;
 }
-
-html.is-dark .activitypub-json-drawer .border-b,
-html.is-dark .activitypub-json-drawer .border-t,
-html.dark .activitypub-json-drawer .border-b,
-html.dark .activitypub-json-drawer .border-t,
-html.isdark .activitypub-json-drawer .border-b,
-html.isdark .activitypub-json-drawer .border-t {
-    border-color: #404040 !important; /* neutral-700 */
+html.dark .btn:hover:not(:disabled),
+html.is-dark .btn:hover:not(:disabled),
+html.isdark .btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #3a3a3a, #333);
 }
-
-html.is-dark .activitypub-json-drawer h3,
-html.dark .activitypub-json-drawer h3,
-html.isdark .activitypub-json-drawer h3 {
-    color: white;
+html.dark .btn-primary,
+html.is-dark .btn-primary,
+html.isdark .btn-primary {
+    background: linear-gradient(to bottom, #2563eb, #1d4ed8);
+    border-color: #1e40af;
+    border-bottom-color: #1e3a8a;
+    color: #fff;
 }
-
-html.is-dark .activitypub-json-drawer button.text-gray-500:hover,
-html.dark .activitypub-json-drawer button.text-gray-500:hover,
-html.isdark .activitypub-json-drawer button.text-gray-500:hover {
-    color: #d4d4d4 !important; /* neutral-300 */
-}
-
-html.is-dark .activitypub-json-drawer .bg-gray-50,
-html.dark .activitypub-json-drawer .bg-gray-50,
-html.isdark .activitypub-json-drawer .bg-gray-50 {
-    background-color: #171717 !important; /* neutral-900 */
-}
-
-html.is-dark .vjs-tree,
-html.dark .vjs-tree,
-html.isdark .vjs-tree {
-    color: #d4d4d4 !important;
+html.dark .btn-primary:hover:not(:disabled),
+html.is-dark .btn-primary:hover:not(:disabled),
+html.isdark .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #1d4ed8, #1e40af);
 }
 </style>
 
 <script>
-import VueJsonPretty from 'vue-json-pretty';
-import 'vue-json-pretty/lib/styles.css';
 import ActivityPubNote from './ActivityPubNote.vue';
+import ApStack from './ApStack.vue';
 
 export default {
     components: {
-        VueJsonPretty,
-        ActivityPubNote
+        ActivityPubNote,
+        ApStack
     },
     props: {
         initialActors: {
@@ -1079,6 +1056,24 @@ export default {
         closeJsonModal() {
             this.jsonModal.open = false;
             document.body.style.overflow = '';
+        },
+        highlightJson(obj) {
+            const json = JSON.stringify(obj, null, 2);
+            const escaped = json
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return escaped.replace(
+                /("(?:[^"\\]|\\.)*")\s*:|("(?:[^"\\]|\\.)*")|\b(true|false)\b|\b(null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+                (match, key, str, bool, nil, num) => {
+                    if (key !== undefined) return '<span class="ap-json-key">' + key + '</span>:';
+                    if (str !== undefined) return '<span class="ap-json-string">' + str + '</span>';
+                    if (bool !== undefined) return '<span class="ap-json-bool">' + bool + '</span>';
+                    if (nil !== undefined) return '<span class="ap-json-null">' + nil + '</span>';
+                    if (num !== undefined) return '<span class="ap-json-number">' + num + '</span>';
+                    return match;
+                }
+            );
         },
         createNote() {
             if (this.createNoteUrl) {

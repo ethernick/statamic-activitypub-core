@@ -47,14 +47,33 @@ class ActivityPubServiceProvider extends AddonServiceProvider
 
     protected function registerAssets()
     {
-        // Explicitly register Vite assets using Statamic's helper.
-        // This ensures the tags are injected into the CP layout.
-        \Statamic\Statamic::vite('activitypub', [
-            'input' => ['addons/ethernick/ActivityPubCore/resources/js/cp.js', 'addons/ethernick/ActivityPubCore/resources/css/cp.css'],
-            'publicDirectory' => 'public',
-            'buildDirectory' => 'build',
-            'hotFile' => base_path('public/hot'), // Ensure it finds the hot file
-        ]);
+        $isLocalDevelopment = is_dir(base_path('addons/ethernick/ActivityPubCore'));
+
+        if ($isLocalDevelopment) {
+            // Development: Vite with hot reload
+            \Statamic\Statamic::vite('activitypub', [
+                'input' => ['addons/ethernick/ActivityPubCore/resources/js/cp.js', 'addons/ethernick/ActivityPubCore/resources/css/cp.css'],
+                'publicDirectory' => 'public',
+                'buildDirectory' => 'build',
+                'hotFile' => base_path('public/hot'),
+            ]);
+        } else {
+            // Production: publish dist/ assets and register with Statamic.
+            // Can't use registerScript()/registerStylesheet() here because they
+            // call getAddon() which throws NotBootedException during package:discover.
+            // publishes() must be called directly in boot() (not deferred) for
+            // vendor:publish to pick them up.
+            $distDir = __DIR__ . '/../dist';
+            $packageName = 'ethernick/statamic-activitypub-core';
+
+            $this->publishes([
+                "$distDir/js/cp.js" => public_path("vendor/$packageName/js/cp.js"),
+                "$distDir/css/cp.css" => public_path("vendor/$packageName/css/cp.css"),
+            ], 'activitypub');
+
+            \Statamic\Statamic::script($packageName, 'cp.js');
+            \Statamic\Statamic::style($packageName, 'cp.css');
+        }
     }
 
     protected function schedule($schedule)
@@ -258,7 +277,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
 
         // Register Nav
         \Statamic\Facades\CP\Nav::extend(function ($nav) {
-            $icon = file_get_contents(resource_path('svg/asterism.svg'));
+            $icon = file_get_contents(__DIR__ . '/../resources/svg/asterism.svg');
 
             $nav->create('Inbox')
                 ->section('ActivityPub')

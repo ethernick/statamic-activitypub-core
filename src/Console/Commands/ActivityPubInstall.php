@@ -3,6 +3,7 @@
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Schema;
 use Statamic\Facades\Collection;
 use Statamic\Facades\File;
 use Statamic\Facades\YAML;
@@ -17,6 +18,15 @@ class ActivityPubInstall extends Command
     public function handle()
     {
         $this->info('Installing ActivityPub...');
+
+        // Step 1: Set up database queue infrastructure
+        $this->setupQueueTables();
+
+        // Step 2: Run ActivityPub-specific migrations
+        $this->runActivityPubMigrations();
+
+        // Step 3: Publish frontend assets
+        $this->publishAssets();
 
         $settingsPath = resource_path('settings/activitypub.yaml');
         $settings = [];
@@ -290,7 +300,7 @@ class ActivityPubInstall extends Command
         if (!File::exists($blueprintPath)) {
             $this->info("Creating 'activity_link' blueprint for taxonomy...");
             // Load stub from package resources
-            $stubPath = __DIR__ . '/../../../../resources/blueprints/templates/taxonomies/activity_link.yaml';
+            $stubPath = __DIR__ . '/../../../resources/blueprints/templates/taxonomies/activity_link.yaml';
 
             if (File::exists($stubPath)) {
                 File::copy($stubPath, $blueprintPath);
@@ -386,7 +396,7 @@ class ActivityPubInstall extends Command
         if (!$filename)
             return [];
 
-        $stubPath = __DIR__ . "/../../../../resources/blueprints/templates/collections/{$filename}";
+        $stubPath = __DIR__ . "/../../../resources/blueprints/templates/collections/{$filename}";
 
         if (File::exists($stubPath)) {
             return YAML::parse(File::get($stubPath));
@@ -394,5 +404,87 @@ class ActivityPubInstall extends Command
 
         $this->error("Blueprint template for {$type} not found at [{$stubPath}]");
         return [];
+    }
+
+    protected function setupQueueTables()
+    {
+        $this->line('');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->info('  Setting up Queue Infrastructure');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->line('');
+
+        // Check if jobs table already exists
+        $hasJobsTable = Schema::hasTable('jobs');
+        $hasFailedJobsTable = Schema::hasTable('failed_jobs');
+
+        if ($hasJobsTable && $hasFailedJobsTable) {
+            $this->comment('✓ Queue tables already exist, skipping setup.');
+            return;
+        }
+
+        $this->info('ActivityPub requires Laravel\'s database queue for federation.');
+        $this->line('Creating queue tables...');
+        $this->line('');
+
+        if (!$hasJobsTable) {
+            $this->comment('→ Creating jobs table migration...');
+            $this->call('queue:table');
+        }
+
+        if (!$hasFailedJobsTable) {
+            $this->comment('→ Creating failed_jobs table migration...');
+            $this->call('queue:failed-table');
+        }
+
+        $this->line('');
+        $this->comment('→ Running database migrations...');
+        $this->call('migrate', ['--force' => true]);
+
+        $this->line('');
+        $this->info('✓ Queue infrastructure setup complete!');
+    }
+
+    protected function runActivityPubMigrations()
+    {
+        $this->line('');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->info('  Running ActivityPub Migrations');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->line('');
+
+        $this->info('Checking for pending ActivityPub data migrations...');
+        $this->call('activitypub:migrate');
+
+        $this->line('');
+        $this->info('✓ ActivityPub migrations complete!');
+    }
+
+    protected function publishAssets()
+    {
+        // Check if we're in local development (skip asset publishing)
+        $isLocalDevelopment = is_dir(base_path('addons/ethernick/ActivityPubCore'));
+
+        if ($isLocalDevelopment) {
+            $this->line('');
+            $this->comment('→ Local development detected, skipping asset publishing.');
+            $this->comment('  Assets will be served via Vite.');
+            return;
+        }
+
+        $this->line('');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->info('  Publishing Frontend Assets');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->line('');
+
+        $this->info('Publishing ActivityPub Control Panel assets...');
+        $this->call('vendor:publish', [
+            '--tag' => 'activitypub',
+            '--force' => true,
+        ]);
+
+        $this->line('');
+        $this->info('✓ Frontend assets published!');
     }
 }
