@@ -10,7 +10,7 @@ use Statamic\Http\Controllers\Controller;
 
 class WebFingerController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): mixed
     {
         \Illuminate\Support\Facades\Log::info("WebFinger: Accessed from " . $request->ip() . " for " . $request->input('resource'));
         $resource = $request->input('resource');
@@ -77,7 +77,7 @@ class WebFingerController extends Controller
         ])->header('Content-Type', 'application/jrd+json');
     }
 
-    protected function returnNotFound()
+    protected function returnNotFound(): mixed
     {
         return response()->json([
             'type' => 'about:blank',

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -15,7 +17,7 @@ class ActivityPubInstall extends Command
     protected $signature = 'activitypub:install';
     protected $description = 'Install and configure ActivityPub collections.';
 
-    public function handle()
+    public function handle(): void
     {
         $this->info('Installing ActivityPub...');
 
@@ -76,7 +78,7 @@ class ActivityPubInstall extends Command
         $this->comment('Now go! Go wildly into the fediverse!');
     }
 
-    protected function configureUserBlueprint($collectionHandle)
+    protected function configureUserBlueprint(string $collectionHandle): void
     {
         $blueprintPath = resource_path('blueprints/user.yaml');
 
@@ -113,7 +115,7 @@ class ActivityPubInstall extends Command
         $this->info("User blueprint updated.");
     }
 
-    protected function createFirstProfile($handle)
+    protected function createFirstProfile(string $handle): void
     {
         $this->line('');
         if (!$this->confirm('Would you like to create your first ActivityPub profile now?', true)) {
@@ -151,8 +153,8 @@ class ActivityPubInstall extends Command
                 ->collection($handle)
                 ->slug($slug)
                 ->data([
-                        'title' => $name,
-                    ]);
+                    'title' => $name,
+                ]);
 
             $entry->save();
 
@@ -187,7 +189,7 @@ class ActivityPubInstall extends Command
         }
     }
 
-    protected function configureType($type, $config, &$settings)
+    protected function configureType(string $type, array $config, array &$settings): void
     {
         $this->line('');
         $this->info("Configuring Type: <comment>{$type}</comment>");
@@ -281,7 +283,7 @@ class ActivityPubInstall extends Command
             $this->ensureBlueprint($targetHandle, $type);
         }
     }
-    protected function ensureTaxonomy()
+    protected function ensureTaxonomy(): void
     {
         // 1. Ensure Taxonomy Exists
         $taxonomyPath = base_path('content/taxonomies/activitypub_collections.yaml');
@@ -310,7 +312,7 @@ class ActivityPubInstall extends Command
         }
     }
 
-    protected function ensureBlueprint($handle, $type)
+    protected function ensureBlueprint(string $handle, string $type): void
     {
         $blueprintDir = resource_path("blueprints/collections/{$handle}");
         if (!File::exists($blueprintDir)) {
@@ -383,7 +385,7 @@ class ActivityPubInstall extends Command
         $this->info("Blueprint updated.");
     }
 
-    protected function getBlueprintStub($type)
+    protected function getBlueprintStub(string $type): array
     {
         $filename = null;
         if ($type === 'Person')
@@ -406,7 +408,7 @@ class ActivityPubInstall extends Command
         return [];
     }
 
-    protected function setupQueueTables()
+    protected function setupQueueTables(): void
     {
         $this->line('');
         $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -445,7 +447,7 @@ class ActivityPubInstall extends Command
         $this->info('✓ Queue infrastructure setup complete!');
     }
 
-    protected function runActivityPubMigrations()
+    protected function runActivityPubMigrations(): void
     {
         $this->line('');
         $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -460,7 +462,7 @@ class ActivityPubInstall extends Command
         $this->info('✓ ActivityPub migrations complete!');
     }
 
-    protected function publishAssets()
+    protected function publishAssets(): void
     {
         // Check if we're in local development (skip asset publishing)
         $isLocalDevelopment = is_dir(base_path('addons/ethernick/ActivityPubCore'));

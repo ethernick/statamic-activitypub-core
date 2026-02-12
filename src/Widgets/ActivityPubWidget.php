@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Widgets;
 
 use Statamic\Widgets\Widget;
@@ -8,7 +10,7 @@ class ActivityPubWidget extends Widget
 {
     protected static $handle = 'activitypub';
 
-    public function html()
+    public function html(): mixed
     {
         return view('activitypub::widgets.activitypub', [
             'title' => 'Into the Fediverse',

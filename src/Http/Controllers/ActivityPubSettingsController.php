@@ -13,7 +13,7 @@ use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
 
 class ActivityPubSettingsController extends Controller
 {
-    public function index(ActivityPubTypes $types)
+    public function index(ActivityPubTypes $types): mixed
     {
         $collections = Collection::all();
         $taxonomies = \Statamic\Facades\Taxonomy::all();
@@ -27,7 +27,7 @@ class ActivityPubSettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): mixed
     {
         $data = $request->validate([
             'collections' => 'array',
@@ -87,7 +87,7 @@ class ActivityPubSettingsController extends Controller
         File::put($this->getSettingsPath(), YAML::dump($settings));
     }
 
-    public function logs()
+    public function logs(): mixed
     {
         $logPath = storage_path('logs/activitypub.log');
         $content = '';
@@ -100,7 +100,7 @@ class ActivityPubSettingsController extends Controller
         ]);
     }
 
-    public function clearLogs()
+    public function clearLogs(): mixed
     {
         $logPath = storage_path('logs/activitypub.log');
         if (File::exists($logPath)) {

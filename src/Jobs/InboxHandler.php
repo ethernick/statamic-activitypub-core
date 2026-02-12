@@ -16,7 +16,7 @@ use Ethernick\ActivityPubCore\Services\ThreadService;
 
 class InboxHandler
 {
-    public function handle(array $payload, $localActor, $externalActor = null)
+    public function handle(array $payload, mixed $localActor, mixed $externalActor = null): void
     {
         $type = $payload['type'] ?? 'Unknown';
         $actorId = $payload['actor'] ?? 'Unknown';
@@ -694,6 +694,7 @@ class InboxHandler
             }
             if ($origQuoteNote) {
                 $quoteOfId = $origQuoteNote->id();
+                $quoteOfId = $origQuoteNote->id();
             }
         }
 
@@ -734,6 +735,9 @@ class InboxHandler
         }
 
         $note->set('title', $title);
+        if ($quoteOfId) {
+            $note->set('quote_of', [$quoteOfId]);
+        }
         if ($quoteOfId) {
             $note->set('quote_of', [$quoteOfId]);
         }

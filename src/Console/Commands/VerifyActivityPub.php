@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -12,7 +14,7 @@ class VerifyActivityPub extends Command
     protected $signature = 'verify:activitypub';
     protected $description = 'Verify ActivityPub Addon Logic';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting verification...');
 
@@ -55,5 +57,6 @@ class VerifyActivityPub extends Command
         // Cleanup
         $user->delete();
         $actor->delete();
+        return 0;
     }
 }

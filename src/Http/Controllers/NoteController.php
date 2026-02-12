@@ -345,7 +345,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
         }
     }
 
-    protected function updateNoteEntry(array $object, mixed $authorActor)
+    protected function updateNoteEntry(array $object, mixed $authorActor): mixed
     {
         $id = $object['id'] ?? null;
         if (!$id)

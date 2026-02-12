@@ -13,7 +13,7 @@ class M20260129_AuthorizeExistingQuotes extends Command
 
     protected $description = '[Migration 20260129] Send QuoteRequests for existing quotes that don\'t have authorization (FEP-044f compliance)';
 
-    public function handle()
+    public function handle(): int
     {
         $isDryRun = $this->option('dry-run');
 

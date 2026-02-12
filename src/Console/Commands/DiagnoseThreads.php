@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -10,7 +12,7 @@ class DiagnoseThreads extends Command
     protected $signature = 'activitypub:diagnose-threads';
     protected $description = 'Diagnose circular references in ActivityPub threads.';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Scanning for circular thread references...');
 

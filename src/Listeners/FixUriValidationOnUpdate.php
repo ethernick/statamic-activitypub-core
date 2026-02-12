@@ -1,6 +1,5 @@
 <?php
 
-declare(strict_types=1);
 
 namespace Ethernick\ActivityPubCore\Listeners;
 
@@ -14,7 +13,7 @@ class FixUriValidationOnUpdate
      * Make the slug field read-only for existing actors and notes to prevent
      * URI validation errors and preserve ActivityPub identity.
      */
-    public function handle(EntryBlueprintFound $event)
+    public function handle(EntryBlueprintFound $event): void
     {
         $entry = $event->entry;
 

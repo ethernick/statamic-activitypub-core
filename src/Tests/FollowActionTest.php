@@ -10,6 +10,7 @@ use Statamic\Facades\User;
 use Illuminate\Support\Facades\Http;
 use Ethernick\ActivityPubCore\Actions\FollowAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class FollowActionTest extends TestCase
 {

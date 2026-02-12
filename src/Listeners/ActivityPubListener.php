@@ -1,5 +1,6 @@
 <?php
 
+
 namespace Ethernick\ActivityPubCore\Listeners;
 
 use Statamic\Events\EntryBlueprintFound;
@@ -12,20 +13,18 @@ use Statamic\Facades\YAML;
 use Statamic\Facades\File;
 use Statamic\Facades\User;
 use Statamic\Facades\Markdown;
+use Statamic\Facades\Blink;
 
 class ActivityPubListener
 {
-    /**
-     * Cache settings in memory to avoid repeated file reads
-     */
-    protected static $settingsCache = null;
+
 
     /**
      * Cache actors in memory to avoid repeated Entry::find() calls
      */
     protected static $actorCache = [];
 
-    public function handle($event)
+    public function handle(mixed $event): void
     {
         if ($event instanceof EntryBlueprintFound) {
             $this->handleBlueprintFound($event, $event->entry?->collection()->handle());
@@ -53,26 +52,24 @@ class ActivityPubListener
     /**
      * Get cached settings to avoid repeated file reads
      */
-    protected function getSettings()
+    /**
+     * Get cached settings to avoid repeated file reads
+     */
+    protected function getSettings(): array
     {
-        if (self::$settingsCache !== null) {
-            return self::$settingsCache;
-        }
-
-        $path = resource_path('settings/activitypub.yaml');
-        if (!File::exists($path)) {
-            self::$settingsCache = [];
-            return [];
-        }
-
-        self::$settingsCache = YAML::parse(File::get($path));
-        return self::$settingsCache;
+        return Blink::once('activitypub-settings', function () {
+            $path = resource_path('settings/activitypub.yaml');
+            if (!File::exists($path)) {
+                return [];
+            }
+            return YAML::parse(File::get($path));
+        });
     }
 
     /**
      * Get cached actor to avoid repeated Entry::find() calls
      */
-    protected function getActor($actorId)
+    protected function getActor(mixed $actorId): ?\Statamic\Entries\Entry
     {
         if (!$actorId) {
             return null;
@@ -99,7 +96,7 @@ class ActivityPubListener
         return $actor;
     }
 
-    protected function isEnabled($handle)
+    protected function isEnabled(string $handle): bool
     {
         $settings = $this->getSettings();
         $config = $settings[$handle] ?? [];
@@ -115,7 +112,7 @@ class ActivityPubListener
         return $enabled;
     }
 
-    protected function getType($handle)
+    protected function getType(string $handle): string
     {
         $settings = $this->getSettings();
         $config = $settings[$handle] ?? [];
@@ -127,7 +124,7 @@ class ActivityPubListener
         return $config['type'] ?? 'Object';
     }
 
-    protected function handleBlueprintFound($event, $handle)
+    protected function handleBlueprintFound(mixed $event, string $handle): void
     {
         if (!$this->isEnabled($handle)) {
             return;
@@ -180,7 +177,7 @@ class ActivityPubListener
         }
     }
 
-    public function handleEntrySaving(EntrySaving $event)
+    public function handleEntrySaving(EntrySaving $event): void
     {
         $entry = $event->entry;
         $handle = $entry->collection()->handle();
@@ -254,7 +251,6 @@ class ActivityPubListener
         // Logic above ensures is_internal is synced with actor.
         $shouldGen = $entry->get('is_internal');
 
-
         if ($shouldGen !== false) {
             try {
                 $type = $this->getType($handle);
@@ -269,7 +265,7 @@ class ActivityPubListener
         }
     }
 
-    protected function generateActivityPubJson($entry, $actorId, $type)
+    protected function generateActivityPubJson(mixed $entry, mixed $actorId, string $type): string
     {
         \Illuminate\Support\Facades\Log::info("ActivityPubListener: Generating JSON for {$entry->id()}", [
             'type' => $type,
@@ -681,8 +677,12 @@ class ActivityPubListener
         return $json;
     }
 
-    protected function extractMentions($html)
+    protected function extractMentions(?string $html): array
     {
+        if ($html === null || $html === '') {
+            return [];
+        }
+
         $mentions = [];
         if (preg_match_all('/<a[^>]+href="([^"]+)"[^>]*>(@.*?)<\/a>/i', $html, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
@@ -697,12 +697,17 @@ class ActivityPubListener
         return $mentions;
     }
 
-    protected function sanitizeUrl($url)
+    protected function sanitizeUrl(?string $url): string
     {
-        return str_replace('://www.', '://', $url);
+        if ($url === null) {
+            return '';
+        }
+
+        // Remove trailing slashes
+        return rtrim($url, '/');
     }
 
-    protected function handleEntrySaved($event)
+    protected function handleEntrySaved(mixed $event): void
     {
         $entry = $event->entry;
 

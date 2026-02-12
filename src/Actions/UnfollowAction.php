@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Actions;
 
 use Statamic\Actions\Action;
@@ -10,12 +12,12 @@ use Statamic\Facades\User;
 
 class UnfollowAction extends Action
 {
-    public static function title()
+    public static function title(): string
     {
         return 'Unfollow';
     }
 
-    public function visibleTo($item)
+    public function visibleTo(mixed $item): bool
     {
         if (!$item instanceof \Statamic\Contracts\Entries\Entry) {
             return false;
@@ -57,12 +59,12 @@ class UnfollowAction extends Action
         return $isFollowing;
     }
 
-    public function authorize($user, $item)
+    public function authorize(mixed $user, mixed $item): bool
     {
         return true;
     }
 
-    public function run($items, $values)
+    public function run(mixed $items, mixed $values): mixed
     {
         $user = User::current();
         $userActors = $user->get('actors', []) ?: [];
@@ -82,7 +84,7 @@ class UnfollowAction extends Action
         return 'Unfollowed.';
     }
 
-    protected function unfollowActor($sender, $target)
+    protected function unfollowActor(mixed $sender, mixed $target): void
     {
         // 1. Remove from local following
         $following = $sender->get('following_actors', []) ?: [];
@@ -112,7 +114,7 @@ class UnfollowAction extends Action
         $this->sendUndoFollow($sender, $target);
     }
 
-    protected function sendUndoFollow($sender, $target)
+    protected function sendUndoFollow(mixed $sender, mixed $target): void
     {
         $senderId = $sender->get('activitypub_id') ?: url('/@' . $sender->slug());
         $inbox = $target->get('inbox_url');

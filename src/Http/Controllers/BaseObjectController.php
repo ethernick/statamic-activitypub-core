@@ -91,7 +91,7 @@ abstract class BaseObjectController extends BaseController
 
     // --- Views ---
 
-    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor)
+    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         return (new \Statamic\View\View)
             ->template($this->getIndexTemplate())
@@ -102,7 +102,7 @@ abstract class BaseObjectController extends BaseController
             ]);
     }
 
-    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item)
+    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item): mixed
     {
         return (new \Statamic\View\View)
             ->template($this->getShowTemplate())

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -28,7 +30,7 @@ class RegenerateActivityPubJson extends Command
      *
      * @return int
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting JSON regeneration...');
 

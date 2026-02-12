@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands\Migrations;
 
 use Illuminate\Console\Command;
@@ -29,7 +31,7 @@ class M20260116_MigrateOutboxToQueue extends Command
      *
      * @return int
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting migration of outbox files to database queue...');
 

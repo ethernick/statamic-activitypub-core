@@ -11,17 +11,17 @@ use Statamic\Http\Controllers\Controller;
 
 class InteractionController extends Controller
 {
-    public function likes(string $handle, string $uuid)
+    public function likes(string $handle, string $uuid): mixed
     {
         return $this->getInteractionCollection($handle, $uuid, 'Like');
     }
 
-    public function shares(string $handle, string $uuid)
+    public function shares(string $handle, string $uuid): mixed
     {
         return $this->getInteractionCollection($handle, $uuid, 'Announce');
     }
 
-    protected function getInteractionCollection(string $handle, string $uuid, string $type)
+    protected function getInteractionCollection(string $handle, string $uuid, string $type): mixed
     {
         // 1. Find Parent Note/Article
         $parent = Entry::query()

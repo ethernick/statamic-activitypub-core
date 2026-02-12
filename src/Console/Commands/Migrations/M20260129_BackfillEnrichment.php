@@ -18,7 +18,7 @@ class M20260129_BackfillEnrichment extends Command
 
     protected $description = '[Migration 20260129] Backfill OEmbed and link preview data for existing notes';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting enrichment backfill migration...');
 

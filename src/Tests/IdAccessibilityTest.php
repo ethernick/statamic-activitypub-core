@@ -75,7 +75,7 @@ class IdAccessibilityTest extends TestCase
         }
         file_put_contents(
             resource_path('settings/activitypub.yaml'),
-            "notes:\n  enabled: true\n  type: Note\nactivities:\n  enabled: true\n  type: Activity\n"
+            "notes:\n  enabled: true\n  type: Note\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n  federated: true\n"
         );
 
         \Statamic\Facades\Blink::flush(); // Flush again to ensure listener picks up config

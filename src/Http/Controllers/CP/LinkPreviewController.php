@@ -11,7 +11,7 @@ use Ethernick\ActivityPubCore\Services\LinkPreview;
 
 class LinkPreviewController extends CpController
 {
-    public function show(Request $request)
+    public function show(Request $request): mixed
     {
         $noteId = $request->input('note_id');
         if (!$noteId) {

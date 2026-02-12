@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -31,7 +33,7 @@ class ActivityPubClean extends Command
      *
      * @return int
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting ActivityPub cleanup...');
 
@@ -56,7 +58,7 @@ class ActivityPubClean extends Command
         return 0;
     }
 
-    protected function cleanupActivities($days)
+    protected function cleanupActivities(int $days): void
     {
         $cutoff = Carbon::now()->subDays($days);
         $this->newLine();
@@ -87,7 +89,7 @@ class ActivityPubClean extends Command
         }
     }
 
-    protected function cleanupEntries($days)
+    protected function cleanupEntries(int $days): void
     {
         $cutoff = Carbon::now()->subDays($days);
         $this->newLine();
@@ -130,7 +132,7 @@ class ActivityPubClean extends Command
         }
     }
 
-    protected function getSettings()
+    protected function getSettings(): array
     {
         $path = resource_path('settings/activitypub.yaml');
         if (!File::exists($path)) {

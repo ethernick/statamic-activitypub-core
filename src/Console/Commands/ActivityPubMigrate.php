@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -13,7 +15,7 @@ class ActivityPubMigrate extends Command
     protected $migrationPath = 'addons/ethernick/ActivityPubCore/src/Console/Commands/Migrations';
     protected $historyPath = 'app/activitypub/migrations.json';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Checking for pending ActivityPub migrations...');
 
@@ -37,7 +39,7 @@ class ActivityPubMigrate extends Command
         return 0;
     }
 
-    protected function getExecutedMigrations()
+    protected function getExecutedMigrations(): array
     {
         if (File::exists(storage_path($this->historyPath))) {
             return json_decode(File::get(storage_path($this->historyPath)), true) ?? [];
@@ -45,7 +47,7 @@ class ActivityPubMigrate extends Command
         return [];
     }
 
-    protected function saveExecutedMigrations(array $executed)
+    protected function saveExecutedMigrations(array $executed): void
     {
         // Ensure directory exists
         $dir = dirname(storage_path($this->historyPath));
@@ -56,7 +58,7 @@ class ActivityPubMigrate extends Command
         File::put(storage_path($this->historyPath), json_encode($executed, JSON_PRETTY_PRINT));
     }
 
-    protected function getPendingMigrations(array $executed)
+    protected function getPendingMigrations(array $executed): array
     {
         $path = base_path($this->migrationPath);
         if (!File::exists($path)) {
@@ -86,7 +88,7 @@ class ActivityPubMigrate extends Command
         return $migrations;
     }
 
-    protected function runMigration($className)
+    protected function runMigration(string $className): void
     {
         $this->info("Running migration: {$className}");
 

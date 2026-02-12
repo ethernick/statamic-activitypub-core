@@ -14,7 +14,7 @@ class ReplyController extends BaseObjectController
     // BaseObjectController::index($handle)
     // ReplyController::index($handle, $uuid)
 
-    public function index(string $handle, ?string $uuid = null)
+    public function index(string $handle, ?string $uuid = null): mixed
     {
         // 1. Find Actor
         $actor = $this->findActor($handle);

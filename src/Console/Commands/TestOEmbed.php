@@ -14,7 +14,7 @@ class TestOEmbed extends Command
 
     protected $description = 'Test OEmbed resolution for a specific URL';
 
-    public function handle()
+    public function handle(): int
     {
         $url = $this->argument('url');
 

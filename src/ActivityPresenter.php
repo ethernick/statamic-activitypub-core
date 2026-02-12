@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore;
 
 use Statamic\Entries\Entry;
@@ -16,7 +18,7 @@ class ActivityPresenter
         $this->data = json_decode($activity->get('activitypub_json'), true) ?? [];
     }
 
-    public function getSentence()
+    public function getSentence(): string
     {
         $type = $this->activity->get('type');
         $actorLink = $this->getActorLink();
@@ -68,7 +70,7 @@ class ActivityPresenter
         }
     }
 
-    public function getActorLink()
+    public function getActorLink(): string
     {
         $actorId = $this->activity->get('actor');
         $actor = null;
@@ -107,7 +109,7 @@ class ActivityPresenter
         return "<a href=\"{$actorId}\" class=\"font-bold text-blue-600 hover:underline\" target=\"_blank\">{$actorId}</a>";
     }
 
-    public function getObjectLink()
+    public function getObjectLink(): string
     {
         $object = $this->data['object'] ?? null;
 
@@ -125,7 +127,7 @@ class ActivityPresenter
         return "something";
     }
 
-    public function getRelatedLinks()
+    public function getRelatedLinks(): array
     {
         $links = [];
         // Extract interesting links from JSON
@@ -159,7 +161,7 @@ class ActivityPresenter
         return $links;
     }
 
-    public function getContent()
+    public function getContent(): ?string
     {
         // Try to get the actual content of the object (e.g. Note content)
         if (isset($this->data['object']) && is_array($this->data['object'])) {
@@ -171,7 +173,7 @@ class ActivityPresenter
         return null;
     }
 
-    public function getActor()
+    public function getActor(): ?\Statamic\Entries\Entry
     {
         $actorId = $this->activity->get('actor');
         if (is_array($actorId))
@@ -192,7 +194,7 @@ class ActivityPresenter
         return $actor; // returns Entry or null
     }
 
-    public function getActorName()
+    public function getActorName(): string
     {
         $actor = $this->getActor();
         if ($actor)
@@ -201,7 +203,7 @@ class ActivityPresenter
         return $this->data['actor']['name'] ?? 'Unknown';
     }
 
-    public function getActorAvatarUrl()
+    public function getActorAvatarUrl(): ?string
     {
         $actor = $this->getActor();
         if ($actor && $actor->get('avatar')) {
@@ -213,7 +215,7 @@ class ActivityPresenter
         return $icon;
     }
 
-    public function getActorHandle()
+    public function getActorHandle(): string
     {
         $actor = $this->getActor();
         if ($actor) {
@@ -244,7 +246,7 @@ class ActivityPresenter
         return '@unknown';
     }
 
-    public function getActionIcon()
+    public function getActionIcon(): string
     {
         $type = $this->activity->get('type');
         switch ($type) {
@@ -267,7 +269,7 @@ class ActivityPresenter
         }
     }
 
-    public function getDescription()
+    public function getDescription(): string
     {
         // Re-use logic from getSentence? but maybe without actor link?
         // User asked for "Create a new note" or "Mentioned @actor".
@@ -295,7 +297,7 @@ class ActivityPresenter
         }
     }
 
-    public function getRawJson()
+    public function getRawJson(): string
     {
         return json_encode($this->data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }

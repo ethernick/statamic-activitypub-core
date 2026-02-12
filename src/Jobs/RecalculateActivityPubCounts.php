@@ -61,7 +61,8 @@ class RecalculateActivityPubCounts implements ShouldQueue
             if (is_array($obj)) {
                 $obj = $obj['id'] ?? $obj[0] ?? null;
             }
-            if (!$obj) continue;
+            if (!$obj)
+                continue;
 
             $type = $activity->get('type');
 

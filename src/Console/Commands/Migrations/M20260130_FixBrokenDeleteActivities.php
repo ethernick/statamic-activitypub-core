@@ -13,7 +13,7 @@ class M20260130_FixBrokenDeleteActivities extends Command
 
     protected $description = '[Migration 20260130] Fix Delete activities with null objects by extracting UUIDs from titles';
 
-    public function handle()
+    public function handle(): int
     {
         $isDryRun = $this->option('dry-run');
 

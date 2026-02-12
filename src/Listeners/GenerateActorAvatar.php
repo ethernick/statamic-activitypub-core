@@ -1,5 +1,6 @@
 <?php
 
+
 namespace Ethernick\ActivityPubCore\Listeners;
 
 use Statamic\Events\EntrySaving;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\File;
 
 class GenerateActorAvatar
 {
-    public function handle(EntrySaving $event)
+    public function handle(EntrySaving $event): void
     {
         /** @var Entry $entry */
         $entry = $event->entry;

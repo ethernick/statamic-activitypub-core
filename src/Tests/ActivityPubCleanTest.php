@@ -6,6 +6,7 @@ namespace Ethernick\ActivityPubCore\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Attributes\Test;
 use Statamic\Facades\YAML;
 use Statamic\Facades\Entry;
 use Tests\TestCase;

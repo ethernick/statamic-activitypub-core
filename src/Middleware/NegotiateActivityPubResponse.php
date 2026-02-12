@@ -7,10 +7,11 @@ namespace Ethernick\ActivityPubCore\Middleware;
 use Closure;
 use Statamic\Facades\Entry;
 use Statamic\Facades\URL;
+use Statamic\Facades\Site;
 
 class NegotiateActivityPubResponse
 {
-    public function handle($request, Closure $next)
+    public function handle(\Illuminate\Http\Request $request, Closure $next): mixed
     {
         $response = $next($request);
 
@@ -71,7 +72,7 @@ class NegotiateActivityPubResponse
             $url = $request->url(); // Full URL
             // Statamic expects relative URI usually or full URL? findByUri handles URI
             $uri = $request->getRequestUri();
-            $entry = \Statamic\Facades\Entry::findByUri($uri);
+            $entry = \Statamic\Facades\Entry::findByUri($uri, Site::current()->handle());
         }
 
         if ($entry && $entry instanceof \Statamic\Entries\Entry) {

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CaptureInboxFailures
 {
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next): mixed
     {
         try {
             return $next($request);

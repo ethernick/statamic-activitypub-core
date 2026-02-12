@@ -19,12 +19,12 @@ class AnnounceController extends BaseActivityController
         // Let's use 'announces' for now.
     }
 
-    protected function returnIndexView(mixed $actor)
+    protected function returnIndexView(mixed $actor): mixed
     {
         abort(404); // Usually accessed via JSON or Outbox
     }
 
-    protected function returnShowView(mixed $actor, mixed $item)
+    protected function returnShowView(mixed $actor, mixed $item): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::activity')
@@ -36,7 +36,7 @@ class AnnounceController extends BaseActivityController
             ]);
     }
 
-    public function store()
+    public function store(): mixed
     {
         $user = User::current();
         if (!$user) {
@@ -106,7 +106,7 @@ class AnnounceController extends BaseActivityController
         return response()->json(['status' => 'success']);
     }
 
-    public function destroy()
+    public function destroy(): mixed
     {
         $user = User::current();
         if (!$user) {

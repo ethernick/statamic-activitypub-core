@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Actions;
 
 use Statamic\Actions\Action;
@@ -10,12 +12,12 @@ use Statamic\Facades\User;
 
 class FollowAction extends Action
 {
-    public static function title()
+    public static function title(): string
     {
         return 'Follow';
     }
 
-    public function visibleTo($item)
+    public function visibleTo(mixed $item): bool
     {
         if (!$item instanceof \Statamic\Contracts\Entries\Entry) {
             return false;
@@ -70,12 +72,12 @@ class FollowAction extends Action
         return !$isFollowing;
     }
 
-    public function authorize($user, $item)
+    public function authorize(mixed $user, mixed $item): bool
     {
         return true;
     }
 
-    public function run($items, $values)
+    public function run(mixed $items, mixed $values): mixed
     {
         $user = User::current();
         $sender = null;
@@ -110,7 +112,7 @@ class FollowAction extends Action
         return 'Follow request(s) sent!';
     }
 
-    protected function followActor($sender, $target)
+    protected function followActor(mixed $sender, mixed $target): void
     {
         $senderId = $sender->get('activitypub_id') ?: url('/@' . $sender->slug());
         $inbox = $target->get('inbox_url');

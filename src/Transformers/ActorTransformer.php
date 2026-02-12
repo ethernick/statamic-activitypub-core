@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Transformers;
 
 use Statamic\Entries\Entry;
 
 class ActorTransformer
 {
-    public function transform(Entry $entry)
+    public function transform(Entry $entry): array
     {
         $url = $this->sanitizeUrl(url('@' . $entry->slug()));
         $handle = $entry->slug();
@@ -79,12 +81,12 @@ class ActorTransformer
         return $data;
     }
 
-    protected function sanitizeUrl($url)
+    protected function sanitizeUrl(string $url): string
     {
         return str_replace('://www.', '://', $url);
     }
 
-    protected function getIcon(Entry $entry)
+    protected function getIcon(Entry $entry): ?array
     {
         $staticPath = 'activitypub/avatars/' . $entry->slug() . '.jpg';
         if (file_exists(public_path($staticPath))) {

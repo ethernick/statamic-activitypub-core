@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Fieldtypes;
 
 use Statamic\Fields\Fieldtype;
@@ -12,7 +14,7 @@ class ActorSelector extends Fieldtype
     // protected $categories = ['relationship'];
     protected $listable = false;
 
-    public function preload()
+    public function preload(): array
     {
         $user = User::current();
 
@@ -34,7 +36,7 @@ class ActorSelector extends Fieldtype
         return ['actors' => $options];
     }
 
-    public function defaultValue()
+    public function defaultValue(): mixed
     {
         $user = User::current();
 
@@ -54,7 +56,7 @@ class ActorSelector extends Fieldtype
         return null;
     }
 
-    public function process($data)
+    public function process(mixed $data): mixed
     {
         // Ensure we only save a single string, not an array
         if (is_array($data)) {
@@ -64,7 +66,7 @@ class ActorSelector extends Fieldtype
         return $data;
     }
 
-    protected function toItemArray($id)
+    protected function toItemArray(mixed $id): mixed
     {
         // Recursively unwrap arrays/collections to find the first scalar value
         while (is_array($id) || $id instanceof \Illuminate\Support\Collection) {

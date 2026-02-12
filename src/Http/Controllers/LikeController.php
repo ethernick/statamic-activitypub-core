@@ -12,12 +12,12 @@ class LikeController extends BaseActivityController
         // This would be the actor's "Liked" collection (things they liked).
     }
 
-    protected function returnIndexView(mixed $actor)
+    protected function returnIndexView(mixed $actor): mixed
     {
         abort(404); // Usually JSON only
     }
 
-    protected function returnShowView(mixed $actor, mixed $item)
+    protected function returnShowView(mixed $actor, mixed $item): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::activity')
@@ -29,7 +29,7 @@ class LikeController extends BaseActivityController
             ]);
     }
 
-    public function store()
+    public function store(): mixed
     {
         $user = \Statamic\Facades\User::current();
         if (!$user)
@@ -77,7 +77,7 @@ class LikeController extends BaseActivityController
         return response()->json(['status' => 'success']);
     }
 
-    public function destroy()
+    public function destroy(): mixed
     {
         $user = \Statamic\Facades\User::current();
         if (!$user)

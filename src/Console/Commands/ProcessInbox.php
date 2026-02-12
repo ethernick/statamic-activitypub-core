@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -27,7 +29,7 @@ class ProcessInbox extends Command
      *
      * @return int
      */
-    public function handle(FileQueue $queue, InboxHandler $handler)
+    public function handle(FileQueue $queue, InboxHandler $handler): int
     {
         $limit = $this->option('limit');
 

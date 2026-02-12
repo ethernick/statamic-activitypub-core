@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -10,7 +12,7 @@ class DiagnoseBadData extends Command
     protected $signature = 'activitypub:diagnose-data {--fix : Attempt to fix found issues}';
     protected $description = 'Scan for entries with array data in fields expected to be strings.';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Scanning notes for array data...');
 

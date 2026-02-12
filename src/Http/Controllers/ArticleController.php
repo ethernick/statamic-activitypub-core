@@ -26,7 +26,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return 'articles'; // Assuming 'articles' collection exists
     }
 
-    protected function returnIndexView(mixed $actor)
+    protected function returnIndexView(mixed $actor): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::articles')
@@ -37,7 +37,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
             ]);
     }
 
-    protected function returnShowView(mixed $actor, mixed $item)
+    protected function returnShowView(mixed $actor, mixed $item): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::article')
@@ -137,7 +137,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return false;
     }
 
-    protected function createArticleEntry(array $object, mixed $authorActor)
+    protected function createArticleEntry(array $object, mixed $authorActor): mixed
     {
         $id = $object['id'] ?? null;
         if ($id) {
@@ -192,7 +192,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return $entry;
     }
 
-    protected function updateArticleEntry(array $object, mixed $externalActor)
+    protected function updateArticleEntry(array $object, mixed $externalActor): void
     {
         $id = $object['id'] ?? null;
         if (!$id)

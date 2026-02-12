@@ -1,5 +1,6 @@
 <?php
 
+
 namespace Ethernick\ActivityPubCore\Listeners;
 
 use Statamic\Events\EntrySaving;
@@ -13,7 +14,7 @@ use Illuminate\Support\Carbon;
 
 class AutoGenerateActivityListener
 {
-    public function handle($event)
+    public function handle(mixed $event): void
     {
         if ($event instanceof EntrySaving) {
             $this->handleSaving($event);
@@ -24,7 +25,7 @@ class AutoGenerateActivityListener
         }
     }
 
-    protected function handleSaving($event)
+    protected function handleSaving(mixed $event): void
     {
         $entry = $event->entry;
         // Check if file exists. If not, it's a new entry.
@@ -37,7 +38,7 @@ class AutoGenerateActivityListener
         }
     }
 
-    protected function handleSaved($event)
+    protected function handleSaved(mixed $event): void
     {
         $entry = $event->entry;
         $collection = $entry->collection()->handle();
@@ -114,7 +115,7 @@ class AutoGenerateActivityListener
         }
     }
 
-    protected function handleDeleted($event)
+    protected function handleDeleted(mixed $event): void
     {
         $entry = $event->entry;
         $collection = $entry->collection()->handle();
@@ -135,7 +136,7 @@ class AutoGenerateActivityListener
         $this->createActivity('Delete', $entry);
     }
 
-    protected function createActivity($type, $objectEntry)
+    protected function createActivity(string|array $type, mixed $objectEntry): void
     {
         $actorId = $objectEntry->get('actor');
         if (!$actorId) {
@@ -236,7 +237,7 @@ class AutoGenerateActivityListener
         $activity->save();
     }
 
-    protected function shouldAutoGenerate($handle)
+    protected function shouldAutoGenerate(string $handle): bool
     {
         $path = resource_path('settings/activitypub.yaml');
         if (!File::exists($path)) {
@@ -256,7 +257,7 @@ class AutoGenerateActivityListener
         return false;
     }
 
-    protected function getType($handle)
+    protected function getType(string $handle): string
     {
         $path = resource_path('settings/activitypub.yaml');
         if (!File::exists($path)) {

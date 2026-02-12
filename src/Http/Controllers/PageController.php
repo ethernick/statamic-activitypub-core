@@ -11,7 +11,7 @@ class PageController extends BaseObjectController
         return 'pages';
     }
 
-    protected function returnIndexView(mixed $actor)
+    protected function returnIndexView(mixed $actor): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::pages')
@@ -22,7 +22,7 @@ class PageController extends BaseObjectController
             ]);
     }
 
-    protected function returnShowView(mixed $actor, mixed $item)
+    protected function returnShowView(mixed $actor, mixed $item): mixed
     {
         return (new \Statamic\View\View)
             ->template('activitypub::page')

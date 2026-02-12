@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands\Migrations;
 
 use Illuminate\Console\Command;
@@ -12,7 +14,7 @@ class M20260104 extends Command
     protected $signature = 'activitypub:migrate:20260104';
     protected $description = 'Initial ActivityPub migration: backfills flags, blocks, likes, dates, and normalizes blueprints.';
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Starting Migration 20260104...');
 
@@ -29,7 +31,7 @@ class M20260104 extends Command
         return 0;
     }
 
-    protected function normalizeBlueprints()
+    protected function normalizeBlueprints(): void
     {
         if (!\Statamic\Facades\Collection::find('activities')) {
             $this->warn("Collection 'activities' not found. Skipping blueprint normalization.");
@@ -60,7 +62,7 @@ class M20260104 extends Command
         $this->info("Scanned {$count} activities. Updated {$updated} entries.");
     }
 
-    protected function backfillInternalFlags()
+    protected function backfillInternalFlags(): void
     {
         $this->info('Backfilling internal flags...');
 
@@ -112,7 +114,7 @@ class M20260104 extends Command
         }
     }
 
-    protected function backfillBlocksField()
+    protected function backfillBlocksField(): void
     {
         $this->info('Backfilling blocks field...');
         $this->safeIterateCollection('actors', function ($actor) {
@@ -123,7 +125,7 @@ class M20260104 extends Command
         });
     }
 
-    protected function backfillLikeFields()
+    protected function backfillLikeFields(): void
     {
         $this->info('Backfilling like fields...');
         foreach (['notes', 'articles'] as $collection) {
@@ -144,7 +146,7 @@ class M20260104 extends Command
         }
     }
 
-    protected function backfillSensitiveSummaries()
+    protected function backfillSensitiveSummaries(): void
     {
         $this->info('Backfilling sensitive summaries...');
         $this->safeIterateCollection('notes', function ($entry) {
@@ -171,7 +173,7 @@ class M20260104 extends Command
         });
     }
 
-    protected function backfillCorrectDates()
+    protected function backfillCorrectDates(): void
     {
         $this->info('Backfilling correct dates...');
         foreach (['notes', 'articles', 'activities'] as $collection) {
@@ -207,7 +209,7 @@ class M20260104 extends Command
         }
     }
 
-    protected function safeIterateCollection($collection, callable $callback)
+    protected function safeIterateCollection(string $collection, callable $callback): void
     {
         try {
             // Verify collection exists before querying

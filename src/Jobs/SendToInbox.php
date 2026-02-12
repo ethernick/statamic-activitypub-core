@@ -79,7 +79,7 @@ class SendToInbox implements ShouldQueue
             $executed = RateLimiter::attempt(
                 $rateLimitKey,
                 $maxAttempts,
-                function() use ($actor, $privateKey, $actorUrl) {
+                function () use ($actor, $privateKey, $actorUrl) {
                     $this->sendRequest($actor, $privateKey, $actorUrl);
                 },
                 $decaySeconds
@@ -99,7 +99,7 @@ class SendToInbox implements ShouldQueue
     /**
      * Send the HTTP request to the target inbox.
      */
-    protected function sendRequest($actor, string $privateKey, string $actorUrl): void
+    protected function sendRequest(mixed $actor, string $privateKey, string $actorUrl): void
     {
         $jsonBody = json_encode($this->payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 

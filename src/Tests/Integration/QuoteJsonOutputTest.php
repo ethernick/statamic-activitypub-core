@@ -32,12 +32,8 @@ class QuoteJsonOutputTest extends TestCase
     {
         $this->restoreBackedUpFiles();
 
-        // Reset ActivityPubListener static caches
+        // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
-        $settingsCache = $reflection->getProperty('settingsCache');
-        $settingsCache->setAccessible(true);
-        $settingsCache->setValue(null, null);
-
         $actorCache = $reflection->getProperty('actorCache');
         $actorCache->setAccessible(true);
         $actorCache->setValue(null, []);

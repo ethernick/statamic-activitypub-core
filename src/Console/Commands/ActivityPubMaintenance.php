@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -30,7 +32,7 @@ class ActivityPubMaintenance extends Command
      */
     // Old handle method removed
 
-    protected function fixActivityDates()
+    protected function fixActivityDates(): void
     {
         $this->info('Checking activity dates...');
 
@@ -105,7 +107,7 @@ class ActivityPubMaintenance extends Command
         }
     }
 
-    public function handle()
+    public function handle(): int
     {
         $this->info('Queueing ActivityPub maintenance tasks...');
 
@@ -148,7 +150,7 @@ class ActivityPubMaintenance extends Command
 
     // Let's stick to single tool calls for safety if I can.
 
-    protected function recalculateCounts()
+    protected function recalculateCounts(): void
     {
         $this->info('Recalculating all counts (Replies, Likes, Boosts, Related)...');
 

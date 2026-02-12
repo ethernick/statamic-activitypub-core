@@ -8,7 +8,7 @@ use Statamic\Http\Controllers\CP\CpController;
 
 class OutboxController extends CpController
 {
-    public function index()
+    public function index(): mixed
     {
         return view('activitypub::stubs', ['title' => 'Outbox']);
     }

@@ -29,7 +29,7 @@ class FollowController extends CpController
         return Entry::query()->where('collection', 'actors')->whereIn('id', $actorIds)->get();
     }
 
-    public function following()
+    public function following(): mixed
     {
         $myActors = $this->getUserActors();
         $followingIds = $myActors->flatMap(function ($actor) {
@@ -49,7 +49,7 @@ class FollowController extends CpController
         ]);
     }
 
-    public function followers()
+    public function followers(): mixed
     {
         $myActors = $this->getUserActors();
         $followerIds = $myActors->flatMap(function ($actor) {
@@ -69,7 +69,7 @@ class FollowController extends CpController
         ]);
     }
 
-    public function unfollow(Request $request)
+    public function unfollow(Request $request): mixed
     {
         $targetId = $request->input('id');
         $senderId = $request->input('sender');
@@ -98,7 +98,7 @@ class FollowController extends CpController
         return response()->json(['success' => true]);
     }
 
-    public function block(Request $request)
+    public function block(Request $request): mixed
     {
         $targetId = $request->input('id');
         $senderId = $request->input('sender');
@@ -125,7 +125,7 @@ class FollowController extends CpController
         return response()->json(['success' => true]);
     }
 
-    public function unblock(Request $request)
+    public function unblock(Request $request): mixed
     {
         $targetId = $request->input('id');
         $senderId = $request->input('sender');
@@ -145,7 +145,7 @@ class FollowController extends CpController
         return response()->json(['success' => true]);
     }
 
-    protected function sendUndoFollow(mixed $sender, mixed $target)
+    protected function sendUndoFollow(mixed $sender, mixed $target): void
     {
         // Construct Activity
         $senderId = $sender->get('activitypub_id') ?: url('/@' . $sender->slug());
@@ -197,7 +197,7 @@ class FollowController extends CpController
         }
     }
 
-    public function search(Request $request)
+    public function search(Request $request): mixed
     {
         $handle = $request->input('handle');
         if (!$handle) {
@@ -302,7 +302,7 @@ class FollowController extends CpController
         }
     }
 
-    public function follow(Request $request)
+    public function follow(Request $request): mixed
     {
         $id = $request->input('id');
         $actor = null;

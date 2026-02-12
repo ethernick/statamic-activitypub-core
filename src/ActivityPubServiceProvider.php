@@ -1,6 +1,8 @@
 <?php
 
-declare(strict_types=1);
+// NOTE: strict_types intentionally omitted from ServiceProvider
+// Issue: Laravel's event dispatcher can fail to execute listeners when
+// the ServiceProvider uses strict_types=1. All other files use strict types.
 
 namespace Ethernick\ActivityPubCore;
 
@@ -22,7 +24,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         'cp' => __DIR__ . '/routes/cp.php',
     ];
 
-    public function register()
+    public function register(): void
     {
         // Merge addon config with application config
         $this->mergeConfigFrom(
@@ -37,15 +39,37 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         parent::register();
     }
 
-    public function boot()
+    public function boot(): void
     {
+        // CRITICAL: Register event listeners BEFORE parent::boot()
+        // The parent class defers bootEvents() inside Statamic::booted(), which runs
+        // AFTER the Event facade is sealed in tests, preventing listeners from registering.
+        // By calling bootEvents() here first, we ensure listeners are registered before
+        // the facade is sealed, allowing tests to work correctly.
+
+        // Use app instance to track if events have been booted (persists across provider instances)
+        if (!app()->has('activitypub.events.booted')) {
+            $this->bootEvents();
+            app()->instance('activitypub.events.booted', true);
+        }
+
         parent::boot();
         $this->registerAssets();
     }
 
+    public function bootEvents(): AddonServiceProvider
+    {
+        // Prevent double registration
+        if (app()->has('activitypub.events.booted')) {
+            return $this;
+        }
+
+        return parent::bootEvents();
+    }
+
     // protected $listen_disabled = [...];
 
-    protected function registerAssets()
+    protected function registerAssets(): void
     {
         $isLocalDevelopment = is_dir(base_path('addons/ethernick/ActivityPubCore'));
 
@@ -76,7 +100,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         }
     }
 
-    protected function schedule($schedule)
+    protected function schedule(\Illuminate\Console\Scheduling\Schedule $schedule): void
     {
         // Load configuration from both settings file and config
         $settingsPath = resource_path('settings/activitypub.yaml');
@@ -145,7 +169,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
             ->name('Process Maintenance Queue');
     }
 
-    protected function registerEvents()
+    protected function registerEvents(): void
     {
         foreach ($this->listen as $event => $listeners) {
             foreach ($listeners as $listener) {
@@ -154,7 +178,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         }
     }
 
-    protected function registerMiddleware()
+    protected function registerMiddleware(): void
     {
         foreach ($this->middlewareGroups as $group => $middleware) {
             foreach ($middleware as $m) {
@@ -164,7 +188,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
     }
 
 
-    protected function registerWidgets()
+    protected function registerWidgets(): void
     {
         foreach ($this->widgets as $widget) {
             $widget::register();
@@ -223,7 +247,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         // Migration commands are auto-discovered by activitypub:migrate
     ];
 
-    protected function registerCommands()
+    protected function registerCommands(): void
     {
         if ($this->app->runningInConsole()) {
             $this->commands($this->commands);
@@ -248,7 +272,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Ethernick\ActivityPubCore\Actions\ResendActivityAction::class,
     ];
 
-    public function bootAddon()
+    public function bootAddon(): void
     {
         // Register custom ActivityPub types
         // Core Types
@@ -284,11 +308,11 @@ class ActivityPubServiceProvider extends AddonServiceProvider
                 ->icon($icon)
                 ->route('activitypub.inbox.index')
                 ->children([
-                        //'Inbox' => cp_route('activitypub.inbox.index'),
+                    //'Inbox' => cp_route('activitypub.inbox.index'),
 
-                        'Following' => cp_route('activitypub.following.index'),
-                        'Followers' => cp_route('activitypub.followers.index'),
-                    ]);
+                    'Following' => cp_route('activitypub.following.index'),
+                    'Followers' => cp_route('activitypub.followers.index'),
+                ]);
 
             $nav->settings('ActivityPub')
                 ->route('activitypub.settings.index')
@@ -323,7 +347,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
 
     }
 
-    protected function registerActivityControllers()
+    protected function registerActivityControllers(): void
     {
         $directory = __DIR__ . '/Http/Controllers';
         $namespace = 'Ethernick\\ActivityPubCore\\Http\\Controllers\\';

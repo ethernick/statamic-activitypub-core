@@ -55,7 +55,7 @@ abstract class BaseController extends Controller
     /**
      * Standard Index Action (List/Collection)
      */
-    public function index(string $handle)
+    public function index(string $handle): mixed
     {
         $actor = $this->findActor($handle);
         if (!$actor) {
@@ -74,7 +74,7 @@ abstract class BaseController extends Controller
     /**
      * Standard Show Action (Single Item)
      */
-    public function show(string $handle, string $uuid)
+    public function show(string $handle, string $uuid): mixed
     {
         $actor = $this->findActor($handle);
         if (!$actor) {
@@ -116,7 +116,7 @@ abstract class BaseController extends Controller
      * Return JSON for the collection.
      * Subclasses MUST implement logic to fetch items or override entirely.
      */
-    protected function returnCollectionJson(\Statamic\Contracts\Entries\Entry $actor)
+    protected function returnCollectionJson(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         // Default implementation: Generic ordered collection of this type?
         // We need the collection slug/handle associated with this controller.
@@ -168,7 +168,7 @@ abstract class BaseController extends Controller
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    protected function returnItemJson(\Statamic\Contracts\Entries\Entry $item)
+    protected function returnItemJson(\Statamic\Contracts\Entries\Entry $item): mixed
     {
         $json = $item->get('activitypub_json');
         if (is_string($json)) {
@@ -182,7 +182,7 @@ abstract class BaseController extends Controller
     /**
      * Return HTML View for Index.
      */
-    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor)
+    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         // Default fallback or error
         abort(404, 'View not implemented');
@@ -191,7 +191,7 @@ abstract class BaseController extends Controller
     /**
      * Return HTML View for Show.
      */
-    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item)
+    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item): mixed
     {
         // Default fallback or error
         abort(404, 'View not implemented');

@@ -11,7 +11,7 @@ trait SilencesStrictValidation
      * If a property is not defined, we simply ignore it instead of throwing an exception,
      * effectively enforcing 'ignore' mode regardless of global config.
      */
-    public function set($name, $value)
+    public function set(mixed $name, mixed $value): mixed
     {
         // If the property exists (natively or in _props), parent::set works fine.
         if ($this->has($name)) {

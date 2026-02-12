@@ -16,7 +16,7 @@ class AcceptQuoteRequest extends Command
 
     protected $description = 'Send an Accept response for a pending QuoteRequest';
 
-    public function handle()
+    public function handle(): int
     {
         $activityId = $this->argument('activity_id');
 

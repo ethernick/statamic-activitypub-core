@@ -15,7 +15,7 @@ class ActorController extends BaseObjectController
     public static $shouldSkipSignatureVerificationInTests = true;
 
     // Override show to handle Actor Profile logic
-    public function show(string $handle, ?string $uuid = null)
+    public function show(string $handle, ?string $uuid = null): mixed
     {
         // $uuid is ignored here as Actor Profile is just /@{handle}
         \Illuminate\Support\Facades\Log::info("ActorProfile: Accessed $handle from " . request()->ip());
@@ -44,7 +44,7 @@ class ActorController extends BaseObjectController
             ->with(['actor' => $actor]);
     }
 
-    public function collection(string $handle, string $collection)
+    public function collection(string $handle, string $collection): mixed
     {
         // 1. Find Actor
         $actor = $this->findActor($handle);
@@ -124,19 +124,19 @@ class ActorController extends BaseObjectController
             ]);
     }
 
-    protected function followersCollection(\Statamic\Contracts\Entries\Entry $actor)
+    protected function followersCollection(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         $followers = $actor->get('followed_by_actors', []) ?: [];
         return $this->paginateAndRespondIds($actor, 'followers', collect($followers));
     }
 
-    protected function followingCollection(\Statamic\Contracts\Entries\Entry $actor)
+    protected function followingCollection(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         $following = $actor->get('following_actors', []) ?: [];
         return $this->paginateAndRespondIds($actor, 'following', collect($following));
     }
 
-    protected function paginateAndRespondIds(\Statamic\Contracts\Entries\Entry $actor, string $type, \Illuminate\Support\Collection $ids)
+    protected function paginateAndRespondIds(\Statamic\Contracts\Entries\Entry $actor, string $type, \Illuminate\Support\Collection $ids): mixed
     {
         $page = (int) request()->get('page', 1);
         $perPage = 20;
@@ -201,7 +201,7 @@ class ActorController extends BaseObjectController
         return $enabled;
     }
 
-    protected function returnActorJson(\Statamic\Contracts\Entries\Entry $actor)
+    protected function returnActorJson(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
         // Basic Actor JSON
         return response()->json([
@@ -223,7 +223,7 @@ class ActorController extends BaseObjectController
         return str_replace('://www.', '://', $url);
     }
 
-    protected function respondWithCollectionJson(string $handle, \Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Taxonomies\Term $term, \Illuminate\Pagination\LengthAwarePaginator $entries)
+    protected function respondWithCollectionJson(string $handle, \Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Taxonomies\Term $term, \Illuminate\Pagination\LengthAwarePaginator $entries): mixed
     {
         $items = [];
         $isActorCollection = in_array($term->slug(), ['following', 'followers']);
@@ -263,7 +263,7 @@ class ActorController extends BaseObjectController
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    public function inbox(Request $request, string $handle)
+    public function inbox(Request $request, string $handle): mixed
     {
 
 
@@ -285,7 +285,7 @@ class ActorController extends BaseObjectController
 
     }
 
-    public function sharedInbox(Request $request)
+    public function sharedInbox(Request $request): mixed
     {
 
 
@@ -353,7 +353,7 @@ class ActorController extends BaseObjectController
         return null;
     }
 
-    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor)
+    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor): mixed
     {
         $payload = $request->json()->all();
 

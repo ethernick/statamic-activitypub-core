@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Console\Commands\Migrations;
 
 use Illuminate\Console\Command;
@@ -27,7 +29,7 @@ class PopulateMentionedUrls extends Command
      *
      * @return int
      */
-    public function handle()
+    public function handle(): int
     {
         $this->info("Starting migration of mentioned_urls...");
 

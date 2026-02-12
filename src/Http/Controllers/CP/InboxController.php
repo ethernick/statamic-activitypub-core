@@ -222,7 +222,7 @@ class InboxController extends CpController
      * Batch enrich notes with link previews and oembed data.
      * This endpoint fetches external metadata asynchronously after page load.
      */
-    public function batchEnrichment(Request $request)
+    public function batchEnrichment(Request $request): mixed
     {
         $request->validate([
             'note_ids' => 'required|array',
@@ -320,12 +320,12 @@ class InboxController extends CpController
      *
      * @deprecated Use batchEnrichment instead
      */
-    public function batchLinkPreview(Request $request)
+    public function batchLinkPreview(Request $request): mixed
     {
         return $this->batchEnrichment($request);
     }
 
-    public function index()
+    public function index(): mixed
     {
         $actors = Entry::query()
             ->where('collection', 'actors')
@@ -351,7 +351,7 @@ class InboxController extends CpController
         ]);
     }
 
-    public function reply(Request $request)
+    public function reply(Request $request): mixed
     {
         $request->validate([
             'content' => 'required|string',
@@ -384,7 +384,7 @@ class InboxController extends CpController
     /**
      * Store a new note from the CP compose form.
      */
-    public function storeNote(Request $request)
+    public function storeNote(Request $request): mixed
     {
         $request->validate([
             'content' => 'required|string',
@@ -426,7 +426,7 @@ class InboxController extends CpController
     /**
      * Store a new poll from the CP compose form.
      */
-    public function storePoll(Request $request)
+    public function storePoll(Request $request): mixed
     {
         $request->validate([
             'content' => 'required|string',
@@ -476,7 +476,7 @@ class InboxController extends CpController
     /**
      * Update an existing internal note.
      */
-    public function updateNote(Request $request)
+    public function updateNote(Request $request): mixed
     {
         $request->validate([
             'id' => 'required|string',
@@ -529,7 +529,7 @@ class InboxController extends CpController
     /**
      * Delete a note or activity and its related items.
      */
-    public function destroy(Request $request)
+    public function destroy(Request $request): mixed
     {
         $request->validate([
             'id' => 'required|string',
@@ -589,7 +589,7 @@ class InboxController extends CpController
     /**
      * Get activities related to a specific note/poll.
      */
-    public function activities(Request $request, string $id)
+    public function activities(Request $request, string $id): mixed
     {
         $entry = Entry::find($id);
         if (!$entry) {
@@ -631,7 +631,7 @@ class InboxController extends CpController
         return response()->json(['data' => $activities]);
     }
 
-    public function api(Request $request)
+    public function api(Request $request): mixed
     {
         $user = User::current();
         $userActors = $user ? $user->get('actors', []) : [];
@@ -788,7 +788,7 @@ class InboxController extends CpController
         ]);
     }
 
-    public function thread(Request $request, string $id)
+    public function thread(Request $request, string $id): mixed
     {
         $rootNote = Entry::find($id);
         if (!$rootNote || in_array($rootNote->collection()->handle(), ['activities', 'actors'])) {
@@ -886,7 +886,7 @@ class InboxController extends CpController
         ]);
     }
 
-    protected function resolveActor(mixed $actorId, Request $request)
+    protected function resolveActor(mixed $actorId, Request $request): ?array
     {
         if (is_array($actorId)) {
             $actorId = $actorId[0] ?? null;
@@ -915,7 +915,7 @@ class InboxController extends CpController
         return $result;
     }
 
-    protected function transformEntry(mixed $entry, Request $request, array $userActors, bool $includeParent = false)
+    protected function transformEntry(mixed $entry, Request $request, array $userActors, bool $includeParent = false): ?array
     {
         $collection = $entry->collection()->handle();
 
@@ -1180,7 +1180,7 @@ class InboxController extends CpController
         return null;
     }
 
-    protected function resolveQuote(mixed $note)
+    protected function resolveQuote(mixed $note): ?array
     {
         $quoteOf = $note->get('quote_of');
         if (!$quoteOf) {

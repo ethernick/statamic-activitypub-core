@@ -92,7 +92,7 @@ class ActivityPubTest extends TestCase
         }
         file_put_contents(
             resource_path('settings/activitypub.yaml'),
-            "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\narticles:\n  enabled: true\n  type: Article\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
+            "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\narticles:\n  enabled: true\n  type: Article\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n  federated: true\n"
         );
     }
 
@@ -759,20 +759,24 @@ class ActivityPubTest extends TestCase
             ], 200),
         ]);
 
-        // Delete any existing note with this slug from previous test runs
-        $existing = Entry::query()->where('collection', 'notes')->where('slug', 'test-liked-note')->first();
-        if ($existing) {
-            $existing->delete();
-        }
+        $uuid = \Illuminate\Support\Str::uuid()->toString();
+        $slug = 'test-liked-note-' . $uuid;
+        $apId = 'https://ethernick.com/notes/' . $slug;
+
+        // Delete any existing note with this AP ID (defensive)
+        $existing = Entry::query()->where('collection', 'notes')->where('activitypub_id', $apId)->get();
+        foreach ($existing as $e)
+            $e->delete();
+
         \Statamic\Facades\Stache::clear();
 
         // 1. Create Local Note
         $note = Entry::make()
             ->collection('notes')
-            ->slug('test-liked-note')
+            ->slug($slug)
             ->data([
                 'content' => 'I will be liked',
-                'activitypub_id' => 'https://ethernick.com/notes/test-liked-note',
+                'activitypub_id' => $apId,
                 'is_internal' => true,
                 'actor' => ['actors/ethernick'],
                 'liked_by' => [],
@@ -783,9 +787,9 @@ class ActivityPubTest extends TestCase
         // 2. Send Like Activity
         $payload = [
             'type' => 'Like',
-            'id' => 'https://external.com/activities/like-1',
+            'id' => 'https://external.com/activities/like-' . $uuid,
             'actor' => 'https://external.com/users/liker',
-            'object' => 'https://ethernick.com/notes/test-liked-note',
+            'object' => $apId,
         ];
 
         // Get local actor

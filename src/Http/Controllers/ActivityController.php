@@ -20,7 +20,7 @@ class ActivityController extends BaseActivityController
         $this->dispatcher = $dispatcher;
     }
 
-    public function inbox(Request $request, string $handle)
+    public function inbox(Request $request, string $handle): mixed
     {
         // 1. Logging
         $this->logRequest($request);
@@ -48,7 +48,7 @@ class ActivityController extends BaseActivityController
         return response()->json(['message' => 'Inbox available.'], 200);
     }
 
-    public function sharedInbox(Request $request)
+    public function sharedInbox(Request $request): mixed
     {
         $this->logRequest($request, 'SHARED_INBOX');
 
@@ -67,7 +67,7 @@ class ActivityController extends BaseActivityController
         return response()->json(['message' => 'Shared Inbox available.'], 200);
     }
 
-    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor)
+    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor): mixed
     {
         $payload = $request->json()->all();
 
@@ -120,18 +120,18 @@ class ActivityController extends BaseActivityController
     }
 
     // Placeholder helpers
-    protected function logRequest(Request $request, string $prefix = '')
+    protected function logRequest(Request $request, string $prefix = ''): void
     {
         // ... logging logic
     }
 
-    protected function processSharedInboxPayload(Request $request)
+    protected function processSharedInboxPayload(Request $request): mixed
     {
         // ... (Similar to ActorController::sharedInbox)
         return response()->json(['message' => 'Accepted'], 202);
     }
 
-    protected function resolveExternalActor($url)
+    protected function resolveExternalActor($url): mixed
     {
         // ... 
         return null;

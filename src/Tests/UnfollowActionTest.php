@@ -6,6 +6,7 @@ use Tests\TestCase;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
 use Ethernick\ActivityPubCore\Actions\UnfollowAction;
 
 class UnfollowActionTest extends TestCase
