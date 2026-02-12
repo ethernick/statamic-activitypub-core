@@ -27,11 +27,17 @@ class ActivityPubListener
     public function handle(mixed $event): void
     {
         if ($event instanceof EntryBlueprintFound) {
-            $this->handleBlueprintFound($event, $event->entry?->collection()->handle());
+            $handle = $event->entry?->collection()?->handle();
+            if ($handle !== null) {
+                $this->handleBlueprintFound($event, $handle);
+            }
         }
 
         if ($event instanceof TermBlueprintFound) {
-            $this->handleBlueprintFound($event, $event->term?->taxonomy()->handle());
+            $handle = $event->term?->taxonomy()?->handle();
+            if ($handle !== null) {
+                $this->handleBlueprintFound($event, $handle);
+            }
         }
 
         if ($event instanceof EntrySaving) {
