@@ -6,25 +6,46 @@ namespace Ethernick\ActivityPubCore\Tests\Integration;
 
 use Tests\TestCase;
 use Statamic\Facades\Entry;
-use Ethernick\ActivityPubCore\Tests\Concerns\BacksUpFiles;
+use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
+use PHPUnit\Framework\Attributes\Test;
 
 class QuoteJsonOutputTest extends TestCase
 {
-    use BacksUpFiles;
+    use BackupsFiles;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles();
+        $this->backupFiles([]);
+
+        // Create activitypub.yaml config
+        if (!file_exists(resource_path('settings'))) {
+            mkdir(resource_path('settings'), 0755, true);
+        }
+        file_put_contents(
+            resource_path('settings/activitypub.yaml'),
+            "notes:\n  enabled: true\n  type: Note\n  federated: true\n"
+        );
     }
 
     protected function tearDown(): void
     {
-        $this->restoreFiles();
+        $this->restoreBackedUpFiles();
+
+        // Reset ActivityPubListener static caches
+        $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
+        $settingsCache = $reflection->getProperty('settingsCache');
+        $settingsCache->setAccessible(true);
+        $settingsCache->setValue(null, null);
+
+        $actorCache = $reflection->getProperty('actorCache');
+        $actorCache->setAccessible(true);
+        $actorCache->setValue(null, []);
+
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_quote_fields_in_activitypub_json()
     {
         // Create actors
@@ -35,6 +56,7 @@ class QuoteJsonOutputTest extends TestCase
                 'title' => 'Local Actor',
                 'activitypub_id' => 'https://test.com/users/local',
                 'handle' => '@local@test.com',
+                'is_internal' => true,
             ]);
         $localActor->save();
 
@@ -75,9 +97,6 @@ class QuoteJsonOutputTest extends TestCase
             ]);
         $quote->save();
 
-        // Trigger ActivityPub JSON generation
-        event('entry.saved', $quote);
-
         // Retrieve generated JSON
         \Statamic\Facades\Stache::clear();
         $quote = Entry::find($quote->id());
@@ -113,7 +132,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertEquals($authStamp, $data['quoteAuthorization']);
     }
 
-    /** @test */
+    #[Test]
     public function it_omits_quote_authorization_if_not_present()
     {
         $actor = Entry::make()
@@ -122,6 +141,7 @@ class QuoteJsonOutputTest extends TestCase
             ->data([
                 'activitypub_id' => 'https://test.com/users/test',
                 'handle' => '@test@test.com',
+                'is_internal' => true,
             ]);
         $actor->save();
 
@@ -147,8 +167,6 @@ class QuoteJsonOutputTest extends TestCase
             ]);
         $quote->save();
 
-        event('entry.saved', $quote);
-
         \Statamic\Facades\Stache::clear();
         $quote = Entry::find($quote->id());
         $json = $quote->get('activitypub_json');
@@ -162,7 +180,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertArrayNotHasKey('quoteAuthorization', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_includes_interaction_policy_with_quote_vocabulary()
     {
         // Configure settings to allow quotes
@@ -173,7 +191,8 @@ class QuoteJsonOutputTest extends TestCase
             mkdir($settingsDir, 0755, true);
         }
 
-        file_put_contents($settingsPath, "allow_quotes: true\n");
+        // Must include base config
+        file_put_contents($settingsPath, "notes:\n  enabled: true\n  type: Note\n  federated: true\nallow_quotes: true\n");
 
         $actor = Entry::make()
             ->collection('actors')
@@ -181,6 +200,7 @@ class QuoteJsonOutputTest extends TestCase
             ->data([
                 'activitypub_id' => 'https://test.com/users/test',
                 'handle' => '@test@test.com',
+                'is_internal' => true,
             ]);
         $actor->save();
 
@@ -194,8 +214,6 @@ class QuoteJsonOutputTest extends TestCase
                 'published' => true,
             ]);
         $note->save();
-
-        event('entry.saved', $note);
 
         \Statamic\Facades\Stache::clear();
         $note = Entry::find($note->id());
@@ -217,7 +235,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertEquals('https://gotosocial.org/ns#', $contextArray['gts']);
     }
 
-    /** @test */
+    #[Test]
     public function it_omits_quote_fields_for_non_quote_posts()
     {
         $actor = Entry::make()
@@ -226,6 +244,7 @@ class QuoteJsonOutputTest extends TestCase
             ->data([
                 'activitypub_id' => 'https://test.com/users/test',
                 'handle' => '@test@test.com',
+                'is_internal' => true,
             ]);
         $actor->save();
 
@@ -241,11 +260,14 @@ class QuoteJsonOutputTest extends TestCase
             ]);
         $note->save();
 
-        event('entry.saved', $note);
-
         \Statamic\Facades\Stache::clear();
         $note = Entry::find($note->id());
         $json = $note->get('activitypub_json');
+
+        // Even for regular posts, we might have basic json. 
+        // But the test expects quote fields to be absent.
+        $this->assertNotNull($json, 'ActivityPub JSON should be generated for internal note');
+
         $data = json_decode($json, true);
 
         // Should NOT have quote fields
@@ -256,13 +278,17 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertArrayNotHasKey('quoteAuthorization', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_correct_context_vocabulary_types()
     {
         $actor = Entry::make()
             ->collection('actors')
             ->slug('actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test', 'handle' => '@test@test.com']);
+            ->data([
+                'activitypub_id' => 'https://test.com/users/test',
+                'handle' => '@test@test.com',
+                'is_internal' => true,
+            ]);
         $actor->save();
 
         $note = Entry::make()
@@ -275,8 +301,6 @@ class QuoteJsonOutputTest extends TestCase
                 'published' => true,
             ]);
         $note->save();
-
-        event('entry.saved', $note);
 
         \Statamic\Facades\Stache::clear();
         $note = Entry::find($note->id());

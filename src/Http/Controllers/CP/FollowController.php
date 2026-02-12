@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers\CP;
 
 use Statamic\Http\Controllers\CP\CpController;
@@ -10,7 +12,7 @@ use Statamic\Facades\Entry;
 
 class FollowController extends CpController
 {
-    private function getUserActors()
+    private function getUserActors(): \Illuminate\Support\Collection
     {
         $user = \Statamic\Facades\User::current();
         if (!$user)
@@ -143,7 +145,7 @@ class FollowController extends CpController
         return response()->json(['success' => true]);
     }
 
-    protected function sendUndoFollow($sender, $target)
+    protected function sendUndoFollow(mixed $sender, mixed $target)
     {
         // Construct Activity
         $senderId = $sender->get('activitypub_id') ?: url('/@' . $sender->slug());
@@ -433,7 +435,7 @@ class FollowController extends CpController
             return response()->json(['error' => "Communication error: " . $e->getMessage()], 500);
         }
     }
-    protected function downloadAvatar($iconData)
+    protected function downloadAvatar(mixed $iconData): ?string
     {
         if (!$iconData)
             return null;

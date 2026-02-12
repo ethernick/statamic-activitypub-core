@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 use Statamic\Facades\File;
@@ -7,9 +9,9 @@ use Statamic\Facades\YAML;
 
 class BlockList
 {
-    protected static $blocklist = null;
+    protected static ?array $blocklist = null;
 
-    public static function isBlocked($domain)
+    public static function isBlocked(string $domain): bool
     {
         $domain = strtolower(trim($domain));
         $list = static::getList();
@@ -31,7 +33,7 @@ class BlockList
         return false;
     }
 
-    public static function getList()
+    public static function getList(): array
     {
         if (static::$blocklist !== null) {
             return static::$blocklist;

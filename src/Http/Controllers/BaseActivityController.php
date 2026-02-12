@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 abstract class BaseActivityController extends BaseController
@@ -9,7 +11,7 @@ abstract class BaseActivityController extends BaseController
      * If validation or structure differs, override methods here.
      */
 
-    protected function findItem($uuid)
+    protected function findItem(string $uuid): ?\Statamic\Contracts\Entries\Entry
     {
         // Activities are stored in 'activities' collection usually
         return \Statamic\Facades\Entry::query()
@@ -18,7 +20,7 @@ abstract class BaseActivityController extends BaseController
             ->first();
     }
 
-    protected function verifyRequestSignature(\Illuminate\Http\Request $request)
+    protected function verifyRequestSignature(\Illuminate\Http\Request $request): bool
     {
         return \Ethernick\ActivityPubCore\Services\HttpSignature::verify($request);
     }

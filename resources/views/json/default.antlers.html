@@ -35,9 +35,12 @@
 "attributedTo": "{{ actor_url }}",{{ if summary }}
 "summary": {{ summary | to_json }},{{ /if }}{{ if sensitive }}
 "sensitive": {{ sensitive | to_json }},{{ /if }}
-"content": {{ content | to_json }},
+"content": {{ if content }}{{ content | to_json }}{{ else }}""{{ /if }},
 "to": {{ to | to_json }},
 "cc": {{ cc | to_json }},
+{{ if object }}
+"object": {{ object | to_json }},
+{{ /if }}
 {{ if oneOf }}
 "oneOf": {{ oneOf | to_json }},
 {{ /if }}

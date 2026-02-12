@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Statamic\Http\Controllers\Controller;
@@ -15,7 +17,7 @@ abstract class BaseController extends Controller
      * @param string $handle
      * @return \Statamic\Contracts\Entries\Entry|null
      */
-    protected function findActor($handle)
+    protected function findActor(string $handle): ?\Statamic\Contracts\Entries\Entry
     {
         // Try to find the actor in the 'actors' collection
         $actor = Entry::query()
@@ -46,13 +48,14 @@ abstract class BaseController extends Controller
             // Redundant check in original code, maybe stale logic, simplified here.
         }
 
+        /** @var \Statamic\Contracts\Entries\Entry|null $actor */
         return $actor;
     }
 
     /**
      * Standard Index Action (List/Collection)
      */
-    public function index($handle)
+    public function index(string $handle)
     {
         $actor = $this->findActor($handle);
         if (!$actor) {
@@ -71,7 +74,7 @@ abstract class BaseController extends Controller
     /**
      * Standard Show Action (Single Item)
      */
-    public function show($handle, $uuid)
+    public function show(string $handle, string $uuid)
     {
         $actor = $this->findActor($handle);
         if (!$actor) {
@@ -93,18 +96,18 @@ abstract class BaseController extends Controller
     /**
      * Helper to check for JSON request.
      */
-    protected function wantsJson()
+    protected function wantsJson(): bool
     {
         return request()->wantsJson()
-            || str_contains(request()->header('Accept'), 'application/ld+json')
-            || str_contains(request()->header('Accept'), 'application/activity+json');
+            || str_contains(request()->header('Accept') ?? '', 'application/ld+json')
+            || str_contains(request()->header('Accept') ?? '', 'application/activity+json');
     }
 
     /**
      * Find the specific item by UUID.
      * Subclasses can override if query logic differs.
      */
-    protected function findItem($uuid)
+    protected function findItem(string $uuid): ?\Statamic\Contracts\Entries\Entry
     {
         return Entry::find($uuid);
     }
@@ -113,7 +116,7 @@ abstract class BaseController extends Controller
      * Return JSON for the collection.
      * Subclasses MUST implement logic to fetch items or override entirely.
      */
-    protected function returnCollectionJson($actor)
+    protected function returnCollectionJson(\Statamic\Contracts\Entries\Entry $actor)
     {
         // Default implementation: Generic ordered collection of this type?
         // We need the collection slug/handle associated with this controller.
@@ -165,7 +168,7 @@ abstract class BaseController extends Controller
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    protected function returnItemJson($item)
+    protected function returnItemJson(\Statamic\Contracts\Entries\Entry $item)
     {
         $json = $item->get('activitypub_json');
         if (is_string($json)) {
@@ -179,7 +182,7 @@ abstract class BaseController extends Controller
     /**
      * Return HTML View for Index.
      */
-    protected function returnIndexView($actor)
+    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor)
     {
         // Default fallback or error
         abort(404, 'View not implemented');
@@ -188,7 +191,7 @@ abstract class BaseController extends Controller
     /**
      * Return HTML View for Show.
      */
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item)
     {
         // Default fallback or error
         abort(404, 'View not implemented');
@@ -198,7 +201,7 @@ abstract class BaseController extends Controller
      * Get the collection handle (e.g. 'notes', 'articles').
      * Subclasses should override.
      */
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): ?string
     {
         return null;
     }

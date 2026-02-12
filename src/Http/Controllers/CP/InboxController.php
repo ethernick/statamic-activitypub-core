@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers\CP;
 
 use Statamic\Http\Controllers\CP\CpController;
@@ -183,7 +185,7 @@ class InboxController extends CpController
     /**
      * Build actor data array from an actor entry.
      */
-    protected function buildActorData($actorEntry): array
+    protected function buildActorData(mixed $actorEntry): array
     {
         $name = $actorEntry->get('title');
         $slug = $actorEntry->slug();
@@ -587,7 +589,7 @@ class InboxController extends CpController
     /**
      * Get activities related to a specific note/poll.
      */
-    public function activities(Request $request, $id)
+    public function activities(Request $request, string $id)
     {
         $entry = Entry::find($id);
         if (!$entry) {
@@ -675,12 +677,13 @@ class InboxController extends CpController
         }
 
         if ($filter === 'all') {
-            // For 'all' filter, exclude Announce and Create activities
+            // For 'all' filter, exclude Announce, Create, and Delete activities
+            // These are metadata activities that wrap or reference other objects
             $query->where(function ($q) {
                 $q->whereIn('collection', ['notes', 'polls'])
                     ->orWhere(function ($q2) {
                         $q2->where('collection', 'activities')
-                            ->whereNotIn('type', ['Announce', 'Create']);
+                            ->whereNotIn('type', ['Announce', 'Create', 'Delete']);
                     });
             });
         }
@@ -785,7 +788,7 @@ class InboxController extends CpController
         ]);
     }
 
-    public function thread(Request $request, $id)
+    public function thread(Request $request, string $id)
     {
         $rootNote = Entry::find($id);
         if (!$rootNote || in_array($rootNote->collection()->handle(), ['activities', 'actors'])) {
@@ -883,7 +886,7 @@ class InboxController extends CpController
         ]);
     }
 
-    protected function resolveActor($actorId, $request)
+    protected function resolveActor(mixed $actorId, Request $request)
     {
         if (is_array($actorId)) {
             $actorId = $actorId[0] ?? null;
@@ -912,7 +915,7 @@ class InboxController extends CpController
         return $result;
     }
 
-    protected function transformEntry($entry, $request, $userActors, $includeParent = false)
+    protected function transformEntry(mixed $entry, Request $request, array $userActors, bool $includeParent = false)
     {
         $collection = $entry->collection()->handle();
 
@@ -1177,7 +1180,7 @@ class InboxController extends CpController
         return null;
     }
 
-    protected function resolveQuote($note)
+    protected function resolveQuote(mixed $note)
     {
         $quoteOf = $note->get('quote_of');
         if (!$quoteOf) {
@@ -1221,7 +1224,7 @@ class InboxController extends CpController
 
     // ...
 
-    protected function checkIfLiked($note, $userActors)
+    protected function checkIfLiked(mixed $note, array $userActors): bool
     {
         $likes = $note->get('liked_by', []);
         if (!is_array($likes))
@@ -1233,7 +1236,7 @@ class InboxController extends CpController
         return false;
     }
 
-    protected function checkIfBoosted($note, $userActors)
+    protected function checkIfBoosted(mixed $note, array $userActors): bool
     {
         // Optimized: Instead of querying, we can check if the user has this note in their 'boosted' list?
         // OR we just keep the simple query but ONLY for the user's actors, which is fast.
@@ -1251,18 +1254,18 @@ class InboxController extends CpController
         return false;
     }
 
-    protected function getBoostCount($note)
+    protected function getBoostCount(mixed $note): int
     {
         return (int) $note->get('boost_count', 0);
     }
 
-    protected function getRelatedActivityCount($note)
+    protected function getRelatedActivityCount(mixed $note): int
     {
         return (int) $note->get('related_activity_count', 0);
     }
 
 
-    protected function checkIfVoted($note, $actors)
+    protected function checkIfVoted(mixed $note, array $actors): bool
     {
         if ($note->collection()->handle() !== 'polls') {
             return false;
@@ -1297,7 +1300,7 @@ class InboxController extends CpController
         return $hasVoted;
     }
 
-    protected function getVotedOptions($note, $actors)
+    protected function getVotedOptions(mixed $note, array $actors): array
     {
         if ($note->collection()->handle() !== 'polls') {
             return [];

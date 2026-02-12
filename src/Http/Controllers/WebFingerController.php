@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -89,7 +91,7 @@ class WebFingerController extends Controller
             ]
         ], 404);
     }
-    protected function sanitizeUrl($url)
+    protected function sanitizeUrl(string $url): string
     {
         return str_replace('://www.', '://', $url);
     }

@@ -23,7 +23,7 @@ class SendQuoteRequest implements ShouldQueue
     public array $backoff = [60, 300, 900];
     public int $timeout = 120;
 
-    protected string $quoteNoteId;
+    public string $quoteNoteId;
 
     /**
      * Create a new job instance.
@@ -60,26 +60,28 @@ class SendQuoteRequest implements ShouldQueue
             return;
         }
 
-        // If this is a local note, no need to request permission
-        if ($quotedEntry->get('is_internal') !== false) {
-            Log::info("SendQuoteRequest: Quoted note is internal, no QuoteRequest needed");
+        // If this is a local note, we can auto-approve
+        $quotedNoteApId = $quotedEntry->get('activitypub_id');
+        $siteUrl = url('/');
+        $isLocalUrl = $quotedNoteApId && str_starts_with($quotedNoteApId, $siteUrl);
+
+        if ($quotedEntry->get('is_internal') !== false || $isLocalUrl) {
+            Log::info("SendQuoteRequest: Internal/Local quote detected, auto-approving", [
+                'id' => $quotedEntryId,
+                'is_internal' => $quotedEntry->get('is_internal'),
+                'is_local_url' => $isLocalUrl
+            ]);
+
             $quoteNote->set('quote_authorization_status', 'accepted');
+
+            // Generate unique authorization URL with fragment identifier if we have an AP ID
+            if ($quotedNoteApId) {
+                $authorizationUrl = $quotedNoteApId . '#quote-authorization-' . \Illuminate\Support\Str::uuid();
+                $quoteNote->set('quote_authorization_stamp', $authorizationUrl);
+            }
+
             $quoteNote->set('_quote_approved', true); // Flag for AutoGenerateActivityListener
             $quoteNote->save(); // Use save() to trigger AutoGenerateActivityListener
-            return;
-        }
-
-        // Check if this is an INTERNAL quote (quoting our own post)
-        // For internal quotes, we can skip the request and auto-approve
-        $quotedNoteApId = $quotedEntry->get('activitypub_id');
-        if ($quotedNoteApId && str_starts_with($quotedNoteApId, url('/'))) {
-            Log::info("SendQuoteRequest: Internal quote detected, auto-approving");
-            $quoteNote->set('quote_authorization_status', 'accepted');
-            // Generate unique authorization URL with fragment identifier
-            $authorizationUrl = $quotedNoteApId . '#quote-authorization-' . \Illuminate\Support\Str::uuid();
-            $quoteNote->set('quote_authorization_stamp', $authorizationUrl);
-            $quoteNote->set('_quote_approved', true);
-            $quoteNote->save();
             return;
         }
 

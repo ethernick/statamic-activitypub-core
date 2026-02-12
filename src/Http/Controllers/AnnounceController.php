@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Support\Str;
@@ -8,7 +10,7 @@ use Statamic\Facades\User;
 
 class AnnounceController extends BaseActivityController
 {
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): string
     {
         return 'shares'; // Or 'announces'? Standard says 'shares' usually in UI, but AP collection might be 'activities'?
         // Actually, 'shares' is often usually a collection OF announces on an object.
@@ -17,12 +19,12 @@ class AnnounceController extends BaseActivityController
         // Let's use 'announces' for now.
     }
 
-    protected function returnIndexView($actor)
+    protected function returnIndexView(mixed $actor)
     {
         abort(404); // Usually accessed via JSON or Outbox
     }
 
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(mixed $actor, mixed $item)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::activity')
@@ -87,7 +89,7 @@ class AnnounceController extends BaseActivityController
 
         $activity = Entry::make()
             ->collection('activities')
-            ->slug($slug)
+            ->slug((string) $slug)
             ->data([
                 'title' => 'Announce ' . $objectUrl,
                 'type' => 'Announce',

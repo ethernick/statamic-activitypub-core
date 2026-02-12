@@ -1,15 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 class PageController extends BaseObjectController
 {
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): string
     {
         return 'pages';
     }
 
-    protected function returnIndexView($actor)
+    protected function returnIndexView(mixed $actor)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::pages')
@@ -20,7 +22,7 @@ class PageController extends BaseObjectController
             ]);
     }
 
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(mixed $actor, mixed $item)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::page')

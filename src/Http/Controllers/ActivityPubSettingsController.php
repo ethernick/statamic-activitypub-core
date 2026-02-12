@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Statamic\Http\Controllers\Controller;
@@ -64,12 +66,12 @@ class ActivityPubSettingsController extends Controller
         return back()->withSuccess('Settings saved.');
     }
 
-    protected function getSettingsPath()
+    protected function getSettingsPath(): string
     {
         return resource_path('settings/activitypub.yaml');
     }
 
-    protected function getSettings()
+    protected function getSettings(): array
     {
         if (!File::exists($this->getSettingsPath())) {
             return [];
@@ -80,7 +82,7 @@ class ActivityPubSettingsController extends Controller
         return $settings;
     }
 
-    protected function saveSettings($settings)
+    protected function saveSettings(array $settings): void
     {
         File::put($this->getSettingsPath(), YAML::dump($settings));
     }

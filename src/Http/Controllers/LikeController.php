@@ -1,21 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 class LikeController extends BaseActivityController
 {
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): string
     {
         return 'likes';
         // This would be the actor's "Liked" collection (things they liked).
     }
 
-    protected function returnIndexView($actor)
+    protected function returnIndexView(mixed $actor)
     {
         abort(404); // Usually JSON only
     }
 
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(mixed $actor, mixed $item)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::activity')
@@ -58,7 +60,7 @@ class LikeController extends BaseActivityController
 
         $activity = \Statamic\Facades\Entry::make()
             ->collection('activities')
-            ->slug($slug)
+            ->slug((string) $slug)
             ->data([
                 'title' => 'Like ' . $objectUrl,
                 'type' => 'Like',

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Statamic\Facades\Entry;
@@ -22,7 +24,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
 
     // --- ActivityPub Handlers ---
 
-    public function handleCreate(array $payload, $localActor, $externalActor)
+    public function handleCreate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info("NoteController: Handling Create Activity");
         $object = $payload['object'] ?? null;
@@ -74,7 +76,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
         }
     }
 
-    public function handleUpdate(array $payload, $localActor, $externalActor)
+    public function handleUpdate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info("NoteController: Handling Update Activity");
         $object = $payload['object'] ?? null;
@@ -156,7 +158,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
         return true;
     }
 
-    public function handleDelete(array $payload, $localActor, $externalActor)
+    public function handleDelete(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info("NoteController: Handling Delete Activity");
         $object = $payload['object'] ?? null;
@@ -188,7 +190,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
 
     // --- Internal Helpers ---
 
-    protected function createNoteEntry($object, $authorActor)
+    protected function createNoteEntry(array $object, \Statamic\Contracts\Entries\Entry $authorActor): ?\Statamic\Contracts\Entries\Entry
     {
         $id = $object['id'] ?? null;
         if ($id) {
@@ -249,7 +251,8 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
                 $origQuoteNote = $this->fetchAndCreateNote($quoteUrl);
             }
             if ($origQuoteNote) {
-                $quoteOfId = [$origQuoteNote->id()];
+                // Store ID as string, wrap it later if needed (Statamic relationship expects array, but let's be consistent)
+                $quoteOfId = $origQuoteNote->id();
             }
         }
 
@@ -268,18 +271,18 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
             ->slug($uuid)
             ->date($date)
             ->data([
-                    'title' => $title,
-                    'content' => $content,
-                    'actor' => $authorActor->id(),
-                    'date' => $published,
-                    'activitypub_id' => $id,
-                    'activitypub_json' => json_encode($object),
-                    'is_internal' => false,
-                    'in_reply_to' => $inReplyTo,
-                    'quote_of' => $quoteOfId ? [$quoteOfId] : null,
-                    'sensitive' => $sensitive,
-                    'summary' => $summary,
-                ]);
+                'title' => $title,
+                'content' => $content,
+                'actor' => $authorActor->id(),
+                'date' => $published,
+                'activitypub_id' => $id,
+                'activitypub_json' => json_encode($object),
+                'is_internal' => false,
+                'in_reply_to' => $inReplyTo,
+                'quote_of' => $quoteOfId ? [$quoteOfId] : null,
+                'sensitive' => $sensitive,
+                'summary' => $summary,
+            ]);
 
         // Parse Mentions
         $mentioned = [];
@@ -306,7 +309,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
         return $note;
     }
 
-    protected function fetchAndCreateNote($url)
+    protected function fetchAndCreateNote(string $url): ?\Statamic\Contracts\Entries\Entry
     {
         try {
             Log::info("NoteController: Fetching note from $url");
@@ -342,7 +345,7 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
         }
     }
 
-    protected function updateNoteEntry($object, $authorActor)
+    protected function updateNoteEntry(array $object, mixed $authorActor)
     {
         $id = $object['id'] ?? null;
         if (!$id)

@@ -64,7 +64,6 @@ class AcceptController implements ActivityHandlerInterface
             ->where('collection', 'notes')
             ->where('quote_request_id', $quoteRequestId)
             ->first();
-
         if (!$quoteNote) {
             Log::warning("AcceptController: No quote note found with request ID: {$quoteRequestId}");
             return;
@@ -99,7 +98,7 @@ class AcceptController implements ActivityHandlerInterface
     /**
      * Queue a Create activity for the approved quote
      */
-    protected function queueCreateActivity($quoteNote): void
+    protected function queueCreateActivity(\Statamic\Contracts\Entries\Entry $quoteNote): void
     {
         // Check if a Create activity already exists
         $existingActivity = Entry::query()

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -12,7 +14,7 @@ class ReplyController extends BaseObjectController
     // BaseObjectController::index($handle)
     // ReplyController::index($handle, $uuid)
 
-    public function index($handle, $uuid = null)
+    public function index(string $handle, ?string $uuid = null)
     {
         // 1. Find Actor
         $actor = $this->findActor($handle);

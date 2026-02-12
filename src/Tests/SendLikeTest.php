@@ -76,9 +76,6 @@ class SendLikeTest extends TestCase
         $this->assertEquals('Like', $activity->get('type'));
 
         $json = json_decode($activity->get('activitypub_json'), true);
-        dump('Activity activitypub_json:', $activity->get('activitypub_json'));
-        dump('Decoded JSON:', $json);
-        dump('Expected URL:', $url);
         $this->assertNotNull($json);
         $this->assertEquals('Like', $json['type']);
         $this->assertEquals($url, $json['object']);

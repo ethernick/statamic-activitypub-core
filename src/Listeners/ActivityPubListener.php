@@ -36,7 +36,7 @@ class ActivityPubListener
         }
 
         if ($event instanceof EntrySaving) {
-            $this->handleEntrySaving($event, $event->entry, $event->entry->collection()->handle());
+            $this->handleEntrySaving($event);
         }
 
         if ($event instanceof EntrySaved) {
@@ -106,10 +106,13 @@ class ActivityPubListener
 
         // Handle legacy boolean format or new array format
         if (is_bool($config)) {
+
             return $config;
         }
 
-        return $config['enabled'] ?? false;
+        $enabled = $config['enabled'] ?? false;
+
+        return $enabled;
     }
 
     protected function getType($handle)
@@ -130,16 +133,27 @@ class ActivityPubListener
             return;
         }
 
+
+
         $blueprint = $event->blueprint;
 
         // Inject activitypub_json field
         if (!$blueprint->hasField('activitypub_json')) {
             $blueprint->ensureField('activitypub_json', [
-                'type' => 'textarea',
+                'type' => 'textarea', // Use 'textarea' for JSON storage
                 'display' => 'ActivityPub JSON',
-                'visibility' => 'hidden', // Hide from UI but keep in data
-                'read_only' => true,
+                'visibility' => 'hidden',
+                'read_only' => false,
             ]);
+        } else {
+            // Field exists, force read_only to false
+            $field = $blueprint->field('activitypub_json');
+            if ($field) {
+                $config = $field->config();
+                $config['read_only'] = false;
+                $config['visibility'] = 'visible'; // Debug visibility
+                $field->setConfig($config);
+            }
         }
 
         // Inject actor field if not present
@@ -166,8 +180,13 @@ class ActivityPubListener
         }
     }
 
-    protected function handleEntrySaving($event, $entry, $handle)
+    public function handleEntrySaving(EntrySaving $event)
     {
+        $entry = $event->entry;
+        $handle = $entry->collection()->handle();
+
+        // \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaving START for {$entry->id()} in {$handle}");
+
         if (!$this->isEnabled($handle)) {
             return;
         }
@@ -180,6 +199,13 @@ class ActivityPubListener
         } else {
             $entry->setSupplement('_old_quote_of', null);
         }
+
+        \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaving for {$entry->id()}", [
+            'is_internal' => $entry->get('is_internal'),
+            'actor' => $entry->get('actor'),
+            'handle' => $handle,
+            'enabled' => $this->isEnabled($handle),
+        ]);
 
         // 1. Ensure Actor is set
         $actorId = $entry->get('actor');
@@ -214,7 +240,10 @@ class ActivityPubListener
                     $actor = $this->getActor($actorId);
                     if ($actor) {
                         $isInternal = $actor->get('is_internal', false);
+
                         $entry->set('is_internal', $isInternal);
+                    } else {
+
                     }
                 }
             }
@@ -222,15 +251,31 @@ class ActivityPubListener
 
         // 2. Generate ActivityPub JSON
         // Only generate for internal items. External items should keep their original JSON.
-        if ($entry->get('is_internal') !== false) {
-            $type = $this->getType($handle);
-            $json = $this->generateActivityPubJson($entry, $actorId, $type);
-            $entry->set('activitypub_json', $json);
+        // Logic above ensures is_internal is synced with actor.
+        $shouldGen = $entry->get('is_internal');
+
+
+        if ($shouldGen !== false) {
+            try {
+                $type = $this->getType($handle);
+                $json = $this->generateActivityPubJson($entry, $actorId, $type);
+                $entry->set('activitypub_json', $json);
+
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("ActivityPubListener: Error generating JSON: " . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
         }
     }
 
     protected function generateActivityPubJson($entry, $actorId, $type)
     {
+        \Illuminate\Support\Facades\Log::info("ActivityPubListener: Generating JSON for {$entry->id()}", [
+            'type' => $type,
+            'collection' => $entry->collection()->handle()
+        ]);
+
         // Resolve Actor URL
         if (is_array($actorId)) {
             $actorId = $actorId[0] ?? null;
@@ -253,20 +298,166 @@ class ActivityPubListener
         }
 
         $data = [
+            '@context' => [
+                'https://www.w3.org/ns/activitystreams',
+                [
+                    'quote' => 'https://w3id.org/fep/044f#quote',
+                    'quoteUri' => 'http://fedibird.com/ns#quoteUri',
+                    '_misskey_quote' => 'https://misskey-hub.net/ns#_misskey_quote',
+                    'quoteUrl' => 'https://w3id.org/fep/044f#quoteUrl', // Wait, quoteUrl is property? Yes.
+                    'quoteAuthorization' => [
+                        '@id' => 'https://w3id.org/fep/044f#quoteAuthorization',
+                        '@type' => '@id',
+                    ],
+                    'interactionPolicy' => [
+                        '@id' => 'gts:interactionPolicy',
+                        '@type' => '@id',
+                    ],
+                    'gts' => 'https://gotosocial.org/ns#',
+                ]
+            ],
+            'id' => $this->sanitizeUrl($url),
             'type' => $type,
-            'url' => $this->sanitizeUrl($url),
-            'actor_url' => $this->sanitizeUrl($actorUrl),
+            'actor' => $this->sanitizeUrl($actorUrl),
             'published' => $published->toIso8601String(),
-            'replies' => $this->sanitizeUrl(url('@' . ($actorHandle ?? 'unknown') . '/notes/' . $entry->slug() . '/replies')),
+            'url' => $this->sanitizeUrl($url),
+            'attributedTo' => $this->sanitizeUrl($actorUrl),
+            'to' => ['https://www.w3.org/ns/activitystreams#Public'],
+            'cc' => [$actorUrl . '/followers'],
         ];
 
-        // Special handling for Activities collection
+        // Content
+        if ($entry->has('content')) {
+            $data['content'] = $entry->get('content');
+        }
+
+        // Summary / CW
+        if ($entry->has('summary')) {
+            $data['summary'] = $entry->get('summary');
+        } elseif ($entry->has('cw')) {
+            $data['summary'] = $entry->get('cw');
+        }
+
+        // Sensitive
+        if ($entry->has('sensitive')) {
+            $data['sensitive'] = (bool) $entry->get('sensitive');
+        } else {
+            $data['sensitive'] = false;
+        }
+
+        // Tags
+        $tags = [];
+        $mentions = $this->extractMentions($data['content'] ?? '');
+        foreach ($mentions as $mention) {
+            $tags[] = [
+                'type' => 'Mention',
+                'href' => $mention['href'],
+                'name' => $mention['name'],
+            ];
+            $data['cc'][] = $mention['href'];
+        }
+
+        // Hashtags logic if needed...
+
+        if (!empty($tags)) {
+            $data['tag'] = $tags;
+        }
+
+        // Attachments
+        if ($assetId = $entry->get('attachment')) { // Single attachment for now
+            // Simplified attachment handling
+            // In a real implementation we'd resolve the asset
+        }
+
+        // Replies collection
+        $data['replies'] = [
+            'id' => $url . '/replies',
+            'type' => 'Collection',
+            'first' => [
+                'type' => 'CollectionPage',
+                'next' => $url . '/replies?page=1',
+                'partOf' => $url . '/replies',
+                'items' => []
+            ]
+        ];
+
+        // --- QUOTE LOGIC ---
+        // Add quote fields if this is a quote
+        $quoteOf = $entry->get('quote_of');
+        if (is_array($quoteOf)) {
+            $quoteOf = $quoteOf[0] ?? null;
+        }
+
+        if ($quoteOf) {
+            // Check if it's an internal ID or external URL
+            if (\Illuminate\Support\Str::isUuid($quoteOf)) {
+                $quotedEntry = \Statamic\Facades\Entry::find($quoteOf);
+                if ($quotedEntry) {
+                    $quotedUrl = $quotedEntry->get('activitypub_id') ?: $quotedEntry->absoluteUrl();
+                } else {
+                    $quotedUrl = null;
+                }
+            } else {
+                // Assume external URL from supplement or just use ID if it looks like URL?
+                // Usually quote_of stores ID.
+                // If external, Statamic stores ID but we need URL.
+                // Wait, if external quote, how is it stored?
+                // Usually external actors are stored as Entries.
+                // Quoted external notes might be stored as Entries too?
+                $quotedEntry = \Statamic\Facades\Entry::find($quoteOf);
+                if ($quotedEntry) {
+                    $quotedUrl = $quotedEntry->get('activitypub_id');
+                } else {
+                    $quotedUrl = $quoteOf; // Fallback?
+                }
+            }
+
+            if ($quotedUrl) {
+                // Determine quoteUrl vs quote
+                // FEP-044f says 'quoteUrl' is Link/Url, 'quote' is Object/Url.
+                // We use both for compatibility. Misskey uses _misskey_quote.
+                $data['quoteUrl'] = $quotedUrl;
+                $data['quote'] = $quotedUrl;
+                $data['_misskey_quote'] = $quotedUrl;
+
+                // Add Authorization Status/Stamp if present
+                $authStamp = $entry->get('quote_authorization_stamp');
+                if ($authStamp) {
+                    $data['quoteAuthorization'] = $authStamp;
+                }
+            }
+        }
+
+        // Interaction Policy (GTS)
+        $data['interactionPolicy'] = [
+            'id' => $url . '#interaction-policy',
+            'type' => 'gts:interactionPolicy',
+            'canQuote' => [
+                'type' => 'gts:interactionPolicyRule',
+                // Public by default for now
+                'automaticApproval' => ['https://www.w3.org/ns/activitystreams#Public']
+            ]
+        ];
+
+
+        // Special handling for Activities collection (overwrite type, object, summary)
         if ($entry->collection()->handle() === 'activities') {
             $activityType = $entry->get('type') ?? 'Create';
             if (is_array($activityType)) {
                 $activityType = $activityType[0] ?? 'Create';
             }
             $data['type'] = $activityType;
+
+            // Remove Note specific fields if wrapping activity?
+            // Usually Activity wraps Note in 'object'.
+            // But here we are generating JSON for the entry itself.
+            // If the entry IS an activity, it points to an object.
+
+            unset($data['content']);
+            unset($data['sensitive']);
+            unset($data['attachment']);
+            unset($data['tag']);
+            unset($data['quoteUrl']); // Quote is on valid object, not activity wrapper usually?
 
             // Get the object
             $objectId = $entry->get('object');
@@ -277,38 +468,40 @@ class ActivityPubListener
             $objectJson = 'null';
             $objectSummary = "an object";
 
-            // Special handling for Delete activities - use deleted_object_url if entry no longer exists
+            // Special handling for Delete activities - use deleted_object_url
             if ($activityType === 'Delete' && $entry->get('deleted_object_url')) {
                 $deletedUrl = $entry->get('deleted_object_url');
                 $objectJson = json_encode($deletedUrl, JSON_UNESCAPED_SLASHES);
                 $objectSummary = "a note";
             } elseif ($objectId) {
+                // Recursion for object
                 $objectEntry = \Statamic\Facades\Entry::find($objectId);
                 if ($objectEntry) {
-                    // Recursively generate JSON for the object
+
+                    // Get object JSON (recursive call)
                     $objectCollectionHandle = $objectEntry->collection()->handle();
                     $objectType = $this->getType($objectCollectionHandle);
-
                     $objectActorId = $objectEntry->get('actor');
-                    // This returns a JSON string now
+
+                    // Avoid infinite recursion?
                     $objectJson = $this->generateActivityPubJson($objectEntry, $objectActorId, $objectType);
 
-                    // Strip @context from embedded objects (they inherit from parent activity)
+
+                    // Decode
+                    $chk = json_decode($objectJson, true);
+
+
+                    // Decode to strip @context
                     $objectData = json_decode($objectJson, true);
                     if ($objectData && isset($objectData['@context'])) {
                         unset($objectData['@context']);
                         $objectJson = json_encode($objectData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                     }
+                } else {
 
-                    $objectSummary = "a " . match ($objectType) {
-                        'Note' => 'note',
-                        'Question' => 'question',
-                        default => 'article'
-                    };
                 }
             }
-
-            // If we didn't find an entry object, check if we have a direct URL (e.g. for Likes on external objects)
+            // If we didn't find entry object, handle external object URL
             if ($objectJson === 'null') {
                 $objectUrl = $entry->get('object_url');
                 if ($objectUrl) {
@@ -317,58 +510,18 @@ class ActivityPubListener
                 }
             }
 
-            $data['object_json'] = $objectJson;
-
-            // Use content field for summary
-            $summary = $entry->get('content');
-
-            // Fallback if content is empty (e.g. old activities)
-            if (!$summary) {
-                $summary = "{$actorHandle} {$activityType}d {$objectSummary}";
-                if (strtolower($activityType) === 'create')
-                    $summary = "{$actorHandle} created {$objectSummary}";
-                if (strtolower($activityType) === 'update')
-                    $summary = "{$actorHandle} updated {$objectSummary}";
-                if (strtolower($activityType) === 'delete')
-                    $summary = "{$actorHandle} deleted {$objectSummary}";
+            if ($objectJson !== 'null') {
+                $data['object'] = json_decode($objectJson, true);
             }
 
-            $data['summary'] = $summary;
-
-            // Add Addressing
-            // Only for Create/Update?
-            // "When people are making an item in a colleciton that is flagged that an activity is created" -> this is likely the activity itself.
-            // The prompt says: "add the following json values to the activity"
-
-            $data['to'] = ['https://www.w3.org/ns/activitystreams#Public'];
-            $data['cc'] = [$actorUrl . '/followers'];
-
-            if ($objectJson && $objectJson !== 'null') {
-                $objData = json_decode($objectJson, true);
-                if (is_array($objData)) {
-                    if (isset($objData['to'])) {
-                        $data['to'] = array_values(array_unique(array_merge($data['to'], (array) $objData['to'])));
-                    }
-                    if (isset($objData['cc'])) {
-                        $data['cc'] = array_values(array_unique(array_merge($data['cc'], (array) $objData['cc'])));
-                    }
-
-                    // Specific handling for Announce: Add original author to CC if not already present
-                    if ($activityType === 'Announce' && isset($objData['attributedTo'])) {
-                        $attributedTo = $objData['attributedTo'];
-                        if (is_array($attributedTo))
-                            $attributedTo = $attributedTo[0] ?? null;
-                        if ($attributedTo) {
-                            $data['cc'][] = $attributedTo;
-                            $data['cc'] = array_values(array_unique($data['cc']));
-                        }
-                    }
+            if (isset($data['object']) && is_array($data['object'])) {
+                if (isset($data['object']['to'])) {
+                    $data['to'] = array_values(array_unique(array_merge($data['to'], (array) $data['object']['to'])));
+                }
+                if (isset($data['object']['cc'])) {
+                    $data['cc'] = array_values(array_unique(array_merge($data['cc'], (array) $data['object']['cc'])));
                 }
             }
-
-            $json = view('activitypub::json.activity', $data)->render();
-            \Illuminate\Support\Facades\Log::info("ActivityPubListener: Generated Activity JSON", ['json' => $json]);
-            return $json;
         }
 
         // Standard handling for other collections
@@ -376,7 +529,7 @@ class ActivityPubListener
 
         // Convert content to HTML
         if ($content) {
-            $content = Markdown::parse((string) $content);
+            $content = \Statamic\Facades\Markdown::parse((string) $content);
         }
 
         $data['content'] = $content;
@@ -438,15 +591,10 @@ class ActivityPubListener
             $cc[] = $mention['href'];
         }
 
-        $data['to'] = $to;
-        $data['cc'] = $cc;
-        $data['tag'] = $tags;
+        $data['to'] = array_values(array_unique(array_merge($data['to'] ?? [], $to)));
+        $data['cc'] = array_values(array_unique(array_merge($data['cc'] ?? [], $cc)));
+        $data['tag'] = array_merge($data['tag'] ?? [], $tags);
 
-        // Add content warning fields (sensitive/summary)
-        if ($entry->get('sensitive')) {
-            $data['sensitive'] = true;
-            $data['summary'] = $entry->get('summary');
-        }
 
         // Add quote authorization stamp to tags if present (FEP-044f)
         $authStamp = $entry->get('quote_authorization_stamp');
@@ -528,7 +676,9 @@ class ActivityPubListener
             }
         }
 
-        return view($template, $data)->render();
+        $json = view($template, $data)->render();
+
+        return $json;
     }
 
     protected function extractMentions($html)
@@ -563,6 +713,12 @@ class ActivityPubListener
 
         // Check if quote_of was added during edit (for notes/polls/articles)
         $collection = $entry->collection()->handle();
+        \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaved for {$entry->id()} in {$collection}", [
+            'is_internal' => $entry->get('is_internal'),
+            'old_quote_of' => $entry->getSupplement('_old_quote_of'),
+            'new_quote_of' => $entry->get('quote_of'),
+        ]);
+
         if (in_array($collection, ['notes', 'polls', 'articles'])) {
             $oldQuoteOf = $entry->getSupplement('_old_quote_of');
             $newQuoteOf = $entry->get('quote_of');

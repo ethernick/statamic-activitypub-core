@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Ethernick\ActivityPubCore\Contracts\ActivityHandlerInterface;

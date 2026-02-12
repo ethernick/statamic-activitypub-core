@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 class OEmbed
 {
-    public static function resolve($content)
+    public static function resolve(string $content): ?array
     {
         // Find all links in content, skip mention links (class="mention" or class="u-url mention")
         // We want the last non-mention link, which is usually the shared URL
@@ -16,8 +18,10 @@ class OEmbed
         $url = null;
         foreach (array_reverse($matches) as $match) {
             // Skip if it's a mention link
-            if (strpos($match[0], 'class="mention"') !== false ||
-                strpos($match[0], 'class="u-url mention"') !== false) {
+            if (
+                strpos($match[0], 'class="mention"') !== false ||
+                strpos($match[0], 'class="u-url mention"') !== false
+            ) {
                 continue;
             }
             $url = $match[1];

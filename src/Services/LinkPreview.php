@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -7,9 +9,9 @@ use Illuminate\Support\Facades\Log;
 
 class LinkPreview
 {
-    public static function extractUrl($html)
+    public static function extractUrl(mixed $html): ?string
     {
-        if (empty($html)) {
+        if (empty($html) || !is_string($html)) {
             return null;
         }
 
@@ -50,7 +52,7 @@ class LinkPreview
         return null;
     }
 
-    public static function fetch($url)
+    public static function fetch(string $url): ?array
     {
         try {
             // Fetch content with a timeout

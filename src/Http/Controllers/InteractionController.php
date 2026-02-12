@@ -1,24 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Facades\Entry;
 use Statamic\Http\Controllers\Controller;
 
 class InteractionController extends Controller
 {
-    public function likes($handle, $uuid)
+    public function likes(string $handle, string $uuid)
     {
         return $this->getInteractionCollection($handle, $uuid, 'Like');
     }
 
-    public function shares($handle, $uuid)
+    public function shares(string $handle, string $uuid)
     {
         return $this->getInteractionCollection($handle, $uuid, 'Announce');
     }
 
-    protected function getInteractionCollection($handle, $uuid, $type)
+    protected function getInteractionCollection(string $handle, string $uuid, string $type)
     {
         // 1. Find Parent Note/Article
         $parent = Entry::query()
@@ -45,6 +48,8 @@ class InteractionController extends Controller
         // Usually it's the full URL or the activitypub_id.
         // Our 'activities' collection stores the raw object URI in 'object'.
 
+        /** @var EntryContract $actor */
+        /** @var EntryContract $parent */
         $objectUri = url('@' . $actor->slug() . '/notes/' . $parent->slug()); // Default guess
 
         // If the parent has a specific activitypub_id (e.g. from import), use that?

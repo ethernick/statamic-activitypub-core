@@ -8,25 +8,26 @@ use Tests\TestCase;
 use Illuminate\Support\Facades\Queue;
 use Statamic\Facades\Entry;
 use Ethernick\ActivityPubCore\Http\Controllers\AcceptController;
-use Ethernick\ActivityPubCore\Tests\Concerns\BacksUpFiles;
+use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
+use PHPUnit\Framework\Attributes\Test;
 
 class AcceptControllerTest extends TestCase
 {
-    use BacksUpFiles;
+    use BackupsFiles;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles();
+        $this->backupFiles([]);
     }
 
     protected function tearDown(): void
     {
-        $this->restoreFiles();
+        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_processes_accept_with_quote_authorization()
     {
         Queue::fake();
@@ -52,10 +53,11 @@ class AcceptControllerTest extends TestCase
         $remoteActor->save();
 
         // Create pending quote
-        $quoteRequestId = 'https://local.com/notes/quote-123#quote-request-abc';
+        $uniqueId = uniqid();
+        $quoteRequestId = 'https://local.com/notes/quote-' . $uniqueId . '#quote-request-abc';
         $quote = Entry::make()
             ->collection('notes')
-            ->slug('quote-note')
+            ->slug('quote-note-' . $uniqueId)
             ->data([
                 'content' => 'My quote',
                 'actor' => [$localActor->id()],
@@ -80,6 +82,7 @@ class AcceptControllerTest extends TestCase
             'result' => $authorizationStamp,
         ];
 
+
         // Process Accept
         $controller = new AcceptController();
         $controller->handleAccept($payload, $localActor, $remoteActor);
@@ -93,7 +96,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue($quote->get('_quote_approved'));
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_accept_without_authorization_stamp()
     {
         // Create actors and pending quote
@@ -109,10 +112,11 @@ class AcceptControllerTest extends TestCase
             ->data(['activitypub_id' => 'https://remote.com/users/remote']);
         $remoteActor->save();
 
-        $quoteRequestId = 'https://local.com/notes/quote-123#quote-request-abc';
+        $uniqueId = uniqid();
+        $quoteRequestId = 'https://local.com/notes/quote-' . $uniqueId . '#quote-request-abc';
         $quote = Entry::make()
             ->collection('notes')
-            ->slug('quote-note')
+            ->slug('quote-note-' . $uniqueId)
             ->data([
                 'content' => 'My quote',
                 'actor' => [$localActor->id()],
@@ -144,7 +148,7 @@ class AcceptControllerTest extends TestCase
         $this->assertNull($quote->get('quote_authorization_stamp'));
     }
 
-    /** @test */
+    #[Test]
     public function it_ignores_accept_if_quote_not_found()
     {
         $localActor = Entry::make()
@@ -179,7 +183,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_accept_object_is_quote_request()
     {
         $localActor = Entry::make()
@@ -213,7 +217,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /** @test */
+    #[Test]
     public function it_triggers_create_activity_after_approval()
     {
         Queue::fake();
@@ -230,10 +234,11 @@ class AcceptControllerTest extends TestCase
             ->data(['activitypub_id' => 'https://remote.com/users/remote']);
         $remoteActor->save();
 
-        $quoteRequestId = 'https://local.com/notes/quote-123#quote-request-abc';
+        $uniqueId = uniqid();
+        $quoteRequestId = 'https://local.com/notes/quote-' . $uniqueId . '#quote-request-abc';
         $quote = Entry::make()
             ->collection('notes')
-            ->slug('quote-note')
+            ->slug('quote-note-' . $uniqueId)
             ->data([
                 'content' => 'My quote',
                 'actor' => [$localActor->id()],

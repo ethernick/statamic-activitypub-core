@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 class ActivityPubTypes
 {
     // Default types are defined here but can be extended via register()
-    protected static $types = [];
+    protected static array $types = [];
 
     /**
      * Register a new ActivityPub type from an addon.
@@ -16,7 +18,7 @@ class ActivityPubTypes
      * @param string|null $slug Optional slug override.
      * @param array $collections Related Statamic collections (e.g. ['polls']).
      */
-    public static function register(string $key, string $label, ?string $controller = null, ?string $slug = null, array $collections = [])
+    public static function register(string $key, string $label, ?string $controller = null, ?string $slug = null, array $collections = []): void
     {
         self::$types[$key] = [
             'label' => $label,
@@ -33,7 +35,7 @@ class ActivityPubTypes
      * @param string $key The internal key (e.g. 'Question')
      * @param array $overrides Key-value pair of properties to override (e.g. ['controller' => NewController::class])
      */
-    public static function modify(string $key, array $overrides)
+    public static function modify(string $key, array $overrides): void
     {
         if (isset(self::$types[$key])) {
             self::$types[$key] = array_merge(self::$types[$key], $overrides);

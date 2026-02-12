@@ -9,26 +9,47 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Event;
 use Statamic\Facades\Entry;
 use Ethernick\ActivityPubCore\Jobs\SendQuoteRequest;
-use Ethernick\ActivityPubCore\Tests\Concerns\BacksUpFiles;
+use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
+use PHPUnit\Framework\Attributes\Test;
 
 class ActivityPubListenerQuoteTest extends TestCase
 {
-    use BacksUpFiles;
+    use BackupsFiles;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles();
+        $this->backupFiles([]);
         Queue::fake();
+
+        // Create activitypub.yaml config
+        if (!file_exists(resource_path('settings'))) {
+            mkdir(resource_path('settings'), 0755, true);
+        }
+        file_put_contents(
+            resource_path('settings/activitypub.yaml'),
+            "notes:\n  enabled: true\n  type: Note\n  federated: true\n"
+        );
     }
 
     protected function tearDown(): void
     {
-        $this->restoreFiles();
+        $this->restoreBackedUpFiles();
+
+        // Reset ActivityPubListener static caches
+        $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
+        $settingsCache = $reflection->getProperty('settingsCache');
+        $settingsCache->setAccessible(true);
+        $settingsCache->setValue(null, null);
+
+        $actorCache = $reflection->getProperty('actorCache');
+        $actorCache->setAccessible(true);
+        $actorCache->setValue(null, []);
+
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function it_dispatches_quote_request_only_once_on_create()
     {
         // Create actor
@@ -37,6 +58,7 @@ class ActivityPubListenerQuoteTest extends TestCase
             ->slug('test-actor')
             ->data([
                 'activitypub_id' => 'https://test.com/users/test',
+                'is_internal' => true,
             ]);
         $actor->save();
 
@@ -71,14 +93,14 @@ class ActivityPubListenerQuoteTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_dispatches_quote_request_when_quote_added_via_edit()
     {
         // Create actor
         $actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test']);
+            ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         // Create external note
@@ -116,13 +138,13 @@ class ActivityPubListenerQuoteTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_dispatch_quote_request_for_non_quote_posts()
     {
         $actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test']);
+            ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         // Create regular note without quote_of
@@ -140,13 +162,13 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertNotPushed(SendQuoteRequest::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_dispatch_duplicate_on_subsequent_saves()
     {
         $actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test']);
+            ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         $quotedNote = Entry::make()
@@ -184,13 +206,13 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertNotPushed(SendQuoteRequest::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_quote_added_from_empty_array_to_populated()
     {
         $actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test']);
+            ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         $quotedNote = Entry::make()
@@ -224,13 +246,13 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertPushed(SendQuoteRequest::class, 1);
     }
 
-    /** @test */
+    #[Test]
     public function it_works_with_different_collection_types()
     {
         $actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
-            ->data(['activitypub_id' => 'https://test.com/users/test']);
+            ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         $quotedNote = Entry::make()

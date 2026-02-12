@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class HttpSignature
@@ -18,7 +19,7 @@ class HttpSignature
      * @param string $body The request body
      * @return array Headers including the Signature
      */
-    public static function sign($url, $actorId, $privateKey, $body)
+    public static function sign(string $url, string $actorId, string $privateKey, string $body): array
     {
         $parsedUrl = parse_url($url);
         $host = $parsedUrl['host'];
@@ -64,7 +65,7 @@ class HttpSignature
         ];
     }
 
-    protected static function buildStringToSign($headers)
+    protected static function buildStringToSign(array $headers): string
     {
         $parts = [];
         foreach ($headers as $key => $value) {
@@ -81,7 +82,7 @@ class HttpSignature
      * @param \Illuminate\Http\Request $request
      * @return bool
      */
-    public static function verify(\Illuminate\Http\Request $request)
+    public static function verify(\Illuminate\Http\Request $request): bool
     {
         if (app()->runningUnitTests() && \Ethernick\ActivityPubCore\Http\Controllers\ActorController::$shouldSkipSignatureVerificationInTests) {
             return true;
@@ -142,7 +143,7 @@ class HttpSignature
                                     }
 
                                     // 2. Fetch with JSON-LD headers
-                                    $response = Http::withHeaders([
+                                    $response = \Illuminate\Support\Facades\Http::withHeaders([
                                         'Accept' => 'application/activity+json, application/ld+json',
                                     ])->withOptions($options)->get($fetchUrl);
 

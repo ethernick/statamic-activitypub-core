@@ -16,7 +16,7 @@ use Ethernick\ActivityPubCore\Services\ThreadService;
 
 class InboxHandler
 {
-    public function handle(array $payload, mixed $localActor, mixed $externalActor): void
+    public function handle(array $payload, $localActor, $externalActor = null)
     {
         $type = $payload['type'] ?? 'Unknown';
         $actorId = $payload['actor'] ?? 'Unknown';
@@ -142,7 +142,7 @@ class InboxHandler
         }
     }
 
-    protected function processFollowActivity($payload, $actor, $externalActor)
+    protected function processFollowActivity(array $payload, mixed $actor, mixed $externalActor): void
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Follow from $actorId");
@@ -193,7 +193,7 @@ class InboxHandler
         Log::info("InboxHandler: Accepted Follow from $actorId");
     }
 
-    protected function processAcceptActivity($payload, $actor, $externalActor)
+    protected function processAcceptActivity(array $payload, mixed $actor, mixed $externalActor): void
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Accept from $actorId");
@@ -235,7 +235,7 @@ class InboxHandler
         }
     }
 
-    protected function processRejectActivity($payload, $actor, $externalActor)
+    protected function processRejectActivity(array $payload, mixed $actor, mixed $externalActor): void
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Reject from $actorId");
@@ -249,7 +249,7 @@ class InboxHandler
         }
     }
 
-    protected function processUndoActivity($payload, $actor, $externalActor)
+    protected function processUndoActivity(array $payload, mixed $actor, mixed $externalActor): void
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         $object = $payload['object'] ?? [];
@@ -270,7 +270,7 @@ class InboxHandler
         }
     }
 
-    protected function processCreateActivity($payload, $actor, $externalActor)
+    protected function processCreateActivity(array $payload, mixed $actor, mixed $externalActor): bool
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Create from $actorId");
@@ -334,7 +334,7 @@ class InboxHandler
         // User wants to AVOID persisting the stray actor. So we must return FALSE.
     }
 
-    protected function processUpdateActivity($payload, $actor, $externalActor)
+    protected function processUpdateActivity(array $payload, mixed $actor, mixed $externalActor): bool
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Update from $actorId");
@@ -399,7 +399,7 @@ class InboxHandler
         return false;
     }
 
-    protected function processDeleteActivity($payload, $actor, $externalActor)
+    protected function processDeleteActivity(array $payload, mixed $actor, mixed $externalActor): bool
     {
         $actorId = $payload['actor'] ?? 'Unknown';
         Log::info("InboxHandler: Processing Delete from $actorId");
@@ -481,7 +481,7 @@ class InboxHandler
         return true;
     }
 
-    protected function handleLikeActivity($payload, $actorId)
+    protected function handleLikeActivity(array $payload, string $actorId): void
     {
         $objectUrl = $payload['object'] ?? null;
         if (!$objectUrl)
@@ -508,7 +508,7 @@ class InboxHandler
         }
     }
 
-    protected function handleUndoLikeActivity($object, $actorId)
+    protected function handleUndoLikeActivity(array $object, string $actorId): void
     {
         $targetUrl = $object['object'] ?? null;
         if (!$targetUrl)
@@ -531,7 +531,7 @@ class InboxHandler
         }
     }
 
-    protected function handleAnnounceActivity($payload, $localActor, $boosterActor)
+    protected function handleAnnounceActivity(array $payload, mixed $localActor, mixed $boosterActor): void
     {
         $objectUrl = $payload['object'] ?? null;
         if (is_array($objectUrl))
@@ -623,7 +623,7 @@ class InboxHandler
         Log::info("InboxHandler: Processed Boost for Note {$originalNote->id()} by {$boosterActor->get('title')}");
     }
 
-    protected function handleCreateNote($object, $authorActor)
+    protected function handleCreateNote(array $object, mixed $authorActor): mixed
     {
         // Ensure author is saved
         if ($authorActor && !$authorActor->id()) {
@@ -632,7 +632,7 @@ class InboxHandler
         return $this->createNoteEntry($object, $authorActor);
     }
 
-    protected function createNoteEntry($object, $authorActor)
+    protected function createNoteEntry(array $object, mixed $authorActor): mixed
     {
         $id = $object['id'] ?? null;
         if ($id) {
@@ -693,7 +693,7 @@ class InboxHandler
                 $origQuoteNote = $this->fetchAndCreateNote($quoteUrl);
             }
             if ($origQuoteNote) {
-                $quoteOfId = [$origQuoteNote->id()];
+                $quoteOfId = $origQuoteNote->id();
             }
         }
 
@@ -705,20 +705,20 @@ class InboxHandler
             ->slug($uuid)
             ->date($date)
             ->data([
-                    'title' => $title,
-                    'content' => $content,
-                    'actor' => $authorActor->id(),
-                    'date' => $published,
-                    'activitypub_id' => $id,
-                    'activitypub_json' => json_encode($object),
-                    'is_internal' => false,
-                    'in_reply_to' => $inReplyTo,
-                    'quote_of' => $quoteOfId ? [$quoteOfId] : null,
-                    'sensitive' => $object['sensitive'] ?? false,
-                    'summary' => (!empty($object['summary'])) ? $object['summary'] : (
-                        ($object['sensitive'] ?? false) ? 'Sensitive Content' : null
-                    ),
-                ]);
+                'title' => $title,
+                'content' => $content,
+                'actor' => $authorActor->id(),
+                'date' => $published,
+                'activitypub_id' => $id,
+                'activitypub_json' => json_encode($object),
+                'is_internal' => false,
+                'in_reply_to' => $inReplyTo,
+                'quote_of' => null,
+                'sensitive' => $object['sensitive'] ?? false,
+                'summary' => (!empty($object['summary'])) ? $object['summary'] : (
+                    ($object['sensitive'] ?? false) ? 'Sensitive Content' : null
+                ),
+            ]);
 
         // Parse Mentions
         $mentioned = [];
@@ -734,6 +734,9 @@ class InboxHandler
         }
 
         $note->set('title', $title);
+        if ($quoteOfId) {
+            $note->set('quote_of', [$quoteOfId]);
+        }
         $note->save();
 
         if ($inReplyTo) {
@@ -746,7 +749,7 @@ class InboxHandler
         return $note;
     }
 
-    protected function createPollEntry($object, $authorActor)
+    protected function createPollEntry(array $object, mixed $authorActor): mixed
     {
         $id = $object['id'] ?? null;
         if ($id) {
@@ -807,23 +810,23 @@ class InboxHandler
             ->slug($uuid)
             ->date($date)
             ->data([
-                    'title' => strip_tags($content),
-                    'content' => $content,
-                    'actor' => $authorActor->id(),
-                    'date' => $published,
-                    'activitypub_id' => $id,
-                    'activitypub_json' => json_encode($object),
-                    'is_internal' => false,
-                    'sensitive' => $object['sensitive'] ?? false,
-                    'summary' => (!empty($object['summary'])) ? $object['summary'] : (
-                        ($object['sensitive'] ?? false) ? 'Sensitive Content' : null
-                    ),
-                    'options' => $options,
-                    'multiple_choice' => $isMultipleChoice,
-                    'voters_count' => $object['votersCount'] ?? 0,
-                    'end_time' => $endTime ? $endTime->toIso8601String() : null,
-                    'closed' => $isClosed
-                ]);
+                'title' => strip_tags($content),
+                'content' => $content,
+                'actor' => $authorActor->id(),
+                'date' => $published,
+                'activitypub_id' => $id,
+                'activitypub_json' => json_encode($object),
+                'is_internal' => false,
+                'sensitive' => $object['sensitive'] ?? false,
+                'summary' => (!empty($object['summary'])) ? $object['summary'] : (
+                    ($object['sensitive'] ?? false) ? 'Sensitive Content' : null
+                ),
+                'options' => $options,
+                'multiple_choice' => $isMultipleChoice,
+                'voters_count' => $object['votersCount'] ?? 0,
+                'end_time' => $endTime ? $endTime->toIso8601String() : null,
+                'closed' => $isClosed
+            ]);
 
         // Parse Mentions (Polls)
         $mentioned = [];
@@ -843,7 +846,7 @@ class InboxHandler
         return $poll;
     }
 
-    protected function handleUpdateActivity($object, $externalActor)
+    protected function handleUpdateActivity(array $object, mixed $externalActor): void
     {
         $id = $object['id'] ?? null;
         $type = $object['type'] ?? 'Note';
@@ -975,7 +978,7 @@ class InboxHandler
     }
 
 
-    protected function fetchAndCreateNote($url)
+    protected function fetchAndCreateNote(string $url): mixed
     {
         try {
             Log::info("InboxHandler: Fetching node from $url");
@@ -1010,7 +1013,7 @@ class InboxHandler
         }
     }
 
-    protected function resolveExternalActor($actorUrl)
+    protected function resolveExternalActor(string $actorUrl): mixed
     {
         $existing = Entry::query()->where('collection', 'actors')->where('activitypub_id', $actorUrl)->first();
         if ($existing)
@@ -1056,17 +1059,17 @@ class InboxHandler
                 ->collection('actors')
                 ->slug($slug)
                 ->data([
-                        'title' => $data['name'] ?? $username,
-                        'username' => $username,
-                        'content' => $data['summary'] ?? '',
-                        'activitypub_id' => $data['id'] ?? $actorUrl,
-                        'inbox_url' => $data['inbox'] ?? null,
-                        'outbox_url' => $data['outbox'] ?? null,
-                        'shared_inbox_url' => $data['endpoints']['sharedInbox'] ?? null,
-                        'public_key' => $data['publicKey']['publicKeyPem'] ?? null,
-                        'is_internal' => false,
-                        'avatar' => $this->downloadAvatar($data['icon'] ?? null),
-                    ]);
+                    'title' => $data['name'] ?? $username,
+                    'username' => $username,
+                    'content' => $data['summary'] ?? '',
+                    'activitypub_id' => $data['id'] ?? $actorUrl,
+                    'inbox_url' => $data['inbox'] ?? null,
+                    'outbox_url' => $data['outbox'] ?? null,
+                    'shared_inbox_url' => $data['endpoints']['sharedInbox'] ?? null,
+                    'public_key' => $data['publicKey']['publicKeyPem'] ?? null,
+                    'is_internal' => false,
+                    'avatar' => $this->downloadAvatar($data['icon'] ?? null),
+                ]);
             $entry->save();
             return $entry;
 
@@ -1076,7 +1079,7 @@ class InboxHandler
         }
     }
 
-    protected function downloadAvatar($iconData)
+    protected function downloadAvatar(mixed $iconData): ?string
     {
         if (!$iconData)
             return null;
@@ -1110,7 +1113,7 @@ class InboxHandler
 
 
 
-    protected function sendAcceptActivity($localActor, $followActivity, $remoteActor)
+    protected function sendAcceptActivity(mixed $localActor, mixed $followActivity, mixed $remoteActor): void
     {
         $inbox = $remoteActor->get('inbox_url');
         if (!$inbox)
@@ -1146,12 +1149,12 @@ class InboxHandler
         }
     }
 
-    protected function sanitizeUrl($url)
+    protected function sanitizeUrl(string $url): string
     {
         return str_replace('://www.', '://', $url);
     }
 
-    protected function saveActivity($payload, $actorEntry)
+    protected function saveActivity(array $payload, mixed $actorEntry): void
     {
         $id = $payload['id'] ?? null;
         if (!$id)
@@ -1171,16 +1174,16 @@ class InboxHandler
             ->slug($slug)
             ->date($date)
             ->data([
-                    'title' => $type . ' ' . $id,
-                    'activitypub_id' => $id,
-                    'type' => $type,
-                    'actor' => $actorEntry->id(),
-                    'object' => $payload['object'] ?? null,
-                    'content' => $payload['content'] ?? null,
-                    'activitypub_json' => json_encode($payload),
-                    'is_internal' => false,
-                    'date' => $date,
-                ]);
+                'title' => $type . ' ' . $id,
+                'activitypub_id' => $id,
+                'type' => $type,
+                'actor' => $actorEntry->id(),
+                'object' => $payload['object'] ?? null,
+                'content' => $payload['content'] ?? null,
+                'activitypub_json' => json_encode($payload),
+                'is_internal' => false,
+                'date' => $date,
+            ]);
 
         $entry->save();
 
@@ -1199,7 +1202,7 @@ class InboxHandler
         }
     }
 
-    protected function findLocalEntryByUrl($url)
+    protected function findLocalEntryByUrl(string $url): mixed
     {
         $entry = Entry::find($url);
         if (!$entry) {
@@ -1217,7 +1220,7 @@ class InboxHandler
         return $entry;
     }
 
-    protected function updateRelatedActivityCount($note)
+    protected function updateRelatedActivityCount(mixed $note): void
     {
         if (!$note)
             return;
@@ -1241,7 +1244,7 @@ class InboxHandler
             $note->saveQuietly();
         }
     }
-    protected function handlePollVote($pollId, $voteNote, $actor, $voteValue = null)
+    protected function handlePollVote(string $pollId, mixed $voteNote, mixed $actor, ?string $voteValue = null): void
     {
         // 1. Find the Poll/Question
         $poll = Entry::find($pollId);
@@ -1291,7 +1294,7 @@ class InboxHandler
         }
     }
 
-    protected function isFederated($handle)
+    protected function isFederated(string $handle): bool
     {
         $path = resource_path('settings/activitypub.yaml');
         if (!File::exists($path)) {

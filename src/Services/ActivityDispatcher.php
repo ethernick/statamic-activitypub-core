@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 use Illuminate\Support\Facades\Log;
@@ -21,12 +23,12 @@ class ActivityDispatcher
         'Accept:QuoteRequest' => \Ethernick\ActivityPubCore\Http\Controllers\AcceptController::class,
     ];
 
-    public static function register(string $activityType, string $objectType, string $controllerClass)
+    public static function register(string $activityType, string $objectType, string $controllerClass): void
     {
         self::$registry["$activityType:$objectType"] = $controllerClass;
     }
 
-    public static function registerController(string $controllerClass)
+    public static function registerController(string $controllerClass): void
     {
         if (is_subclass_of($controllerClass, \Ethernick\ActivityPubCore\Contracts\ActivityHandlerInterface::class)) {
             foreach ($controllerClass::getHandledActivityTypes() as $key) {
@@ -36,7 +38,7 @@ class ActivityDispatcher
         }
     }
 
-    public static function discover(string $directory, string $namespace)
+    public static function discover(string $directory, string $namespace): void
     {
         if (!is_dir($directory))
             return;
@@ -55,7 +57,7 @@ class ActivityDispatcher
         }
     }
 
-    public static function registerControllersFromTypes()
+    public static function registerControllersFromTypes(): void
     {
         if (class_exists(\Ethernick\ActivityPubCore\Services\ActivityPubTypes::class)) {
             $types = (new \Ethernick\ActivityPubCore\Services\ActivityPubTypes())->all();
@@ -67,7 +69,7 @@ class ActivityDispatcher
         }
     }
 
-    public static function dispatch(array $payload, $localActor, $externalActor)
+    public static function dispatch(array $payload, mixed $localActor, mixed $externalActor): mixed
     {
         $type = $payload['type'] ?? 'Unknown';
         $object = $payload['object'] ?? null;

@@ -61,7 +61,7 @@ class QuoteRequestController
      * @param mixed $remoteActor The remote actor who sent the QuoteRequest
      * @return void
      */
-    protected function sendAcceptActivity($localActor, array $quoteRequestPayload, $remoteActor): void
+    protected function sendAcceptActivity(mixed $localActor, array $quoteRequestPayload, mixed $remoteActor): void
     {
         $inbox = $remoteActor->get('inbox_url');
         if (!$inbox) {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -11,14 +13,14 @@ use Statamic\Facades\Entry;
 
 class ActivityController extends BaseActivityController
 {
-    protected $dispatcher;
+    protected ActivityDispatcher $dispatcher;
 
     public function __construct(ActivityDispatcher $dispatcher)
     {
         $this->dispatcher = $dispatcher;
     }
 
-    public function inbox(Request $request, $handle)
+    public function inbox(Request $request, string $handle)
     {
         // 1. Logging
         $this->logRequest($request);
@@ -39,6 +41,7 @@ class ActivityController extends BaseActivityController
         }
 
         if ($request->isMethod('POST')) {
+            /** @var \Statamic\Contracts\Entries\Entry $actorEntry */
             return $this->handleInboxPost($request, $actorEntry);
         }
 
@@ -64,7 +67,7 @@ class ActivityController extends BaseActivityController
         return response()->json(['message' => 'Shared Inbox available.'], 200);
     }
 
-    protected function handleInboxPost(Request $request, $actor)
+    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor)
     {
         $payload = $request->json()->all();
 
@@ -96,6 +99,7 @@ class ActivityController extends BaseActivityController
             // Immediate Dispatch
             $externalActor = $this->resolveExternalActor($payload['actor'] ?? null);
             if ($externalActor) {
+                /** @var \Statamic\Contracts\Entries\Entry $externalActor */
                 $this->dispatcher->dispatch($payload, $actor, $externalActor);
                 return response()->json(['success' => true], 200);
             }
@@ -116,12 +120,12 @@ class ActivityController extends BaseActivityController
     }
 
     // Placeholder helpers
-    protected function logRequest($request, $prefix = '')
+    protected function logRequest(Request $request, string $prefix = '')
     {
         // ... logging logic
     }
 
-    protected function processSharedInboxPayload($request)
+    protected function processSharedInboxPayload(Request $request)
     {
         // ... (Similar to ActorController::sharedInbox)
         return response()->json(['message' => 'Accepted'], 202);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Statamic\Http\Controllers\Controller;
@@ -25,7 +27,7 @@ abstract class BaseObjectController extends BaseController
         return static::$handledActivityTypes;
     }
 
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): ?string
     {
         if ($this->collectionSlug) {
             return $this->collectionSlug;
@@ -45,7 +47,7 @@ abstract class BaseObjectController extends BaseController
         return 'objects'; // Fallback
     }
 
-    protected function getIndexTemplate()
+    protected function getIndexTemplate(): string
     {
         if ($this->indexTemplate) {
             return $this->indexTemplate;
@@ -56,7 +58,7 @@ abstract class BaseObjectController extends BaseController
         return "activitypub::{$slug}";
     }
 
-    protected function getShowTemplate()
+    protected function getShowTemplate(): string
     {
         if ($this->showTemplate) {
             return $this->showTemplate;
@@ -64,13 +66,13 @@ abstract class BaseObjectController extends BaseController
 
         // Infer from singular slug: activitypub::note
         $slug = $this->getCollectionSlug();
-        $singular = Str::singular($slug);
+        $singular = Str::singular($slug ?? 'objects');
         return "activitypub::{$singular}";
     }
 
     // --- Logic ---
 
-    protected function findLocalEntryByUrl($url)
+    protected function findLocalEntryByUrl(string $url): ?\Statamic\Contracts\Entries\Entry
     {
         $entry = Entry::find($url);
         if (!$entry) {
@@ -89,32 +91,32 @@ abstract class BaseObjectController extends BaseController
 
     // --- Views ---
 
-    protected function returnIndexView($actor)
+    protected function returnIndexView(\Statamic\Contracts\Entries\Entry $actor)
     {
         return (new \Statamic\View\View)
             ->template($this->getIndexTemplate())
             ->layout('layout')
             ->with([
-                    'actor' => $actor,
-                    'title' => $actor->get('title') . ' - Activities'
-                ]);
+                'actor' => $actor,
+                'title' => $actor->get('title') . ' - Activities'
+            ]);
     }
 
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(\Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Entries\Entry $item)
     {
         return (new \Statamic\View\View)
             ->template($this->getShowTemplate())
             ->layout('layout')
             ->with([
-                    'actor' => $actor,
-                    'note' => $item,
-                    'title' => $item->get('title') ?? 'Object'
-                ]);
+                'actor' => $actor,
+                'note' => $item,
+                'title' => $item->get('title') ?? 'Object'
+            ]);
     }
 
     // --- Default Handlers (Generic) ---
 
-    public function handleCreate(array $payload, $localActor, $externalActor)
+    public function handleCreate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info(basename(static::class) . ": Handling Create via BaseObjectController");
         $object = $payload['object'] ?? null;
@@ -124,7 +126,7 @@ abstract class BaseObjectController extends BaseController
         return $this->processObject($object, $externalActor);
     }
 
-    public function handleUpdate(array $payload, $localActor, $externalActor)
+    public function handleUpdate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info(basename(static::class) . ": Handling Update via BaseObjectController");
         $object = $payload['object'] ?? null;
@@ -144,7 +146,7 @@ abstract class BaseObjectController extends BaseController
         return false;
     }
 
-    public function handleDelete(array $payload, $localActor, $externalActor)
+    public function handleDelete(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info(basename(static::class) . ": Handling Delete via BaseObjectController");
         $object = $payload['object'] ?? null;
@@ -161,7 +163,7 @@ abstract class BaseObjectController extends BaseController
         return false;
     }
 
-    protected function processObject($object, $authorActor, $existingEntry = null)
+    protected function processObject(mixed $object, mixed $authorActor, mixed $existingEntry = null): bool
     {
         $id = $object['id'] ?? null;
         if (!$id && !$existingEntry)

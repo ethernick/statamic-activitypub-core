@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -13,7 +15,7 @@ class ActorController extends BaseObjectController
     public static $shouldSkipSignatureVerificationInTests = true;
 
     // Override show to handle Actor Profile logic
-    public function show($handle, $uuid = null)
+    public function show(string $handle, ?string $uuid = null)
     {
         // $uuid is ignored here as Actor Profile is just /@{handle}
         \Illuminate\Support\Facades\Log::info("ActorProfile: Accessed $handle from " . request()->ip());
@@ -42,7 +44,7 @@ class ActorController extends BaseObjectController
             ->with(['actor' => $actor]);
     }
 
-    public function collection($handle, $collection)
+    public function collection(string $handle, string $collection)
     {
         // 1. Find Actor
         $actor = $this->findActor($handle);
@@ -116,25 +118,25 @@ class ActorController extends BaseObjectController
             ->template('activitypub::collection')
             ->layout('layout')
             ->with([
-                    'actor' => $actor,
-                    'term' => $term,
-                    'entries' => $entries
-                ]);
+                'actor' => $actor,
+                'term' => $term,
+                'entries' => $entries
+            ]);
     }
 
-    protected function followersCollection($actor)
+    protected function followersCollection(\Statamic\Contracts\Entries\Entry $actor)
     {
         $followers = $actor->get('followed_by_actors', []) ?: [];
         return $this->paginateAndRespondIds($actor, 'followers', collect($followers));
     }
 
-    protected function followingCollection($actor)
+    protected function followingCollection(\Statamic\Contracts\Entries\Entry $actor)
     {
         $following = $actor->get('following_actors', []) ?: [];
         return $this->paginateAndRespondIds($actor, 'following', collect($following));
     }
 
-    protected function paginateAndRespondIds($actor, $type, $ids)
+    protected function paginateAndRespondIds(\Statamic\Contracts\Entries\Entry $actor, string $type, \Illuminate\Support\Collection $ids)
     {
         $page = (int) request()->get('page', 1);
         $perPage = 20;
@@ -175,7 +177,7 @@ class ActorController extends BaseObjectController
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    protected function getEnabledCollections()
+    protected function getEnabledCollections(): array
     {
         $path = resource_path('settings/activitypub.yaml');
         if (!File::exists($path)) {
@@ -199,7 +201,7 @@ class ActorController extends BaseObjectController
         return $enabled;
     }
 
-    protected function returnActorJson($actor)
+    protected function returnActorJson(\Statamic\Contracts\Entries\Entry $actor)
     {
         // Basic Actor JSON
         return response()->json([
@@ -216,12 +218,12 @@ class ActorController extends BaseObjectController
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    protected function sanitizeUrl($url)
+    protected function sanitizeUrl(string $url): string
     {
         return str_replace('://www.', '://', $url);
     }
 
-    protected function respondWithCollectionJson($handle, $actor, $term, $entries)
+    protected function respondWithCollectionJson(string $handle, \Statamic\Contracts\Entries\Entry $actor, \Statamic\Contracts\Taxonomies\Term $term, \Illuminate\Pagination\LengthAwarePaginator $entries)
     {
         $items = [];
         $isActorCollection = in_array($term->slug(), ['following', 'followers']);
@@ -261,7 +263,7 @@ class ActorController extends BaseObjectController
         ])->header('Content-Type', 'application/ld+json');
     }
 
-    public function inbox(Request $request, $handle)
+    public function inbox(Request $request, string $handle)
     {
 
 
@@ -341,7 +343,7 @@ class ActorController extends BaseObjectController
         return response()->json(['message' => 'Shared Inbox available.'], 200);
     }
 
-    protected function extractHandleFromId($id)
+    protected function extractHandleFromId(string $id): ?string
     {
         // Extracts 'nick' from 'https://ethernick.com/@nick' or 'https://ethernick.com/@nick/...'
         // Crude parsing, improvements welcome
@@ -351,7 +353,7 @@ class ActorController extends BaseObjectController
         return null;
     }
 
-    protected function handleInboxPost(Request $request, $actor)
+    protected function handleInboxPost(Request $request, \Statamic\Contracts\Entries\Entry $actor)
     {
         $payload = $request->json()->all();
 
@@ -431,7 +433,7 @@ class ActorController extends BaseObjectController
     }
 
 
-    protected function verifySignature(Request $request)
+    protected function verifySignature(Request $request): bool
     {
         if (app()->runningUnitTests() && self::$shouldSkipSignatureVerificationInTests) {
             return true;

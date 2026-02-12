@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Ethernick\ActivityPubCore\Contracts\ActivityHandlerInterface;
@@ -19,12 +21,12 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         ];
     }
 
-    protected function getCollectionSlug()
+    protected function getCollectionSlug(): string
     {
         return 'articles'; // Assuming 'articles' collection exists
     }
 
-    protected function returnIndexView($actor)
+    protected function returnIndexView(mixed $actor)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::articles')
@@ -35,7 +37,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
             ]);
     }
 
-    protected function returnShowView($actor, $item)
+    protected function returnShowView(mixed $actor, mixed $item)
     {
         return (new \Statamic\View\View)
             ->template('activitypub::article')
@@ -49,7 +51,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
 
     // --- Activity Handlers ---
 
-    public function handleCreate(array $payload, $localActor, $externalActor)
+    public function handleCreate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info("ArticleController: Handling Create Article");
         $object = $payload['object'] ?? null;
@@ -89,7 +91,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return false;
     }
 
-    public function handleUpdate(array $payload, $localActor, $externalActor)
+    public function handleUpdate(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         Log::info("ArticleController: Handling Update Article");
         $object = $payload['object'] ?? null;
@@ -114,7 +116,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return false;
     }
 
-    public function handleDelete(array $payload, $localActor, $externalActor)
+    public function handleDelete(array $payload, mixed $localActor, mixed $externalActor): bool
     {
         $object = $payload['object'] ?? null;
         $objectId = is_string($object) ? $object : ($object['id'] ?? null);
@@ -135,7 +137,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return false;
     }
 
-    protected function createArticleEntry($object, $authorActor)
+    protected function createArticleEntry(array $object, mixed $authorActor)
     {
         $id = $object['id'] ?? null;
         if ($id) {
@@ -190,7 +192,7 @@ class ArticleController extends BaseObjectController implements ActivityHandlerI
         return $entry;
     }
 
-    protected function updateArticleEntry($object, $externalActor)
+    protected function updateArticleEntry(array $object, mixed $externalActor)
     {
         $id = $object['id'] ?? null;
         if (!$id)

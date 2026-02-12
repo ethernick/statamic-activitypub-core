@@ -70,6 +70,13 @@ tabs:
               display: 'ActivityPub Collections'
               mode: select
           -
+            handle: activitypub_json
+            field:
+              type: textarea
+              display: 'ActivityPub JSON'
+              visibility: hidden
+              read_only: false
+          -
             handle: boost_count
             field:
               type: integer

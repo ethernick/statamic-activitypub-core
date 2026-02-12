@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 use Statamic\Facades\Entry;
@@ -13,7 +15,7 @@ class ThreadService
      * @param bool $quiet Whether to save without triggering events (e.g. for bulk updates).
      * @return void
      */
-    public static function increment($parentId, $quiet = false)
+    public static function increment(?string $parentId, bool $quiet = false): void
     {
         if (!$parentId) {
             return;
@@ -29,7 +31,7 @@ class ThreadService
      * @param bool $quiet Whether to save without triggering events.
      * @return void
      */
-    public static function decrement($parentId, $quiet = false)
+    public static function decrement(?string $parentId, bool $quiet = false): void
     {
         if (!$parentId) {
             return;
@@ -38,7 +40,7 @@ class ThreadService
         self::propagate($parentId, -1, [], 0, $quiet);
     }
 
-    protected static function propagate($noteId, $delta, $visited = [], $depth = 0, $quiet = false)
+    protected static function propagate(?string $noteId, int $delta, array $visited = [], int $depth = 0, bool $quiet = false): void
     {
         // Safety: Max depth to prevent stack overflow or extremely long chains
         if ($depth > 100) {
@@ -46,7 +48,7 @@ class ThreadService
         }
 
         // Safety: Cycle detection
-        if (in_array($noteId, $visited)) {
+        if (!$noteId || in_array($noteId, $visited)) {
             return;
         }
         $visited[] = $noteId;

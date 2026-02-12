@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ethernick\ActivityPubCore\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -15,9 +17,9 @@ class ActorResolver
      *
      * @param string $actorUrl
      * @param bool $save Whether to save the actor to the database immediately.
-     * @return \Statamic\Entries\Entry|null
+     * @return \Statamic\Contracts\Entries\Entry|null
      */
-    public function resolve($actorUrl, $save = true)
+    public function resolve(string $actorUrl, bool $save = true): ?\Statamic\Contracts\Entries\Entry
     {
         // Check if exists locally
         $existing = Entry::query()
@@ -109,7 +111,7 @@ class ActorResolver
         }
     }
 
-    protected function downloadAvatar($iconData)
+    protected function downloadAvatar(mixed $iconData): ?string
     {
         if (!$iconData)
             return null;
