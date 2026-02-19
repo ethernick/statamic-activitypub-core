@@ -81,29 +81,33 @@ class AutoGenerateActivityListener
             $type = 'Create';
         }
 
-        // SAFETY: Check if this activity type already exists for this entry
-        $existingActivity = Entry::query()
-            ->where('collection', 'activities')
-            ->where('type', $type)
-            ->get()
-            ->filter(function ($activity) use ($entry) {
-                $object = $activity->get('object');
-                if (is_array($object)) {
-                    return in_array($entry->id(), $object);
+        // SAFETY: Only deduplicate Create activities (a note should only be "Created" once).
+        // Update activities are NOT deduplicated — every edit should produce a new Update
+        // so that followers receive the latest version of the content.
+        if ($type === 'Create') {
+            $existingActivity = Entry::query()
+                ->where('collection', 'activities')
+                ->where('type', 'Create')
+                ->get()
+                ->filter(function ($activity) use ($entry) {
+                    $object = $activity->get('object');
+                    if (is_array($object)) {
+                        return in_array($entry->id(), $object);
+                    }
+                    return $object === $entry->id();
+                })
+                ->first();
+
+            if ($existingActivity) {
+                \Illuminate\Support\Facades\Log::info("AutoGenerateActivityListener: Create activity already exists for {$entry->id()}, skipping");
+
+                // Clean up the flag if present
+                if ($entry->get('_quote_approved')) {
+                    $entry->set('_quote_approved', null);
+                    $entry->saveQuietly();
                 }
-                return $object === $entry->id();
-            })
-            ->first();
-
-        if ($existingActivity) {
-            \Illuminate\Support\Facades\Log::info("AutoGenerateActivityListener: {$type} activity already exists for {$entry->id()}, skipping");
-
-            // Clean up the flag if present
-            if ($entry->get('_quote_approved')) {
-                $entry->set('_quote_approved', null);
-                $entry->saveQuietly();
+                return;
             }
-            return;
         }
 
         $this->createActivity($type, $entry);
