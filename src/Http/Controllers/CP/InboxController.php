@@ -476,15 +476,14 @@ class InboxController extends CpController
     /**
      * Update an existing internal note.
      */
-    public function updateNote(Request $request): mixed
+    public function updateNote(Request $request, string $id): mixed
     {
         $request->validate([
-            'id' => 'required|string',
             'content' => 'required|string',
             'content_warning' => 'nullable|string',
         ]);
 
-        $entry = Entry::find($request->input('id'));
+        $entry = Entry::find($id);
         if (!$entry) {
             return response()->json(['error' => 'Note not found'], 404);
         }
@@ -688,7 +687,7 @@ class InboxController extends CpController
             });
         }
 
-        $query->orderBy('date', 'desc');
+        $query->orderBy('date', 'desc')->orderBy('id', 'desc');
 
         // Handle mentions filtering manually (array field queries don't work in Statamic)
         if ($filter === 'mentions' && !empty($mentionTargets)) {
@@ -985,7 +984,7 @@ class InboxController extends CpController
                 $actor = ['name' => 'Unknown', 'handle' => '@unknown', 'avatar' => null, 'url' => '#'];
             }
 
-            $cleanContent = strip_tags(\Statamic\Facades\Markdown::parse((string) $note->get('content')), '<p><br><a><strong><em><u><i><b><blockquote><ul><ol><li><code><pre><img><span><div><h1><h2><h3><h4><h5><h6>');
+            $cleanContent = strip_tags(\Statamic\Facades\Markdown::parse((string) $note->get('content')), '<p><br><a><strong><em><u><i><b><blockquote><ul><ol><li><code><pre><img><span><div><h1><h2><h3><h4><h5><h6><del><s><strike>');
 
             // Attachments
             $attachments = [];
@@ -1039,7 +1038,7 @@ class InboxController extends CpController
                 'type' => $collection === 'polls' ? 'question' : 'note',
                 'id' => $note->id(),
                 'content' => $cleanContent,
-                'raw_content' => $note->get('content'), // Added as per need
+                'content_raw' => $note->get('content'), // Raw markdown for editing
                 'attachments' => $attachments,
                 'oembed' => $oembed,
                 'link_preview' => $linkPreview,
@@ -1166,8 +1165,8 @@ class InboxController extends CpController
                 'id' => $activity->id(),
                 'content' => $summary,
                 'attachments' => [],
-                'date' => $activity->date()->format('M j, Y H:i'), // Use activity date
-                'date_human' => $activity->date()->diffForHumans(),
+                'date' => $activity->date() ? $activity->date()->format('M j, Y H:i') : null, // Use activity date
+                'date_human' => $activity->date() ? $activity->date()->diffForHumans() : null,
                 'actor' => $actor,
                 'actions' => [
                     'view' => $objectUrl,

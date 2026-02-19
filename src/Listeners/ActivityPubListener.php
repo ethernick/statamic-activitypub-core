@@ -321,6 +321,7 @@ class ActivityPubListener
             'id' => $this->sanitizeUrl($url),
             'type' => $type,
             'actor' => $this->sanitizeUrl($actorUrl),
+            'actor_url' => $this->sanitizeUrl($actorUrl), // Used by Antlers template for attributedTo
             'published' => $published->toIso8601String(),
             'url' => $this->sanitizeUrl($url),
             'attributedTo' => $this->sanitizeUrl($actorUrl),

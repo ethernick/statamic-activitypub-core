@@ -13,9 +13,15 @@ const Fieldtype = window.__STATAMIC__?.core?.FieldtypeMixin || {};
 export default {
     mixins: [Fieldtype],
     
+    props: {
+        modelValue: {
+            default: undefined
+        }
+    },
+
     data() {
         return {
-            selected: this.value,
+            selected: this.modelValue !== undefined ? this.modelValue : this.value,
         };
     },
 
@@ -23,8 +29,12 @@ export default {
         value(val) {
             this.selected = val;
         },
+        modelValue(val) {
+            this.selected = val;
+        },
         selected(val) {
             this.update(val);
+            this.$emit('update:modelValue', val);
         }
     }
 };

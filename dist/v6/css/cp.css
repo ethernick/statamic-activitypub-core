@@ -1,0 +1,29 @@
+/* ActivityPub Settings Layout */
+.ap-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+    margin-bottom: 0;
+}
+
+@media (min-width: 768px) {
+    .ap-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.ap-grid label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+}
+
+.ap-grid p {
+    margin-top: 0;
+    font-size: 0.75rem;
+    /* text-xs */
+    line-height: 1rem;
+    color: #6b7280;
+    /* text-gray-500 */
+}

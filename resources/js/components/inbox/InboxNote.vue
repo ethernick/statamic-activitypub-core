@@ -237,7 +237,7 @@
                         </svg>
                         In reply to:
                      </div>
-                     <activity-pub-note 
+                     <inbox-note 
                         :note="note.parent" 
                         :permissions="permissions"
                         @reply="$emit('reply', $event)"
@@ -250,7 +250,7 @@
                         @delete="$emit('delete', $event)"
                         @edit="$emit('edit', $event)"
                         @vote="$emit('vote', $event)"
-                     ></activity-pub-note>
+                     ></inbox-note>
                 </div>
 
                 <!-- QUOTED NOTE DISPLAY -->
@@ -261,7 +261,7 @@
                         </svg>
                         Quoting:
                     </div>
-                    <activity-pub-note
+                    <inbox-note
                         :note="note.quote"
                         :permissions="permissions"
                         @reply="$emit('reply', $event)"
@@ -275,7 +275,7 @@
                         @delete="$emit('delete', $event)"
                         @edit="$emit('edit', $event)"
                         @vote="$emit('vote', $event)"
-                    ></activity-pub-note>
+                    ></inbox-note>
                 </div>
 
                 <!-- Reply Editor Slot -->
@@ -287,7 +287,7 @@
 </template>
 <script>
 export default {
-    name: 'ActivityPubNote',
+    name: 'InboxNote',
     // We must manually register the component for recursion in some environments (though 'name' usually works)
     // To be safe, let's try the name-based recursion which is standard.
     // However, in Statamic CP, components are often global. 

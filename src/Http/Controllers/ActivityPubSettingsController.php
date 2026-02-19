@@ -63,6 +63,10 @@ class ActivityPubSettingsController extends Controller
 
         $this->saveSettings($settings);
 
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Settings saved.']);
+        }
+
         return back()->withSuccess('Settings saved.');
     }
 

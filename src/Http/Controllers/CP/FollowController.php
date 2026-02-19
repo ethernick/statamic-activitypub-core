@@ -69,6 +69,86 @@ class FollowController extends CpController
         ]);
     }
 
+    public function apiFollowing(Request $request): mixed
+    {
+        $myActors = $this->getUserActors();
+        $followingIds = $myActors->flatMap(function ($actor) {
+            $ids = $actor->get('following_actors', []) ?: [];
+            return is_array($ids) ? $ids : [$ids];
+        })->unique()->filter()->all();
+
+        $actors = Entry::query()
+            ->where('collection', 'actors')
+            ->whereIn('id', $followingIds)
+            ->paginate(50);
+
+        // Transform actors to include avatar URL
+        $actors->getCollection()->transform(function ($actor) {
+            return [
+                'id' => $actor->id(),
+                'title' => $actor->get('title'),
+                'activitypub_id' => $actor->get('activitypub_id'),
+                'avatar' => $actor->augmentedValue('avatar')->value()?->url(),
+                'handle' => $actor->get('handle') // If exists
+            ];
+        });
+
+        // Transform myActors
+        $myActorsData = $myActors->map(function ($actor) {
+            return [
+                'id' => $actor->id(),
+                'title' => $actor->get('title'),
+                'following_ids' => $actor->get('following_actors', []) ?: [],
+                'block_ids' => $actor->get('blocks', []) ?: []
+            ];
+        })->values();
+
+        return response()->json([
+            'actors' => $actors,
+            'myActors' => $myActorsData
+        ]);
+    }
+
+    public function apiFollowers(Request $request): mixed
+    {
+        $myActors = $this->getUserActors();
+        $followerIds = $myActors->flatMap(function ($actor) {
+            $ids = $actor->get('followed_by_actors', []) ?: [];
+            return is_array($ids) ? $ids : [$ids];
+        })->unique()->filter()->all();
+
+        $actors = Entry::query()
+            ->where('collection', 'actors')
+            ->whereIn('id', $followerIds)
+            ->paginate(50);
+
+        // Transform actors
+        $actors->getCollection()->transform(function ($actor) {
+            return [
+                'id' => $actor->id(),
+                'title' => $actor->get('title'),
+                'activitypub_id' => $actor->get('activitypub_id'),
+                'avatar' => $actor->augmentedValue('avatar')->value()?->url(),
+                'handle' => $actor->get('handle')
+            ];
+        });
+
+        $myActorsData = $myActors->map(function ($actor) {
+            return [
+                'id' => $actor->id(),
+                'title' => $actor->get('title'),
+                'follower_ids' => $actor->get('followed_by_actors', []) ?: [],
+                'following_ids' => $actor->get('following_actors', []) ?: [],
+                'block_ids' => $actor->get('blocks', []) ?: []
+            ];
+        })->values();
+
+        return response()->json([
+            'actors' => $actors,
+            'myActors' => $myActorsData
+        ]);
+    }
+
     public function unfollow(Request $request): mixed
     {
         $targetId = $request->input('id');

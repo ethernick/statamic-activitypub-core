@@ -3,9 +3,6 @@
     "file": "js/cp.js",
     "name": "cp",
     "src": "resources/js/cp.js",
-    "isEntry": true,
-    "css": [
-      "css/cp.css"
-    ]
+    "isEntry": true
   }
 }

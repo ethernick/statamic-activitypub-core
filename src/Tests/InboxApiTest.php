@@ -39,7 +39,7 @@ class InboxApiTest extends TestCase
         $this->assertTrue(collect($data)->contains('id', $note->id()));
         $apiNote = collect($data)->firstWhere('id', $note->id());
         $this->assertTrue($apiNote['is_internal']);
-        $this->assertEquals('This is internal', $apiNote['raw_content']);
+        $this->assertEquals('This is internal', $apiNote['content_raw']);
     }
 
     public function test_update_internal_note()
@@ -55,7 +55,7 @@ class InboxApiTest extends TestCase
             ->published(true);
         $note->save();
 
-        $response = $this->post(cp_route('activitypub.inbox.update-note'), [
+        $response = $this->put(cp_route('activitypub.inbox.update-note', ['id' => $note->id()]), [
             'id' => $note->id(),
             'content' => 'New Content',
             'content_warning' => 'Updated Warning'
@@ -79,9 +79,9 @@ class InboxApiTest extends TestCase
             ->published(true);
         $note->save();
 
-        $response = $this->post(cp_route('activitypub.inbox.update-note'), [
+        $response = $this->put(cp_route('activitypub.inbox.update-note', ['id' => $note->id()]), [
             'id' => $note->id(),
-            'content' => 'Hacked Content'
+            'content' => 'Updated content',
         ]);
 
         $response->assertStatus(403);

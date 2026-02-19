@@ -45,13 +45,13 @@
     justify-content: space-between;
     padding: 0.75rem 1.5rem;
     flex-shrink: 0;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e5e5;
 }
 .ap-stack-title {
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #111827;
+    color: #171717;
 }
 .ap-stack-close-btn {
     display: flex;
@@ -62,11 +62,11 @@
     background: none;
     border-radius: 0.375rem;
     cursor: pointer;
-    color: #9ca3af;
+    color: #a3a3a3;
 }
 .ap-stack-close-btn:hover {
-    color: #4b5563;
-    background-color: #f3f4f6;
+    color: #525252;
+    background-color: #f5f5f5;
 }
 .ap-stack-content {
     flex: 1;
@@ -78,50 +78,50 @@
     gap: 0.5rem;
     padding: 1rem;
     flex-shrink: 0;
-    border-top: 1px solid #e5e7eb;
-    background-color: #f9fafb;
+    border-top: 1px solid #e5e5e5;
+    background-color: #fafafa;
 }
 .ap-stack-overlay {
-    background: rgba(17, 24, 39, 0.5);
+    background: rgba(23, 23, 23, 0.5);
 }
 
 /* Dark mode */
 html.dark .ap-stack-overlay,
 html.is-dark .ap-stack-overlay,
 html.isdark .ap-stack-overlay {
-    background: rgba(17, 24, 39, 0.7);
+    background: rgba(23, 23, 23, 0.7);
 }
 html.dark .ap-stack-panel,
 html.is-dark .ap-stack-panel,
 html.isdark .ap-stack-panel {
-    background-color: #111827;
+    background-color: #171717;
 }
 html.dark .ap-stack-header,
 html.is-dark .ap-stack-header,
 html.isdark .ap-stack-header {
-    border-bottom-color: #1f2937;
+    border-bottom-color: #262626;
 }
 html.dark .ap-stack-title,
 html.is-dark .ap-stack-title,
 html.isdark .ap-stack-title {
-    color: #f3f4f6;
+    color: #f5f5f5;
 }
 html.dark .ap-stack-close-btn,
 html.is-dark .ap-stack-close-btn,
 html.isdark .ap-stack-close-btn {
-    color: #6b7280;
+    color: #737373;
 }
 html.dark .ap-stack-close-btn:hover,
 html.is-dark .ap-stack-close-btn:hover,
 html.isdark .ap-stack-close-btn:hover {
-    color: #d1d5db;
-    background-color: #1f2937;
+    color: #d4d4d4;
+    background-color: #262626;
 }
 html.dark .ap-stack-footer,
 html.is-dark .ap-stack-footer,
 html.isdark .ap-stack-footer {
-    background-color: #1f2937;
-    border-top-color: #1f2937;
+    background-color: #262626;
+    border-top-color: #262626;
 }
 </style>
 
@@ -152,10 +152,18 @@ export default {
         }
     },
     beforeUnmount() {
-        document.body.style.overflow = '';
-        if (this._escHandler) document.removeEventListener('keydown', this._escHandler);
-        if (this.$el && this.$el.parentNode) {
-            this.$el.parentNode.removeChild(this.$el);
+        this.cleanup();
+    },
+    beforeDestroy() {
+        this.cleanup();
+    },
+    methods: {
+        cleanup() {
+            document.body.style.overflow = '';
+            if (this._escHandler) document.removeEventListener('keydown', this._escHandler);
+            if (this.$el && this.$el.parentNode) {
+                this.$el.parentNode.removeChild(this.$el);
+            }
         }
     }
 };

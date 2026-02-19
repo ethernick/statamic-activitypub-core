@@ -21,7 +21,7 @@ Route::group(['prefix' => 'activitypub'], function () {
     Route::post('inbox/reply', [InboxController::class, 'reply'])->name('activitypub.inbox.reply');
     Route::post('inbox/notes', [InboxController::class, 'storeNote'])->name('activitypub.inbox.store-note');
     Route::post('inbox/polls', [InboxController::class, 'storePoll'])->name('activitypub.inbox.store-poll');
-    Route::post('inbox/update-note', [InboxController::class, 'updateNote'])->name('activitypub.inbox.update-note');
+    Route::put('inbox/notes/{id}', [InboxController::class, 'updateNote'])->name('activitypub.inbox.update-note');
     Route::post('inbox/delete', [InboxController::class, 'destroy'])->name('activitypub.inbox.delete');
     Route::post('inbox/link-preview', [LinkPreviewController::class, 'show'])->name('activitypub.inbox.link-preview');
     Route::post('inbox/batch-link-preview', [InboxController::class, 'batchLinkPreview'])->name('activitypub.inbox.batch-link-preview');
@@ -29,7 +29,9 @@ Route::group(['prefix' => 'activitypub'], function () {
 
     // Activities route removed
     Route::get('following', [FollowController::class, 'following'])->name('activitypub.following.index');
+    Route::get('following/api', [FollowController::class, 'apiFollowing'])->name('activitypub.following.api');
     Route::get('followers', [FollowController::class, 'followers'])->name('activitypub.followers.index');
+    Route::get('followers/api', [FollowController::class, 'apiFollowers'])->name('activitypub.followers.api');
 
     // Search and Follow (Ajax)
     Route::post('search', [FollowController::class, 'search'])->name('activitypub.search');

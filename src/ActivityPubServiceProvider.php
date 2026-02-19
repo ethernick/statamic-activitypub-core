@@ -73,7 +73,8 @@ class ActivityPubServiceProvider extends AddonServiceProvider
     {
         $isLocalDevelopment = is_dir(base_path('addons/ethernick/ActivityPubCore'));
 
-        if ($isLocalDevelopment) {
+        // Only use Vite hot reloading if we are in local dev AND the hot file exists
+        if ($isLocalDevelopment && file_exists(base_path('public/hot'))) {
             // Development: Vite with hot reload
             \Statamic\Statamic::vite('activitypub', [
                 'input' => ['addons/ethernick/ActivityPubCore/resources/js/cp.js', 'addons/ethernick/ActivityPubCore/resources/css/cp.css'],
@@ -82,12 +83,12 @@ class ActivityPubServiceProvider extends AddonServiceProvider
                 'hotFile' => base_path('public/hot'),
             ]);
         } else {
-            // Production: publish dist/ assets and register with Statamic.
-            // Can't use registerScript()/registerStylesheet() here because they
-            // call getAddon() which throws NotBootedException during package:discover.
-            // publishes() must be called directly in boot() (not deferred) for
-            // vendor:publish to pick them up.
-            $distDir = __DIR__ . '/../dist';
+            // Production: Detect Statamic version and load appropriate build
+            $version = \Statamic\Statamic::version();
+            $isV6 = version_compare($version, '6.0.0', '>=');
+            $distPath = $isV6 ? 'v6' : 'v5';
+
+            $distDir = __DIR__ . "/../dist/{$distPath}";
             $packageName = 'ethernick/statamic-activitypub-core';
 
             $this->publishes([
