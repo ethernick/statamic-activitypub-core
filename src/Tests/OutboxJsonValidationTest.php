@@ -217,9 +217,12 @@ class OutboxJsonValidationTest extends TestCase
         // Activity-level required fields
         $this->assertArrayHasKey('@context', $data);
         $this->assertEquals('Create', $data['type'], 'Activity type should be Create');
-        // Note: the Antlers template renders attributedTo (via actor_url), not a separate 'actor' field.
-        // AP spec uses 'attributedTo' on objects and 'actor' on activities, but our template
-        // uses attributedTo for both. Validate that at least attributedTo is present.
+
+        // Verify actor is present on the Activity (fixes 400 from strict servers)
+        $this->assertArrayHasKey('actor', $data, 'Activity must have actor');
+        $this->assertNotEmpty($data['actor'], 'Activity actor must not be empty');
+
+        // Verify attributedTo is present
         $this->assertArrayHasKey('attributedTo', $data, 'Activity must have attributedTo');
         $this->assertNotEmpty($data['attributedTo'], 'Activity attributedTo must not be empty');
 

@@ -323,6 +323,7 @@ class ActivityPubListener
             'actor' => $this->sanitizeUrl($actorUrl),
             'actor_url' => $this->sanitizeUrl($actorUrl), // Used by Antlers template for attributedTo
             'published' => $published->toIso8601String(),
+            'updated' => now()->toIso8601String(),
             'url' => $this->sanitizeUrl($url),
             'attributedTo' => $this->sanitizeUrl($actorUrl),
             'to' => ['https://www.w3.org/ns/activitystreams#Public'],

@@ -32,7 +32,15 @@
 ],
 "type": "{{ type }}",
 "id": "{{ url }}",
-"attributedTo": "{{ actor_url }}",{{ if summary }}
+{{ if actor }}
+"actor": "{{ actor }}",
+{{ /if }}
+{{ if actor_url }}
+"attributedTo": "{{ actor_url }}",
+{{ /if }}
+"published": "{{ published }}",{{ if updated }}
+"updated": "{{ updated }}",{{ /if }}
+{{ if summary }}
 "summary": {{ summary | to_json }},{{ /if }}{{ if sensitive }}
 "sensitive": {{ sensitive | to_json }},{{ /if }}
 "content": {{ if content }}{{ content | to_json }}{{ else }}""{{ /if }},
