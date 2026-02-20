@@ -8,20 +8,12 @@
 </template>
 
 <script>
-const Fieldtype = window.__STATAMIC__?.core?.FieldtypeMixin || {};
-
 export default {
     mixins: [Fieldtype],
-    
-    props: {
-        modelValue: {
-            default: undefined
-        }
-    },
 
     data() {
         return {
-            selected: this.modelValue !== undefined ? this.modelValue : this.value,
+            selected: this.value,
         };
     },
 
@@ -29,12 +21,16 @@ export default {
         value(val) {
             this.selected = val;
         },
-        modelValue(val) {
-            this.selected = val;
-        },
         selected(val) {
             this.update(val);
-            this.$emit('update:modelValue', val);
+        }
+    },
+    
+    mounted() {
+        // If there's no value set but we have actors, default to the first one
+        if (!this.selected && this.meta.actors && this.meta.actors.length > 0) {
+            this.selected = this.meta.actors[0].value;
+            this.update(this.selected);
         }
     }
 };
