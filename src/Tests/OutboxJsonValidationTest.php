@@ -245,6 +245,59 @@ class OutboxJsonValidationTest extends TestCase
         );
     }
 
+    public function test_update_activity_wraps_note_with_updated_field(): void
+    {
+        Queue::fake();
+
+        $actor = $this->createTestActor();
+
+        // 1. Create the note
+        $note = Entry::make()
+            ->collection('notes')
+            ->slug('outbox-json-test-update')
+            ->data([
+                'title' => 'Initial Note',
+                'content' => 'Initial content',
+                'actor' => [$actor->id()],
+                'is_internal' => true,
+                'published' => true,
+            ]);
+        $note->save();
+
+        // 2. Simulate an edit to trigger Update activity
+        $note = Entry::find($note->id());
+        $note->set('content', 'Updated content');
+        $note->save();
+
+        // Find the generated Update activity
+        $activity = Entry::query()
+            ->where('collection', 'activities')
+            ->where('type', 'Update')
+            ->get()
+            ->filter(function ($entry) use ($note) {
+                $object = $entry->get('object');
+                return is_array($object) && in_array($note->id(), $object);
+            })
+            ->first();
+
+        $this->assertNotNull($activity, 'An Update activity should be generated for the edit');
+
+        $apJson = $activity->get('activitypub_json');
+        $data = json_decode($apJson, true);
+
+        // Verify actor is present on the Update Activity
+        $this->assertArrayHasKey('actor', $data, 'Update Activity must have actor');
+
+        // Verify updated timestamp is present on the wrapper
+        $this->assertArrayHasKey('updated', $data, 'Update Activity must have updated timestamp');
+        $this->assertNotEmpty($data['updated']);
+
+        // Verify the embedded object ALSO has the updated timestamp
+        $this->assertArrayHasKey('object', $data);
+        $this->assertArrayHasKey('updated', $data['object'], 'Embedded object must have updated timestamp');
+        $this->assertNotEmpty($data['object']['updated']);
+    }
+
     // ─── Content Handling ────────────────────────────────────────────
 
     public function test_content_is_html_in_activitypub_json(): void
