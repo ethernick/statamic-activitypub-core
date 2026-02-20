@@ -8,6 +8,8 @@
 </template>
 
 <script>
+const Fieldtype = window.__STATAMIC__?.core?.FieldtypeMixin || {};
+
 export default {
     mixins: [Fieldtype],
 
