@@ -230,7 +230,7 @@ export default {
     },
     props: {
         initialActors: {
-            type: Array,
+            type: [Array, String],
             default: () => []
         },
         apiUrl: {
@@ -291,6 +291,8 @@ export default {
         }
     },
     data() {
+        const parsedActors = this.parseActors(this.initialActors);
+
         return {
             notes: [],
             page: 1,
@@ -300,12 +302,12 @@ export default {
             loading: false,
             filter: 'all',
             error: null,
-            localActors: this.initialActors,
+            localActors: parsedActors,
             activeReplyId: null,
             replyForm: {
                 content: '',
                 content_warning: '',
-                actor_id: this.initialActors[0]?.id || null
+                actor_id: parsedActors[0]?.id || null
             },
             sendingReply: false,
             lightbox: {
@@ -353,6 +355,18 @@ export default {
         this.loadNotes();
     },
     methods: {
+        parseActors(actorsVal) {
+            if (Array.isArray(actorsVal)) return actorsVal;
+            if (typeof actorsVal === 'string') {
+                try {
+                    const parsed = JSON.parse(actorsVal);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    console.warn('ActivityPub Inbox: Failed to parse initialActors prop', e);
+                }
+            }
+            return [];
+        },
         updateReplyForm(newVal) {
             this.replyForm = newVal;
         },
