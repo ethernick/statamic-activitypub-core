@@ -6,12 +6,24 @@ use Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController;
 use Ethernick\ActivityPubCore\Http\Controllers\CP\LinkPreviewController;
 
 use Ethernick\ActivityPubCore\Http\Controllers\CP\FollowController;
+use Ethernick\ActivityPubCore\Http\Controllers\CP\QueueController;
 
 Route::group(['prefix' => 'activitypub'], function () {
     Route::get('settings', [ActivityPubSettingsController::class, 'index'])->name('activitypub.settings.index');
     Route::post('settings', [ActivityPubSettingsController::class, 'update'])->name('activitypub.settings.update');
     Route::get('logs', [ActivityPubSettingsController::class, 'logs'])->name('activitypub.logs');
     Route::post('logs/clear', [ActivityPubSettingsController::class, 'clearLogs'])->name('activitypub.logs.clear');
+
+    // Queue Dashboard
+    Route::get('tools', [\Ethernick\ActivityPubCore\Http\Controllers\CP\ToolsController::class, 'index'])->name('activitypub.tools.index');
+    Route::get('queue', [QueueController::class, 'index'])->name('activitypub.queue.index');
+    Route::get('queue/status', [QueueController::class, 'status'])->name('activitypub.queue.status');
+    Route::get('queue/pending', [QueueController::class, 'pending'])->name('activitypub.queue.pending');
+    Route::delete('queue/pending/{id}', [QueueController::class, 'deletePending'])->name('activitypub.queue.pending.delete');
+    Route::post('queue/pending/flush', [QueueController::class, 'flushPendingByType'])->name('activitypub.queue.pending.flush');
+    Route::get('queue/failed', [QueueController::class, 'failed'])->name('activitypub.queue.failed');
+    Route::post('queue/retry/{id}', [QueueController::class, 'retry'])->name('activitypub.queue.retry');
+    Route::post('queue/flush', [QueueController::class, 'flushFailed'])->name('activitypub.queue.flushFailed');
 
     // Inbox
     Route::get('inbox', [InboxController::class, 'index'])->name('activitypub.inbox.index');

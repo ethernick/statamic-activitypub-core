@@ -5,6 +5,7 @@ import ActorSelector from './components/ActorSelector.vue';
 import Settings from './components/settings/Settings.vue';
 import ActivityPubFollowing from './components/follow/Following.vue';
 import ActivityPubFollowers from './components/follow/Followers.vue';
+import QueueStatus from './components/QueueStatus.vue';
 
 const boot = () => {
     if (typeof Statamic !== 'undefined') {
@@ -15,6 +16,7 @@ const boot = () => {
             Statamic.$components.register('activity-pub-settings', Settings);
             Statamic.$components.register('activity-pub-following', ActivityPubFollowing);
             Statamic.$components.register('activity-pub-followers', ActivityPubFollowers);
+            Statamic.$components.register('queue-status', QueueStatus);
         });
     } else {
         setTimeout(boot, 10);

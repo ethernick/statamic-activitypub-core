@@ -315,6 +315,14 @@ class ActivityPubServiceProvider extends AddonServiceProvider
                     'Followers' => cp_route('activitypub.followers.index'),
                 ]);
 
+            $nav->create('ActivityPub')
+                ->section('Tools')
+                ->icon($icon)
+                ->route('activitypub.tools.index')
+                ->children([
+                    \Statamic\Facades\CP\Nav::item('Queue')->route('activitypub.queue.index'),
+                ]);
+
             $nav->settings('ActivityPub')
                 ->route('activitypub.settings.index')
                 ->icon($icon);
