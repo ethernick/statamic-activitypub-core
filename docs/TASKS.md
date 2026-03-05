@@ -35,16 +35,31 @@
     - [x] Create `QUEUE_STATUS` view in CP
     - [x] Show failed jobs count/details
     - [x] Added pending jobs filtering and flushing by type
-- [ ] **Dead Letter Queue (DLQ) Management** (Topic #8)
-    - [ ] Commands to retry/flush failed jobs
-    - [ ] `php artisan activitypub:retry-failed`
+- [x] **ActivityPub Utilities & Actor Lookup**
+    - [x] Webfinger & Actor Lookup interface
+    - [x] Renamed to "Actor Lookup" and updated path to `cp/activitypub/actor-lookup`
+- [x] **Dead Letter Queue (DLQ) Management** (Topic #8)
+    - [x] Commands to retry/flush failed jobs
+    - [x] `php artisan activitypub:retry-failed`
+    - [x] **UI Support**: Added "Retry All ActivityPub" and "Flush All ActivityPub" to Queue Dashboard
 
+### Environmental & Build Maintenance
+- [x] **Vite 6 Downgrade**: Downgraded from Vite 7 to Vite 6 to resolve Vue 2 compiler crashes (`currentInput.slice`).
+- [x] **Vue 2.7 Alignment**: Pinned Vue to 2.7 in `package.json` for build stability.
+- [x] **String-based Routing**: Transitioned `cp.php` to `'Controller@method'` syntax to bypass environmental `::class` ParseErrors.
+
+## Medium Priority
 ### Hash Tags Support
 - [ ] Add hash tag support to notes
 - [ ] Add hash tag support to quotes
 - [ ] Add hash tag support to Actor profiles
 
-## Medium Priority
+### Advanced ActivityPub Experimentation
+- [ ] Add the ability to provide specific Activitypub JSON to notes
+  - [ ] Validate proper ActivityPub JSON format before saving
+- [ ] Add the ability to provide specific ActivityPub JSON to activities
+  - [ ] Validate proper ActivityPub JSON format before saving
+
 ### Testing
 - [x] **Quote Authorization Test Suite** (FEP-044f)
     - [x] SendQuoteRequestJobTest

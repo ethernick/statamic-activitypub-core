@@ -9,7 +9,7 @@
         <div v-else>
             <div v-for="localActor in myActors" :key="localActor.id">
                 <following-list 
-                    :title="localActor.title + '\'s Followers'"
+                    :title="localActor.title + ' Followers'"
                     :actors="getFollowersFor(localActor)"
                     empty-text="No followers found on this page."
                 >
@@ -41,8 +41,7 @@
                 </following-list>
             </div>
             
-             <!-- Simple Pagination -->
-             <div class="flex justify-between items-center mt-4" v-if="meta && meta.last_page > 1">
+            <div class="flex justify-between items-center mt-4" v-if="meta && meta.last_page > 1">
                 <button :disabled="!links.prev" @click="fetchPage(links.prev)" class="btn" :class="{'opacity-50': !links.prev}">Previous</button>
                 <span class="text-sm text-gray-600">Page {{ meta.current_page }} of {{ meta.last_page }}</span>
                 <button :disabled="!links.next" @click="fetchPage(links.next)" class="btn" :class="{'opacity-50': !links.next}">Next</button>

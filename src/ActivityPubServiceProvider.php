@@ -245,6 +245,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Ethernick\ActivityPubCore\Console\Commands\DiagnoseBadData::class,
         \Ethernick\ActivityPubCore\Console\Commands\ActivityPubInstall::class,
         \Ethernick\ActivityPubCore\Console\Commands\TestOEmbed::class,
+        \Ethernick\ActivityPubCore\Console\Commands\RetryFailedActivityPub::class,
         // Migration commands are auto-discovered by activitypub:migrate
     ];
 
@@ -321,6 +322,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
                 ->route('activitypub.tools.index')
                 ->children([
                     \Statamic\Facades\CP\Nav::item('Queue')->route('activitypub.queue.index'),
+                    \Statamic\Facades\CP\Nav::item('Actor Lookup')->route('activitypub.actor-lookup.index'),
                 ]);
 
             $nav->settings('ActivityPub')

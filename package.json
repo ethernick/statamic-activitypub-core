@@ -10,10 +10,10 @@
     "production": "npm run build"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@vitejs/plugin-vue": "^5.2.1",
     "@vitejs/plugin-vue2": "^2.3.4",
     "cross-env": "^7.0.3",
-    "vite": "^7.0.7",
+    "vite": "^6.0.0",
     "vite-plugin-externals": "^0.6.2"
   },
   "dependencies": {

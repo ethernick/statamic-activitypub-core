@@ -14,6 +14,12 @@ class ToolsController extends CpController
                 'description' => 'Monitor and flush the background processes powering ActivityPub.',
                 'icon' => 'database',
                 'url' => cp_route('activitypub.queue.index'),
+            ],
+            [
+                'title' => 'Actor Lookup',
+                'description' => 'Test ActivityPub connectivity and actor discovery.',
+                'icon' => 'search',
+                'url' => cp_route('activitypub.actor-lookup.index'),
             ]
         ];
 

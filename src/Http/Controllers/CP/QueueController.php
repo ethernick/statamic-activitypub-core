@@ -146,6 +146,16 @@ class QueueController extends CpController
     }
 
     /**
+     * Delete a specific failed job.
+     */
+    public function deleteFailed(string $id): JsonResponse
+    {
+        DB::table('failed_jobs')->where('id', $id)->delete();
+
+        return response()->json(['message' => 'Failed job deleted successfully.']);
+    }
+
+    /**
      * Flush all failed jobs.
      */
     public function flushFailed(): JsonResponse
@@ -153,5 +163,50 @@ class QueueController extends CpController
         Artisan::call('queue:flush');
 
         return response()->json(['message' => 'All failed jobs flushed.']);
+    }
+
+    /**
+     * Retry all ActivityPub related failed jobs.
+     */
+    public function retryFailedActivityPub(): JsonResponse
+    {
+        $query = DB::table('failed_jobs')
+            ->where(function ($q) {
+                $q->where('queue', 'activitypub-outbox')
+                    ->orWhere('payload', 'like', '%Ethernick\\\\ActivityPubCore%');
+            });
+
+        $jobs = $query->get();
+        if ($jobs->isEmpty()) {
+            return response()->json(['message' => 'No ActivityPub failed jobs found.']);
+        }
+
+        $count = $jobs->count();
+        foreach ($jobs as $job) {
+            Artisan::call('queue:retry', ['id' => [$job->id]]);
+        }
+
+        return response()->json(['message' => "Retry initiated for {$count} ActivityPub jobs."]);
+    }
+
+    /**
+     * Flush all ActivityPub related failed jobs.
+     */
+    public function flushFailedActivityPub(): JsonResponse
+    {
+        $query = DB::table('failed_jobs')
+            ->where(function ($q) {
+                $q->where('queue', 'activitypub-outbox')
+                    ->orWhere('payload', 'like', '%Ethernick\\\\ActivityPubCore%');
+            });
+
+        $count = $query->count();
+        if ($count === 0) {
+            return response()->json(['message' => 'No ActivityPub failed jobs found.']);
+        }
+
+        $query->delete();
+
+        return response()->json(['message' => "Successfully flushed {$count} ActivityPub jobs."]);
     }
 }

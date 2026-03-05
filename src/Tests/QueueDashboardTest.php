@@ -147,7 +147,7 @@ class QueueDashboardTest extends TestCase
         ]);
 
         $this->actingAs($user)->postJson(cp_route('activitypub.queue.pending.flush'), [
-            'type' => 'Statamic\Stache\Jobs\UpdateSearchIndex'
+            'type' => 'SearchIndexUpdate'
         ])->assertOk();
 
         $this->assertEquals(1, DB::table('jobs')->count());

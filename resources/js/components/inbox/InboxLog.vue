@@ -45,7 +45,7 @@
         </div>
         
         <!-- Slide-over / Stack -->
-        <div v-if="drawer.open" class="fixed inset-0 z-[100] z-[99]" @keydown.esc="closeJson">
+        <div v-if="drawer.open" class="fixed inset-0 z-[100]" @keydown.esc="closeJson">
              <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" @click="closeJson"></div>
              
              <div class="absolute inset-y-0 right-0 max-w-2xl w-full bg-white dark:bg-gray-900 shadow-xl flex flex-col transform transition-transform duration-300 ease-spring drawer"

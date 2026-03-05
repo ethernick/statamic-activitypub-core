@@ -1,12 +1,11 @@
 <template>
     <div class="actor-selector-wrapper">
         <select v-model="selected" class="input-text w-full">
-            <option v-if="!meta.actors || meta.actors.length === 0" disabled value="">{{ __('No actors found') }}</option>
+            <option v-if="!meta.actors || meta.actors.length === 0" disabled value="">No actors found</option>
             <option v-for="actor in meta.actors" :key="actor.value" :value="actor.value">{{ actor.label }}</option>
         </select>
     </div>
 </template>
-
 <script>
 const Fieldtype = window.__STATAMIC__?.core?.FieldtypeMixin || {};
 

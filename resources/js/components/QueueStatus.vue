@@ -49,16 +49,20 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="job in filteredPendingJobs" :key="job.id">
-                        <td>{{ job.id }}</td>
-                        <td>{{ job.queue }}</td>
-                        <td class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ job.parsed_name }}</td>
-                        <td class="text-sm font-semibold">{{ job.display_name }}</td>
-                        <td>{{ job.attempts }}</td>
-                        <td>{{ formatTime(job.created_at) }}</td>
-                        <td class="text-right flex items-center justify-end space-x-3">
-                            <button @click="viewPayload(job)" class="text-blue-500 hover:text-blue-700">View</button>
-                            <button @click="deletePending(job.id)" class="text-red-500 hover:text-red-700">Delete</button>
+                    <tr v-for="job in filteredPendingJobs" :key="'pending-' + job.id">
+                        <td class="align-middle">{{ job.id }}</td>
+                        <td class="align-middle">{{ job.queue }}</td>
+                        <td class="align-middle font-mono text-xs text-gray-700 dark:text-gray-300">
+                             <div class="truncate max-w-xs">{{ job.parsed_name }}</div>
+                        </td>
+                        <td class="align-middle text-sm font-semibold">{{ job.display_name }}</td>
+                        <td class="align-middle">{{ job.attempts }}</td>
+                        <td class="align-middle">{{ formatTime(job.created_at) }}</td>
+                        <td class="align-middle text-right w-32">
+                             <div class="flex items-center justify-end space-x-2">
+                                <button @click="viewPayload(job)" class="btn btn-sm">View</button>
+                                <button @click="deletePending(job.id)" class="btn btn-sm btn-danger">Delete</button>
+                             </div>
                         </td>
                     </tr>
                 </tbody>
@@ -75,7 +79,11 @@
         <div v-show="activeTab === 'failed'" class="card p-0">
             <div class="p-6 border-b flex justify-between items-center">
                 <h2 class="text-lg font-bold">Failed Jobs</h2>
-                <button v-if="failedJobs.length > 0" @click="flushFailed" class="btn btn-danger">Flush All Failed</button>
+                <div class="flex space-x-2">
+                    <button v-if="hasFailedActivityPubJobs" @click="retryFailedActivityPub" class="btn btn-primary">Retry All ActivityPub</button>
+                    <button v-if="hasFailedActivityPubJobs" @click="flushFailedActivityPub" class="btn btn-danger">Flush All ActivityPub</button>
+                    <button v-if="failedJobs.length > 0" @click="flushFailed" class="btn btn-danger">Flush All Failed</button>
+                </div>
             </div>
 
             <div v-if="loadingFailed" class="p-6 text-center text-gray-500">Loading failed jobs...</div>
@@ -93,16 +101,21 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="job in failedJobs" :key="job.uuid">
-                        <td>{{ job.id }}</td>
-                        <td>{{ job.queue }}</td>
-                        <td class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ job.parsed_name }}</td>
-                        <td class="text-sm font-semibold">{{ job.display_name }}</td>
-                        <td>{{ job.connection }}</td>
-                        <td>{{ job.failed_at }}</td>
-                        <td class="text-right flex justify-end space-x-2">
-                            <button @click="viewPayload(job)" class="btn btn-sm">View</button>
-                            <button @click="retryFailed(job.uuid)" class="btn btn-sm">Retry</button>
+                    <tr v-for="job in failedJobs" :key="'failed-' + job.uuid">
+                        <td class="align-middle">{{ job.id }}</td>
+                        <td class="align-middle">{{ job.queue }}</td>
+                        <td class="align-middle font-mono text-xs text-gray-700 dark:text-gray-300">
+                            <div class="truncate max-w-xs">{{ job.parsed_name }}</div>
+                        </td>
+                        <td class="align-middle text-sm font-semibold">{{ job.display_name }}</td>
+                        <td class="align-middle">{{ job.connection }}</td>
+                        <td class="align-middle">{{ job.failed_at }}</td>
+                        <td class="align-middle text-right">
+                             <div class="flex items-center justify-end space-x-2">
+                                <button @click="viewPayload(job)" class="btn btn-sm">View</button>
+                                <button @click="retryFailed(job.uuid)" class="btn btn-sm btn-primary">Retry</button>
+                                <button @click="deleteFailed(job.id)" class="btn btn-sm btn-danger">Flush</button>
+                             </div>
                         </td>
                     </tr>
                 </tbody>
@@ -175,6 +188,12 @@ export default {
         filteredPendingJobs() {
             if (!this.pendingFilter) return this.pendingJobs;
             return this.pendingJobs.filter(j => j.display_name === this.pendingFilter);
+        },
+        hasFailedActivityPubJobs() {
+            return this.failedJobs.some(job => {
+                const payload = job.raw_payload;
+                return job.queue === 'activitypub-outbox' || payload.includes('Ethernick\\\\ActivityPubCore');
+            });
         }
     },
     mounted() {
@@ -266,12 +285,42 @@ export default {
                     this.fetchStatus();
                 });
         },
+        deleteFailed(id) {
+            if (!confirm('Are you sure you want to flush this failed job?')) return;
+
+            this.$axios.delete(cp_url('activitypub/queue/failed/' + id))
+                .then(() => {
+                    this.$toast.success('Failed job flushed');
+                    this.fetchFailed();
+                    this.fetchStatus();
+                });
+        },
         flushFailed() {
             if (!confirm('Are you sure you want to flush ALL failed jobs?')) return;
 
             this.$axios.post(cp_url('activitypub/queue/flush'))
                 .then(() => {
                     this.$toast.success('All failed jobs flushed');
+                    this.fetchFailed();
+                    this.fetchStatus();
+                });
+        },
+        retryFailedActivityPub() {
+             if (!confirm('Are you sure you want to retry all ActivityPub failed jobs?')) return;
+
+             this.$axios.post(cp_url('activitypub/queue/retry-ap'))
+                .then(response => {
+                    this.$toast.success(response.data.message);
+                    this.fetchFailed();
+                    this.fetchStatus();
+                });
+        },
+        flushFailedActivityPub() {
+            if (!confirm('Are you sure you want to flush all ActivityPub failed jobs?')) return;
+
+            this.$axios.post(cp_url('activitypub/queue/flush-ap'))
+                .then(response => {
+                    this.$toast.success(response.data.message);
                     this.fetchFailed();
                     this.fetchStatus();
                 });

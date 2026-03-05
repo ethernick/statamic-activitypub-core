@@ -79,4 +79,5 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 - `addons/ethernick/ActivityPubQuestions/docs/PRD.md` - Poll addon docs.
 
 ### 2. Work Log / Session History
+- **2026-03-02**: Implemented DLQ Management CLI and UI. Added "Actor Lookup" tool (renamed from Utilities). Resolved critical environment issues: downgraded to Vite 6 to fix Vue 2 compiler crashes and implemented string-based routes in `cp.php` to bypass PHP parser bugs. All 121 tests passing.
 - *Consult `docs/session/` for detailed logs of specific development sessions.*
