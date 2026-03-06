@@ -40,6 +40,7 @@ class ActivityPubSettingsController extends Controller
             'inbox_batch_size' => 'nullable|integer|min:1',
             'outbox_batch_size' => 'nullable|integer|min:1',
             'schedule_interval' => 'nullable|integer|min:1|max:60',
+            'hashtags' => 'array',
         ]);
 
         $settings = [];
@@ -52,6 +53,14 @@ class ActivityPubSettingsController extends Controller
         $settings['inbox_batch_size'] = (int) ($data['inbox_batch_size'] ?? 50);
         $settings['outbox_batch_size'] = (int) ($data['outbox_batch_size'] ?? 50);
         $settings['schedule_interval'] = (int) ($data['schedule_interval'] ?? 1);
+
+        if (isset($data['hashtags'])) {
+            $settings['hashtags'] = [
+                'enabled' => (bool) ($data['hashtags']['enabled'] ?? false),
+                'taxonomy' => $data['hashtags']['taxonomy'] ?? 'tags',
+                'field' => $data['hashtags']['field'] ?? 'tags',
+            ];
+        }
 
         foreach ($data['collections'] as $handle => $enabled) {
             $settings[$handle] = [

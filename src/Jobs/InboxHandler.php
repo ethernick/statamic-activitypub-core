@@ -180,10 +180,6 @@ class InboxHandler
             $collections[] = 'followers';
             $externalActor->set('activitypub_collections', array_values($collections));
         }
-        if (!in_array('followers', $collections)) {
-            $collections[] = 'followers';
-            $externalActor->set('activitypub_collections', array_values($collections));
-        }
         $externalActor->save(); // This saves it if it was ephemeral
 
 
@@ -298,7 +294,10 @@ class InboxHandler
             $isReplyToKnown = false;
             if ($inReplyTo) {
                 // Check if it's a reply to a local note or a known external note
-                $isReplyToKnown = Entry::query()->where('collection', 'notes')->where('activitypub_id', $inReplyTo)->exists()
+                $isReplyToKnown = Entry::query()
+                    ->where('collection', 'notes')
+                    ->where('activitypub_id', $inReplyTo)
+                    ->exists()
                     || Entry::find($inReplyTo);
             }
 

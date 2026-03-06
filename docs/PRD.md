@@ -34,8 +34,12 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 ### Flow 2: Engaging with the Audience 
 1. A Fediverse user (e.g., on Mastodon) sees the creator's post and replies to it.
 2. The reply is securely received by the Statamic site.
-3. The creator logs into the Statamic Control Panel and sees a notification or an entry in their new "Activity Inbox."
-4. The creator can read the reply and understand how their content is performing.
+- [x] **Robust Tag Input UX Overhaul**
+    - [x] Multi-tag splitting (comma-delimited) via `@input` splitting
+    - [x] Auto-commit remaining field text on form submission
+    - [x] Automatic Statamic Taxonomy term creation for manual tags
+    - [x] Unified logic for hashtags and manual tags via `ensureTermsExist`
+- [x] **Settings UI for Taxonomy/Field configuration**
 
 ## 5. Success Metrics
 - **Primary:** 
@@ -62,6 +66,7 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 - Basic capability to send and receive messages from the Fediverse.
 - Background processing to keep the site fast.
 - Security checks to ensure messages are genuine.
+- **Hashtag & Tag Overhaul**: Automatic extraction of #hashtags and robust manual tag input with multi-splitting, auto-commit on save, and automatic Statamic Taxonomy term creation.
 
 ### Current Focus (v1.0 Release Candidate)
 - Polishing the Control Panel UI to ensure it feels native to both Statamic 5 and 6.
@@ -80,4 +85,6 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 
 ### 2. Work Log / Session History
 - **2026-03-02**: Implemented DLQ Management CLI and UI. Added "Actor Lookup" tool (renamed from Utilities). Resolved critical environment issues: downgraded to Vite 6 to fix Vue 2 compiler crashes and implemented string-based routes in `cp.php` to bypass PHP parser bugs. All 121 tests passing.
-- *Consult `docs/session/` for detailed logs of specific development sessions.*
+- **2026-03-05**: Audited `activitypub_collections` taxonomy usage. Confirmed hybrid approach: taxonomy for outbox distribution and external actor classification, but hard-coded relationship fields for local actor profiles.
+- **2026-03-06**: Overhauled Tag Input UX. Implemented comma-based multi-splitting, auto-commit on form submission, automated backend term creation for manual tags, and polished dark mode UI visibility for the tag selector. Added tag chicklets to the InboxFeed for better context. Verified across Note, Poll, Quote, and Reply variants.
+- *Consult `docs/sessions/` for detailed logs of specific development sessions.*

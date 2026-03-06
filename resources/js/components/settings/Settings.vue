@@ -113,7 +113,12 @@ export default {
                 blocklist: '',
                 collections: {},
                 federated: {},
-                types: {}
+                types: {},
+                hashtags: {
+                    enabled: true,
+                    taxonomy: 'tags',
+                    field: 'tags'
+                }
             },
             saving: false,
             success: false,
@@ -134,7 +139,12 @@ export default {
                 blocklist: this.initialSettings.blocklist || '',
                 collections: {},
                 federated: {},
-                types: {}
+                types: {},
+                hashtags: {
+                    enabled: this.initialSettings.hashtags?.enabled ?? false,
+                    taxonomy: this.initialSettings.hashtags?.taxonomy ?? 'tags',
+                    field: this.initialSettings.hashtags?.field ?? 'tags',
+                }
             };
 
             // Populate nested objects
@@ -176,7 +186,8 @@ export default {
                 maintenance_time: this.form.maintenance_time,
                 retention_activities: this.form.retention_activities,
                 retention_entries: this.form.retention_entries,
-                blocklist: this.form.blocklist
+                blocklist: this.form.blocklist,
+                hashtags: this.form.hashtags
             };
 
             this.$axios.post(this.saveUrl, payload)

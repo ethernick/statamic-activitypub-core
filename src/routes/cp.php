@@ -31,10 +31,11 @@ Route::post('activitypub/inbox/reply', 'Ethernick\ActivityPubCore\Http\Controlle
 Route::post('activitypub/inbox/notes', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@storeNote')->name('activitypub.inbox.store-note');
 Route::post('activitypub/inbox/polls', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@storePoll')->name('activitypub.inbox.store-poll');
 Route::put('activitypub/inbox/notes/{id}', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@updateNote')->name('activitypub.inbox.update-note');
-Route::post('activitypub/inbox/delete', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@destroy')->name('activitypub.inbox.delete');
+Route::delete('activitypub/inbox/delete', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@destroy')->name('activitypub.inbox.delete');
 Route::post('activitypub/inbox/link-preview', 'Ethernick\ActivityPubCore\Http\Controllers\CP\LinkPreviewController@show')->name('activitypub.inbox.link-preview');
 Route::post('activitypub/inbox/batch-link-preview', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@batchLinkPreview')->name('activitypub.inbox.batch-link-preview');
 Route::post('activitypub/inbox/batch-enrichment', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@batchEnrichment')->name('activitypub.inbox.batch-enrichment');
+Route::get('activitypub/inbox/search-terms', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@searchTerms')->name('activitypub.inbox.search-terms');
 
 Route::get('activitypub/following', 'Ethernick\ActivityPubCore\Http\Controllers\CP\FollowController@following')->name('activitypub.following.index');
 Route::get('activitypub/following/api', 'Ethernick\ActivityPubCore\Http\Controllers\CP\FollowController@apiFollowing')->name('activitypub.following.api');

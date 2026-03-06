@@ -12,5 +12,7 @@
         :delete-url="'{{ cp_route('activitypub.inbox.delete') }}'"
         :link-preview-url="'{{ cp_route('activitypub.inbox.link-preview') }}'"
         :batch-link-preview-url="'{{ cp_route('activitypub.inbox.batch-link-preview') }}'"
-        :markdown-preview-url="'{{ cp_route('markdown.preview') }}'"></activity-pub-inbox>
+        :markdown-preview-url="'{{ cp_route('markdown.preview') }}'" :hashtag-field="'{{ $hashtagField }}'"
+        :hashtag-taxonomy="'{{ $hashtagTaxonomy }}'" :hashtag-enabled="{{ $hashtagEnabled ? 'true' : 'false' }}"
+        :search-terms-url="'{{ cp_route('activitypub.inbox.search-terms') }}'"></activity-pub-inbox>
 @endsection

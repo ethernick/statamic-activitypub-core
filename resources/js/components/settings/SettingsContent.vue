@@ -2,13 +2,41 @@
     <div class="flex flex-col gap-6">
         <!-- Allow Quotes -->
         <settings-panel title="General Behavior" description="Configure global ActivityPub behavior.">
-             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <label class="font-bold text-sm">Allow Quotes</label>
                     <p class="text-sm text-gray-500">Allow others to quote/boost your activities. Adds "canQuote" permission.</p>
                 </div>
                 <div class="toggle-container">
                     <input type="checkbox" :checked="form.allow_quotes" @change="$emit('update:allow_quotes', $event.target.checked)">
+                </div>
+            </div>
+
+            <hr class="my-4 dark:border-dark-800">
+
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <label class="font-bold text-sm">Hashtag Support</label>
+                        <p class="text-sm text-gray-500">Automatically extract #hashtags from content and create Statamic terms.</p>
+                    </div>
+                    <div class="toggle-container">
+                        <input type="checkbox" v-model="form.hashtags.enabled">
+                    </div>
+                </div>
+
+                <div v-if="form.hashtags.enabled" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <label class="font-bold text-sm block mb-1">Taxonomy</label>
+                        <select class="input-text text-sm w-full" v-model="form.hashtags.taxonomy">
+                            <option v-for="tax in taxonomies" :key="tax.handle" :value="tax.handle">{{ tax.title }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm block mb-1">Blueprint Field</label>
+                        <input type="text" class="input-text text-sm w-full" v-model="form.hashtags.field" placeholder="e.g. tags">
+                        <p class="text-xs text-gray-500 mt-1">The field name where terms will be stored.</p>
+                    </div>
                 </div>
             </div>
         </settings-panel>

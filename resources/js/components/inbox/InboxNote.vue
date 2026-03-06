@@ -157,6 +157,12 @@
                         </div>
                     </div>
                 </a>
+                <!-- Tags Display -->
+                <div v-if="note.tags && note.tags.length > 0" class="mt-3 flex flex-wrap gap-1">
+                    <span v-for="(tag, idx) in note.tags" :key="idx" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full inline-flex items-center">
+                        {{ typeof tag === 'object' ? (tag.title || tag.name || Object.values(tag)[0]) : tag }}
+                    </span>
+                </div>
 
                 <!-- Actions -->
                 <div class="mt-3 flex items-center gap-6 text-sm text-gray-500">

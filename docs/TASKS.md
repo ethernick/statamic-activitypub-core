@@ -50,9 +50,15 @@
 
 ## Medium Priority
 ### Hash Tags Support
-- [ ] Add hash tag support to notes
-- [ ] Add hash tag support to quotes
-- [ ] Add hash tag support to Actor profiles
+- [x] **Robust Tag Input UX Overhaul**
+    - [x] Multi-tag splitting (comma-delimited) via `@input` splitting
+    - [x] Auto-commit remaining field text on form submission
+    - [x] Automatic Statamic Taxonomy term creation for manual tags
+    - [x] Unified logic for hashtags and manual tags via `ensureTermsExist`
+- [x] **Settings UI for Taxonomy/Field configuration**
+- [x] Support for notes
+- [x] Support for quotes (via content parsing)
+- [x] Support for Actor profiles (via bio/content parsing)
 
 ### Advanced ActivityPub Experimentation
 - [ ] Add the ability to provide specific Activitypub JSON to notes

@@ -147,6 +147,11 @@ class HttpSignature
                                         'Accept' => 'application/activity+json, application/ld+json',
                                     ])->withOptions($options)->get($fetchUrl);
 
+                                    if ($response->status() === 410) {
+                                        Log::info("ActivityPub: Actor/Key $keyId is GONE (410).");
+                                        return false;
+                                    }
+
                                     if ($response->successful()) {
                                         $data = $response->json();
 

@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "vite",
     "build:v5": "cross-env BUILD_ADDON=true VUE_VERSION=2 vite build && mkdir -p dist/v5/css && cp resources/css/cp.css dist/v5/css/cp.css",
-    "build:v6": "cross-env BUILD_ADDON=true VUE_VERSION=3 vite build && mkdir -p dist/v6/css && cp resources/css/cp.css dist/v6/css/cp.css",
     "build": "./bin/build-v6.sh && npm run build:v5",
     "production": "npm run build"
   },

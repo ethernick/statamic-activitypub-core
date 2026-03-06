@@ -41,6 +41,12 @@ class ActivityPubServiceProvider extends AddonServiceProvider
 
     public function boot(): void
     {
+        // Register custom ActivityPub types with the library
+        // This allows the library to accept Mastodon-specific properties like 'featured'
+        \ActivityPhp\Type::add('Person', \Ethernick\ActivityPubCore\Types\Person::class);
+        \ActivityPhp\Type::add('Application', \Ethernick\ActivityPubCore\Types\Application::class);
+        \ActivityPhp\Type::add('PropertyValue', \Ethernick\ActivityPubCore\Types\PropertyValue::class);
+
         // CRITICAL: Register event listeners BEFORE parent::boot()
         // The parent class defers bootEvents() inside Statamic::booted(), which runs
         // AFTER the Event facade is sealed in tests, preventing listeners from registering.
@@ -272,6 +278,10 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Ethernick\ActivityPubCore\Actions\FollowAction::class,
         \Ethernick\ActivityPubCore\Actions\UnfollowAction::class,
         \Ethernick\ActivityPubCore\Actions\ResendActivityAction::class,
+    ];
+
+    protected $modifiers = [
+        \Ethernick\ActivityPubCore\Modifiers\ActivityPubHashtags::class,
     ];
 
     public function bootAddon(): void

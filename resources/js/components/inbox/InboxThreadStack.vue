@@ -9,7 +9,7 @@
         <div v-else class="flex flex-col">
             <div v-for="(item, idx) in items" :key="item.id || idx"
                 class="relative"
-                :class="{'bg-blue-50 dark:bg-dark-800': item.is_focus}">
+                :class="{'bg-blue-50 dark:bg-gray-800': item.is_focus}">
 
                 <!-- Thread Connector Line -->
                 <div v-if="item.depth > 0" class="absolute left-6 top-0 bottom-0 border-l-2 border-gray-200 dark:border-gray-700"
@@ -37,9 +37,13 @@
                                 :content="replyForm.content"
                                 :content-warning="replyForm.content_warning"
                                 :loading="sendingReply"
+                                :hashtag-enabled="hashtagEnabled"
+                                :hashtag-taxonomy="hashtagTaxonomy"
+                                :search-terms-url="searchTermsUrl"
                                 @update:actorId="$emit('update:replyForm', { ...replyForm, actor_id: $event })"
                                 @update:content="$emit('update:replyForm', { ...replyForm, content: $event })"
                                 @update:contentWarning="$emit('update:replyForm', { ...replyForm, content_warning: $event })"
+                                @update:tags="$emit('update:replyForm', { ...replyForm, tags: $event })"
                                 @cancel="$emit('update:activeReplyId', null)"
                                 @submit="$emit('submit-reply', item)"
                             />
@@ -94,6 +98,18 @@ export default {
         permissions: {
             type: Object,
             default: () => ({ update: false, delete: false })
+        },
+        hashtagEnabled: {
+            type: Boolean,
+            default: false
+        },
+        hashtagTaxonomy: {
+            type: String,
+            default: 'tags'
+        },
+        searchTermsUrl: {
+            type: String,
+            default: null
         }
     },
     emits: [

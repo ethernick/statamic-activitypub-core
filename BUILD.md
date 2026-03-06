@@ -24,18 +24,14 @@ npm run build
 ```
 This builds both Vue 2 (v5) and Vue 3 (v6) versions.
 
-**Build for Statamic 5 only (Vue 2):**
-```bash
-npm run build:v5
-```
-
 **Build for Statamic 6 only (Vue 3):**
+> ⚠️ **IMPORTANT**: Do NOT run `npm run build:v6` directly. It will fail unless Vue 3 is already installed.
+
+You must compile the v6 assets by using the helper script:
 ```bash
-npm run build:v6
-# or use the helper script:
 ./bin/build-v6.sh
 ```
-The helper script temporarily swaps Vue 2 for Vue 3, builds, then restores Vue 2.
+The helper script temporarily swaps Vue 2 for Vue 3, builds the assets via `npm run build:v6`, then safely restores Vue 2.
 
 ## Output Directories
 

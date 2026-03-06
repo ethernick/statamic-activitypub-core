@@ -98,7 +98,7 @@ class QueueController extends CpController
 
             $displayName = $payload['displayName'] ?? $jobName;
 
-            if ($displayName === $type) {
+            if ($displayName === $type || $jobName === $type) {
                 DB::table('jobs')->where('id', $job->id)->delete();
                 $deletedCount++;
             }

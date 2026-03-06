@@ -33,9 +33,13 @@
                             :content="replyForm.content"
                             :content-warning="replyForm.content_warning"
                             :loading="sendingReply"
+                            :hashtag-enabled="hashtagEnabled"
+                            :hashtag-taxonomy="hashtagTaxonomy"
+                            :search-terms-url="searchTermsUrl"
                             @update:actorId="$emit('update:replyForm', { ...replyForm, actor_id: $event })"
                             @update:content="$emit('update:replyForm', { ...replyForm, content: $event })"
                             @update:contentWarning="$emit('update:replyForm', { ...replyForm, content_warning: $event })"
+                            @update:tags="$emit('update:replyForm', { ...replyForm, tags: $event })"
                             @cancel="$emit('update:activeReplyId', null)"
                             @submit="$emit('submit-reply', note)"
                         />
@@ -134,6 +138,18 @@ export default {
         sendingReply: {
             type: Boolean,
             default: false
+        },
+        hashtagEnabled: {
+            type: Boolean,
+            default: false
+        },
+        hashtagTaxonomy: {
+            type: String,
+            default: 'tags'
+        },
+        searchTermsUrl: {
+            type: String,
+            default: null
         }
     },
     computed: {

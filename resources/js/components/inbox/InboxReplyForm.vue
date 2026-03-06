@@ -30,9 +30,40 @@
                     @update:value="$emit('update:content', $event)"
                 />
             </div>
+
+            <div v-if="hashtagEnabled" class="mb-2">
+                <div class="flex flex-wrap gap-2 mb-2">
+                    <div v-for="(tag, index) in tags" :key="index" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs px-2 py-1 rounded flex items-center gap-1">
+                        {{ tag }}
+                        <button type="button" @click="removeTag(index)" class="hover:text-red-500">&times;</button>
+                    </div>
+                </div>
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        v-model="tagInput" 
+                        @keydown.enter.prevent="addTag"
+                        @keydown.comma.prevent="addTag"
+                        @input="handleInput"
+                        class="input-text w-full text-sm" 
+                        placeholder="Add tag (amendment)..."
+                    >
+                    <div v-if="suggestions.length" class="absolute z-10 w-full bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg max-h-40 overflow-y-auto mt-1 rounded">
+                        <div 
+                            v-for="term in suggestions" 
+                            :key="term.id" 
+                            @click="selectTerm(term.id)"
+                            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-800 dark:text-gray-200"
+                        >
+                            {{ term.title }} (#{{ term.id }})
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex justify-end gap-2 mt-3">
                 <button type="button" @click="$emit('cancel')" class="btn">Cancel</button>
-                <button type="button" @click="$emit('submit')" class="btn-primary" :disabled="loading">
+                <button type="button" @click="submitForm" class="btn-primary" :disabled="loading">
                     {{ loading ? 'Sending...' : 'Reply' }}
                 </button>
             </div>
@@ -65,6 +96,101 @@ export default {
         loading: {
             type: Boolean,
             default: false
+        },
+        tags: {
+            type: Array,
+            default: () => []
+        },
+        hashtagEnabled: {
+            type: Boolean,
+            default: false
+        },
+        hashtagTaxonomy: {
+            type: String,
+            default: 'tags'
+        },
+        searchTermsUrl: {
+            type: String,
+            default: null
+        }
+    },
+    data() {
+        return {
+            tagInput: '',
+            suggestions: [],
+            searchTimeout: null
+        }
+    },
+    methods: {
+        handleInput() {
+            if (this.tagInput.includes(',')) {
+                this.addTag();
+            }
+            this.searchExistingTerms();
+        },
+        addTag() {
+            console.log('ReplyForm (v5) addTag, input:', this.tagInput);
+            
+            // Split by comma and process each part
+            const tagsToProcess = this.tagInput.split(',');
+            let newTags = [...this.tags];
+            let modified = false;
+
+            tagsToProcess.forEach(rawTag => {
+                const tag = rawTag.trim().replace(/^#/, '');
+                if (tag && !newTags.includes(tag)) {
+                    newTags.push(tag);
+                    modified = true;
+                    console.log('Tag added to ReplyForm:', tag);
+                }
+            });
+
+            if (modified) {
+                console.log('Emitting updated tags:', JSON.stringify(newTags));
+                this.$emit('update:tags', newTags);
+            }
+
+            this.tagInput = '';
+            this.suggestions = [];
+        },
+        removeTag(index) {
+            const newTags = [...this.tags];
+            newTags.splice(index, 1);
+            this.$emit('update:tags', newTags);
+        },
+        submitForm() {
+            console.log('ReplyForm (v5) submitForm, pending input:', this.tagInput);
+            if (this.tagInput.trim()) {
+                this.addTag();
+            }
+            this.$emit('submit');
+        },
+        searchExistingTerms() {
+            if (!this.searchTermsUrl || this.tagInput.length < 2) {
+                this.suggestions = [];
+                return;
+            }
+
+            if (this.searchTimeout) clearTimeout(this.searchTimeout);
+
+            this.searchTimeout = setTimeout(() => {
+                this.$axios.get(this.searchTermsUrl, {
+                    params: {
+                        taxonomy: this.hashtagTaxonomy,
+                        q: this.tagInput
+                    }
+                }).then(response => {
+                    this.suggestions = response.data.filter(term => !this.tags.includes(term.id));
+                });
+            }, 300);
+        },
+        selectTerm(slug) {
+            if (!this.tags.includes(slug)) {
+                const newTags = [...this.tags, slug];
+                this.$emit('update:tags', newTags);
+            }
+            this.tagInput = '';
+            this.suggestions = [];
         }
     }
 }

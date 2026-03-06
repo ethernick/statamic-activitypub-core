@@ -64,7 +64,7 @@
 {{ if tag }}
 "tag": {{ tag | to_json }},
 {{ /if }}
-"replies": "{{ replies }}",
+"replies": {{ replies | to_json }},
 "likes": {
 "id": "{{ likes_url }}",
 "type": "OrderedCollection",

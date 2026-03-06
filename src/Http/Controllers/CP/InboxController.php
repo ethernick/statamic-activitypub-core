@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 use Ethernick\ActivityPubCore\Services\ThreadService;
 use Ethernick\ActivityPubCore\Services\LinkPreview;
 use Statamic\Facades\Collection;
+use Statamic\Facades\Taxonomy;
+use Statamic\Facades\YAML;
+use Statamic\Facades\File;
+use Statamic\Facades\Blink;
 
 class InboxController extends CpController
 {
@@ -340,6 +344,16 @@ class InboxController extends CpController
                 ];
             });
 
+        $settings = Blink::once('activitypub-settings', function () {
+            $path = resource_path('settings/activitypub.yaml');
+            if (!File::exists($path)) {
+                return [];
+            }
+            return YAML::parse(File::get($path));
+        });
+
+        $hashtagSettings = $settings['hashtags'] ?? [];
+
         return view('activitypub::inbox', [
             'title' => 'Inbox',
             'localActors' => $actors,
@@ -348,6 +362,9 @@ class InboxController extends CpController
             // Actually cp_route takes the route name.
             'createNoteUrl' => cp_route('collections.entries.create', ['collection' => 'notes', 'site' => \Statamic\Facades\Site::selected()->handle()]),
             'storePollUrl' => cp_route('activitypub.inbox.store-poll'),
+            'hashtagField' => $hashtagSettings['field'] ?? 'tags',
+            'hashtagTaxonomy' => $hashtagSettings['taxonomy'] ?? 'tags',
+            'hashtagEnabled' => $hashtagSettings['enabled'] ?? false,
         ]);
     }
 
@@ -357,12 +374,18 @@ class InboxController extends CpController
             'content' => 'required|string',
             'actor' => 'required|string',
             'in_reply_to' => 'required|string',
+            'content_warning' => 'nullable|string',
+            'tags' => 'nullable|array',
         ]);
 
         $actor = Entry::find($request->input('actor'));
         if (!$actor) {
             return response()->json(['error' => 'Actor not found'], 404);
         }
+
+        $path = resource_path('settings/activitypub.yaml');
+        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
+        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
         $entry = Entry::make()
             ->collection('notes')
@@ -374,6 +397,8 @@ class InboxController extends CpController
                 'date' => now()->format('Y-m-d H:i'),
                 'sensitive' => $request->filled('content_warning'),
                 'summary' => $request->input('content_warning'),
+                $hashtagField => $request->input('tags', []),
+                'is_internal' => true,
             ]);
 
         $entry->save();
@@ -391,7 +416,7 @@ class InboxController extends CpController
             'actor' => 'required|string',
             'content_warning' => 'nullable|string',
             'quote_of' => 'nullable|string',
-            //'quote_of.*' => 'string',
+            'tags' => 'nullable|array',
         ]);
 
         $actor = Entry::find($request->input('actor'));
@@ -400,6 +425,10 @@ class InboxController extends CpController
         }
 
         $quoteOf = $request->input('quote_of');
+
+        $path = resource_path('settings/activitypub.yaml');
+        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
+        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
         $entry = Entry::make()
             ->collection('notes')
@@ -411,6 +440,7 @@ class InboxController extends CpController
                 'sensitive' => $request->filled('content_warning'),
                 'summary' => $request->input('content_warning'),
                 'quote_of' => $quoteOf ? [$quoteOf] : null,
+                $hashtagField => $request->input('tags', []),
                 'is_internal' => true,
                 'quote_authorization_status' => $quoteOf ? 'pending' : null,
             ]);
@@ -436,6 +466,7 @@ class InboxController extends CpController
             'multiple_choice' => 'boolean',
             'end_time' => 'nullable|date',
             'content_warning' => 'nullable|string',
+            'tags' => 'nullable|array',
         ]);
 
         $actor = Entry::find($request->input('actor'));
@@ -451,6 +482,10 @@ class InboxController extends CpController
             ];
         })->all();
 
+        $path = resource_path('settings/activitypub.yaml');
+        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
+        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
+
         $entry = Entry::make()
             ->collection('polls')
             ->published(true)
@@ -465,6 +500,7 @@ class InboxController extends CpController
                 'voters_count' => 0,
                 'sensitive' => $request->filled('content_warning'),
                 'summary' => $request->input('content_warning'),
+                $hashtagField => $request->input('tags', []),
                 'is_internal' => true,
             ]);
 
@@ -481,6 +517,7 @@ class InboxController extends CpController
         $request->validate([
             'content' => 'required|string',
             'content_warning' => 'nullable|string',
+            'tags' => 'nullable|array',
         ]);
 
         $entry = Entry::find($id);
@@ -493,7 +530,12 @@ class InboxController extends CpController
             return response()->json(['error' => 'Cannot edit external notes'], 403);
         }
 
+        $path = resource_path('settings/activitypub.yaml');
+        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
+        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
+
         $entry->set('content', $request->input('content'));
+        $entry->set($hashtagField, $request->input('tags', []));
 
         if ($request->filled('content_warning')) {
             $entry->set('sensitive', true);
@@ -526,6 +568,29 @@ class InboxController extends CpController
     }
 
     /**
+     * Search terms in a taxonomy.
+     */
+    public function searchTerms(Request $request): mixed
+    {
+        $taxonomy = $request->input('taxonomy', 'tags');
+        $query = $request->input('q', '');
+
+        $terms = \Statamic\Facades\Term::query()
+            ->where('taxonomy', $taxonomy);
+
+        if ($query) {
+            $terms->where('title', 'like', "%{$query}%");
+        }
+
+        return $terms->limit(20)->get()->map(function ($term) {
+            return [
+                'id' => $term->slug(),
+                'title' => $term->get('title') ?? $term->slug(),
+            ];
+        });
+    }
+
+    /**
      * Delete a note or activity and its related items.
      */
     public function destroy(Request $request): mixed
@@ -535,6 +600,13 @@ class InboxController extends CpController
         ]);
 
         $entry = Entry::find($request->input('id'));
+
+        \Illuminate\Support\Facades\Log::info("ActivityPub CP: Attempting to delete entry", [
+            'id' => $request->input('id'),
+            'found' => (bool) $entry,
+            'collection' => $entry ? $entry->collection()->handle() : null
+        ]);
+
         if (!$entry) {
             return response()->json(['error' => 'Entry not found'], 404);
         }
@@ -1071,9 +1143,9 @@ class InboxController extends CpController
                 'voters_count' => $note->get('voters_count', 0),
                 'end_time' => $note->get('end_time'),
                 'closed' => (bool) $note->get('closed', false),
-                'multiple_choice' => (bool) $note->get('multiple_choice', false),
                 'has_voted' => $this->checkIfVoted($note, $userActors),
                 'voted_options' => $this->getVotedOptions($note, $userActors),
+                'tags' => $note->get('tags', []),
             ];
         }
 

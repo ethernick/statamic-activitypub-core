@@ -22,6 +22,9 @@
             :active-reply-id="activeReplyId"
             :reply-form="replyForm"
             :sending-reply="sendingReply"
+            :hashtag-enabled="hashtagEnabled"
+            :hashtag-taxonomy="hashtagTaxonomy"
+            :search-terms-url="searchTermsUrl"
             @page-change="changePage"
             @per-page-change="changePerPage"
             @update:activeReplyId="activeReplyId = $event"
@@ -65,6 +68,9 @@
             :is-editing="!!editingNoteId"
             :loading="creating"
             :preview-url="markdownPreviewUrl"
+            :hashtag-enabled="hashtagEnabled"
+            :hashtag-taxonomy="hashtagTaxonomy"
+            :search-terms-url="searchTermsUrl"
             @close="closeNoteModal"
             @submit="submitNote"
         />
@@ -75,6 +81,9 @@
             :form="newPoll"
             :actors="localActors"
             :loading="creating"
+            :hashtag-enabled="hashtagEnabled"
+            :hashtag-taxonomy="hashtagTaxonomy"
+            :search-terms-url="searchTermsUrl"
             @close="closePollModal"
             @submit="submitPoll"
         />
@@ -86,6 +95,9 @@
             :actors="localActors"
             :quoted-note="quotedNote"
             :loading="creating"
+            :hashtag-enabled="hashtagEnabled"
+            :hashtag-taxonomy="hashtagTaxonomy"
+            :search-terms-url="searchTermsUrl"
             @close="closeQuoteModal"
             @submit="submitQuote"
         />
@@ -109,6 +121,9 @@
             :sending-reply="sendingReply"
             :actors="localActors"
             :permissions="{ update: !!updateNoteUrl, delete: !!deleteUrl }"
+            :hashtag-enabled="hashtagEnabled"
+            :hashtag-taxonomy="hashtagTaxonomy"
+            :search-terms-url="searchTermsUrl"
             @close="closeThreadModal"
             @update:activeReplyId="activeReplyId = $event"
             @update:replyForm="updateReplyForm"
@@ -288,6 +303,22 @@ export default {
         batchLinkPreviewUrl: {
             type: String,
             default: null
+        },
+        hashtagField: {
+            type: String,
+            default: 'tags'
+        },
+        hashtagTaxonomy: {
+            type: String,
+            default: 'tags'
+        },
+        hashtagEnabled: {
+            type: Boolean,
+            default: false
+        },
+        searchTermsUrl: {
+            type: String,
+            default: null
         }
     },
     data() {
@@ -307,7 +338,8 @@ export default {
             replyForm: {
                 content: '',
                 content_warning: '',
-                actor_id: parsedActors[0]?.id || null
+                actor_id: parsedActors[0]?.id || null,
+                tags: []
             },
             sendingReply: false,
             lightbox: {
@@ -323,14 +355,16 @@ export default {
             newNote: {
                 content: '',
                 content_warning: '',
-                actor: null
+                actor: null,
+                tags: []
             },
             isCreatingPoll: false,
             newPoll: {
                 actor: null,
                 content: '',
                 multiple_choice: false,
-                options: ['', '']
+                options: ['', ''],
+                tags: []
             },
             isCreatingQuote: false,
             quotedNote: null,
@@ -339,6 +373,7 @@ export default {
                 content: '',
                 content_warning: '',
                 quote_of: null,
+                tags: []
             },
             showNewDropdown: false,
             creating: false,
@@ -463,7 +498,8 @@ export default {
             this.newNote = {
                 content: '',
                 content_warning: '',
-                actor: this.localActors[0]?.id || null
+                actor: this.localActors[0]?.id || null,
+                tags: []
             };
         },
         editNote(note) {
@@ -472,7 +508,8 @@ export default {
             this.newNote = {
                 content: note.content_raw || note.content,
                 content_warning: note.summary || '',
-                actor: note.actor.id
+                actor: note.actor.id,
+                tags: note.tags || []
             };
         },
         closeNoteModal() {
@@ -558,7 +595,8 @@ export default {
                 this.replyForm = {
                     content: '',
                     content_warning: '',
-                    actor_id: this.localActors[0]?.id || null
+                    actor_id: this.localActors[0]?.id || null,
+                    tags: []
                 };
             }
         },
@@ -593,7 +631,8 @@ export default {
                 actor: this.localActors[0]?.id || null,
                 content: '',
                 content_warning: '',
-                quote_of: note.id
+                quote_of: note.id,
+                tags: []
             };
         },
         closeQuoteModal() {
