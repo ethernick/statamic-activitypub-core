@@ -28,6 +28,15 @@ class ActivityPubListener
     {
         if ($event instanceof EntryBlueprintFound) {
             $handle = $event->entry?->collection()?->handle();
+
+            // Handle creation view where entry is null
+            if ($handle === null && $event->blueprint->namespace()) {
+                $namespace = $event->blueprint->namespace();
+                if (str_starts_with($namespace, 'collections.')) {
+                    $handle = str_replace('collections.', '', $namespace);
+                }
+            }
+
             if ($handle !== null) {
                 $this->handleBlueprintFound($event, $handle);
             }
@@ -35,6 +44,15 @@ class ActivityPubListener
 
         if ($event instanceof TermBlueprintFound) {
             $handle = $event->term?->taxonomy()?->handle();
+
+            // Handle creation view where term is null
+            if ($handle === null && $event->blueprint->namespace()) {
+                $namespace = $event->blueprint->namespace();
+                if (str_starts_with($namespace, 'taxonomies.')) {
+                    $handle = str_replace('taxonomies.', '', $namespace);
+                }
+            }
+
             if ($handle !== null) {
                 $this->handleBlueprintFound($event, $handle);
             }
@@ -140,25 +158,6 @@ class ActivityPubListener
 
         $blueprint = $event->blueprint;
 
-        // Inject activitypub_json field
-        if (!$blueprint->hasField('activitypub_json')) {
-            $blueprint->ensureField('activitypub_json', [
-                'type' => 'textarea', // Use 'textarea' for JSON storage
-                'display' => 'ActivityPub JSON',
-                'visibility' => 'hidden',
-                'read_only' => false,
-            ]);
-        } else {
-            // Field exists, force read_only to false
-            $field = $blueprint->field('activitypub_json');
-            if ($field) {
-                $config = $field->config();
-                $config['read_only'] = false;
-                $config['visibility'] = 'visible'; // Debug visibility
-                $field->setConfig($config);
-            }
-        }
-
         // Inject actor field if not present
         if (!$blueprint->hasField('actor')) {
             $blueprint->ensureField('actor', [
@@ -197,6 +196,105 @@ class ActivityPubListener
                 ]);
             }
         }
+
+        // Inject activitypub_json field into the Advanced section of the main tab
+        // We do this LAST to ensure other dynamically ensured fields don't fall into the Advanced section.
+        // Resolve the target tab (usually 'main' or the first tab)
+        $contents = $blueprint->contents();
+        $tabs = $contents['tabs'] ?? [];
+        $targetTab = isset($tabs['main']) ? 'main' : (array_key_first($tabs) ?: 'main');
+
+        // Unconditionally remove to ensure we don't have duplicates across sections of the same tab.
+        // Statamic's removeField() clears internal caches.
+        $blueprint->removeField('activitypub_json');
+        $blueprint->removeField('activitypub_json_manual');
+
+        // Re-fetch contents after removals.
+        $contents = $blueprint->contents();
+        $tabs = $contents['tabs'] ?? [];
+
+        $jsonConfig = [
+            'type' => 'code',
+            'mode' => 'javascript',
+            'mode_selectable' => false,
+            'line_numbers' => false,
+            'line_wrapping' => true,
+            'display' => 'ActivityPub JSON',
+            'instructions' => 'Advanced: Override the generated ActivityPub payload or view the current payload. Must be valid JSON.',
+            'validate' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    $json = $value;
+                    if (is_array($value) && isset($value['code'])) {
+                        $json = $value['code'];
+                    }
+
+                    if (!is_string($json)) {
+                        $fail("The $attribute must be a string or a valid code object.");
+                        return;
+                    }
+
+                    if (empty($json))
+                        return;
+
+                    $decoded = json_decode($json, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        $fail("Invalid JSON: " . json_last_error_msg());
+                        return;
+                    }
+
+                    // Semantic Check
+                    if (!isset($decoded['@context'])) {
+                        $fail("ActivityPub Warning: Missing '@context' attribute.");
+                    }
+                    if (!isset($decoded['type'])) {
+                        $fail("ActivityPub Warning: Missing 'type' attribute.");
+                    }
+                }
+            ],
+        ];
+
+        $manualToggleConfig = [
+            'type' => 'toggle',
+            'display' => 'Manual JSON Override',
+            'instructions' => 'If enabled, the system will not auto-generate or update the JSON payload below.',
+            'default' => false,
+        ];
+
+        if (!isset($tabs[$targetTab]['sections'])) {
+            $tabs[$targetTab]['sections'] = [];
+        }
+
+        $advancedSectionIndex = null;
+        foreach ($tabs[$targetTab]['sections'] as $i => $section) {
+            if (isset($section['display']) && strtolower($section['display']) === 'advanced') {
+                $advancedSectionIndex = $i;
+                break;
+            }
+        }
+
+        if ($advancedSectionIndex === null) {
+            $tabs[$targetTab]['sections'][] = [
+                'display' => 'Advanced',
+                'fields' => []
+            ];
+            $advancedSectionIndex = count($tabs[$targetTab]['sections']) - 1;
+        }
+
+        // Add Manual Toggle First in section
+        $tabs[$targetTab]['sections'][$advancedSectionIndex]['fields'][] = [
+            'handle' => 'activitypub_json_manual',
+            'field' => $manualToggleConfig
+        ];
+
+        // Add Single JSON Field
+        $tabs[$targetTab]['sections'][$advancedSectionIndex]['fields'][] = [
+            'handle' => 'activitypub_json',
+            'field' => $jsonConfig
+        ];
+
+        $contents['tabs'] = $tabs;
+        $blueprint->setContents($contents);
     }
 
     public function handleEntrySaving(EntrySaving $event): void
@@ -207,6 +305,19 @@ class ActivityPubListener
         // \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaving START for {$entry->id()} in {$handle}");
 
         if (!$this->isEnabled($handle)) {
+            return;
+        }
+
+        // Check for manual override early
+        if ($entry->get('activitypub_json_manual')) {
+            $manualJson = $entry->get('activitypub_json');
+
+            // Flatten if it comes from a code field (array structure)
+            if (is_array($manualJson) && isset($manualJson['code'])) {
+                $entry->set('activitypub_json', $manualJson['code']);
+            }
+
+            \Illuminate\Support\Facades\Log::info("ActivityPubListener: Skipping JSON generation due to manual override for {$entry->id()}");
             return;
         }
 
@@ -538,10 +649,23 @@ class ActivityPubListener
             } elseif ($objectId) {
                 $objectEntry = \Statamic\Facades\Entry::find($objectId);
                 if ($objectEntry) {
-                    $objectCollectionHandle = $objectEntry->collection()->handle();
-                    $objectType = $this->getType($objectCollectionHandle);
-                    $objectJson = $this->generateActivityPubJson($objectEntry, $objectEntry->get('actor'), $objectType);
-                    $objectData = json_decode($objectJson, true);
+                    // Prioritize existing JSON from the child object (manual or pre-generated)
+                    $objectJson = $objectEntry->get('activitypub_json');
+
+                    if (!$objectJson) {
+                        $objectCollectionHandle = $objectEntry->collection()->handle();
+                        $objectType = $this->getType($objectCollectionHandle);
+                        $objectJson = $this->generateActivityPubJson($objectEntry, $objectEntry->get('actor'), $objectType);
+                    }
+
+                    // Flatten if it somehow comes as an array (from code field not yet persisted)
+                    if (is_array($objectJson) && isset($objectJson['code'])) {
+                        $objectJson = $objectJson['code'];
+                    }
+
+                    $objectData = json_decode((string) $objectJson, true);
+
+                    // Remove redundant context from nested child object
                     if ($objectData && isset($objectData['@context'])) {
                         unset($objectData['@context']);
                     }
