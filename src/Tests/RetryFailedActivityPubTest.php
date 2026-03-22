@@ -22,7 +22,7 @@ class RetryFailedActivityPubTest extends TestCase
         }
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_requires_id_or_all_option(): void
     {
         $this->artisan('activitypub:retry-failed')
@@ -30,7 +30,7 @@ class RetryFailedActivityPubTest extends TestCase
             ->assertExitCode(1);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_filters_activitypub_jobs_correctly(): void
     {
         // AP Job via queue name
@@ -73,7 +73,7 @@ class RetryFailedActivityPubTest extends TestCase
         $this->assertEquals('uuid-3', $remaining->uuid);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_flush_a_specific_id(): void
     {
         $id = DB::table('failed_jobs')->insertGetId([

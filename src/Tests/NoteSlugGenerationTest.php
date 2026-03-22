@@ -23,7 +23,7 @@ class NoteSlugGenerationTest extends TestCase
         User::current(User::all()->first());
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ensures_note_slug_and_title_match_id_on_create()
     {
         // 1. Create a note without specifying title/slug (mimicking CP behavior)

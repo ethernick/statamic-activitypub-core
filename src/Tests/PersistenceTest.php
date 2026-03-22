@@ -5,50 +5,31 @@ namespace Ethernick\ActivityPubCore\Tests;
 use Ethernick\ActivityPubCore\Jobs\InboxHandler;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use Statamic\Facades\Entry;
 use Mockery;
 
 class PersistenceTest extends TestCase
 {
-    use BackupsFiles;
-
     public function setUp(): void
     {
         parent::setUp();
 
-        // Backup settings file before modifying it
-        $this->backupFile('resources/settings/activitypub.yaml');
-        // Only delete test data - preserve real user data
-        Entry::query()->where('collection', 'actors')->get()
-            ->filter(fn($e) => in_array($e->slug(), ['me', 'stranger-at-example-dot-com', 'friend-at-example-dot-com']))
-            ->each->delete();
-        Entry::query()->where('collection', 'activities')->get()
-            ->filter(fn($e) => str_contains($e->get('activitypub_id') ?? '', 'example.com'))
-            ->each->delete();
-        Entry::query()->where('collection', 'notes')->get()
-            ->filter(fn($e) => str_contains($e->get('activitypub_id') ?? '', 'example.com'))
-            ->each->delete();
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
         );
+
+        // Ensure collections exist in sandbox
+        $this->setupCollections(['actors', 'activities', 'notes']);
     }
 
     protected function tearDown(): void
     {
-        // Restore activitypub.yaml from git to prevent test pollution
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_persist_actor_if_create_activity_is_ignored()
     {
         // 1. Setup Local Actor
@@ -76,6 +57,7 @@ class PersistenceTest extends TestCase
         $this->assertNull($externalActor->id(), 'External actor should be ephemeral initially');
 
         // 3. Process CREATE activity (Should be Ignored)
+        $this->setupCollections(['notes', 'actors', 'activities']);
         $payload = [
             'type' => 'Create',
             'actor' => $externalId,
@@ -101,7 +83,7 @@ class PersistenceTest extends TestCase
         $this->assertNull($savedActivity, 'Ignored activity should NOT be logged');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_persists_actor_if_followed()
     {
         // 1. Setup Local Actor
@@ -136,6 +118,8 @@ class PersistenceTest extends TestCase
         $localActor->save();
 
         // 3. Process CREATE activity
+        // Ensure collections exist
+        $this->setupCollections(['activities', 'notes']);
         $payload = [
             'type' => 'Create',
             'actor' => $externalId,

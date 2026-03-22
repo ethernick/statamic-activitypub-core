@@ -7,116 +7,49 @@ namespace Ethernick\ActivityPubCore\Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\File;
 use Statamic\Facades\Entry;
 use Tests\TestCase;
-
 class ActivityPubTest extends TestCase
 {
-    // We don't use RefreshDatabase because Statamic might use Stache (flat files) or SQLite.
-    // Ideally we should adhere to the project's testing strategy.
-
     protected $originalQueue; // Backup Queue
 
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // Settings are isolated in sandbox. We can write them freely.
+        \Statamic\Facades\File::put(
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
+            "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\narticles:\n  enabled: true\n  type: Article\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n  federated: true\n"
+        );
+
         $this->originalQueue = \Illuminate\Support\Facades\Queue::getFacadeRoot();
         config(['statamic.editions.pro' => true]);
         \Statamic\Facades\Blink::flush();
-        \Statamic\Facades\Stache::clear();
 
-        // Cleanup Inbox Queue
-        \Illuminate\Support\Facades\File::cleanDirectory(storage_path('app/activitypub/inbox'));
-
-        // Cleanup Notes, Polls, Activities - but preserve real user data
-        // Only delete entries that look like test data (have test- prefix, external.com, etc.)
-        \Statamic\Facades\Entry::query()->whereIn('collection', ['notes', 'polls', 'activities'])->get()
-            ->filter(function ($entry) {
-                // Delete if it looks like test data
-                $slug = $entry->slug() ?? '';
-                $apId = $entry->get('activitypub_id') ?? '';
-                return str_contains($slug, 'test-')
-                    || str_contains($apId, 'external.com')
-                    || str_contains($apId, 'test/')
-                    || str_contains($slug, '-at-external-dot-com');
-            })
-            ->each->delete();
-
-        // For actors, be very selective - only delete known test actors
-        \Statamic\Facades\Entry::query()->where('collection', 'actors')->get()
-            ->filter(function ($entry) {
-                $slug = $entry->slug() ?? '';
-                $apId = $entry->get('activitypub_id') ?? '';
-                // Only delete actors that are clearly test data
-                return str_contains($slug, 'test-')
-                    || str_contains($apId, 'external.com')
-                    || $slug === 'fan-at-external-dot-com'
-                    || $slug === 'poster-at-external-dot-com'
-                    || $slug === 'updater-at-external-dot-com'
-                    || $slug === 'liker'
-                    || $slug === 'quoter'
-                    || $slug === 'replier'
-                    || $slug === 'sender'
-                    || $slug === 'recipient'
-                    || $slug === 'mentioner';
-            })
-            ->each->delete();
-
-        \Illuminate\Support\Facades\Queue::swap(\Illuminate\Support\Facades\Queue::getFacadeRoot()); // Reset Queue fake if any?
-
-        // Create Collections
-        if (!\Statamic\Facades\Collection::find('notes')) {
-            \Statamic\Facades\Collection::make('notes')->save();
-        }
-        if (!\Statamic\Facades\Collection::find('activities')) {
-            \Statamic\Facades\Collection::make('activities')->save();
-        }
-        if (!\Statamic\Facades\Collection::find('actors')) {
-            \Statamic\Facades\Collection::make('actors')->save();
-        }
-        if (!\Statamic\Facades\Collection::find('polls')) {
-            \Statamic\Facades\Collection::make('polls')->save();
+        // Cleanup Note collections in sandbox
+        foreach (['notes', 'polls', 'activities', 'actors'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
+            Entry::query()->where('collection', $col)->get()->each->delete();
         }
 
-        if (!Entry::query()->where('collection', 'actors')->where('slug', 'ethernick')->first()) {
-            Entry::make()->collection('actors')->slug('ethernick')->data(['title' => 'Nick', 'is_internal' => true])->published(true)->save();
-        }
+        // Create initial internal actor for tests
+        Entry::make()
+            ->collection('actors')
+            ->slug('ethernick')
+            ->data(['title' => 'Nick', 'is_internal' => true])
+            ->published(true)
+            ->save();
 
-        // Clean queues
-        \Illuminate\Support\Facades\Storage::disk('local')->deleteDirectory('activitypub/inbox');
-        \Illuminate\Support\Facades\Storage::disk('local')->makeDirectory('activitypub/inbox');
-
-        // Create activitypub.yaml config with federated: true for notes/polls
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
-        file_put_contents(
-            resource_path('settings/activitypub.yaml'),
-            "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\narticles:\n  enabled: true\n  type: Article\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n  federated: true\n"
-        );
+        // Clean internal activitypub inbox storage (pointing to sandbox)
+        File::cleanDirectory(storage_path('app/activitypub/inbox'));
     }
 
     protected function tearDown(): void
     {
-        // Cleanup entries created during tests
-        $collections = ['notes', 'actors', 'activities', 'polls'];
-        foreach ($collections as $col) {
-            $entries = Entry::query()->where('collection', $col)->get();
-            foreach ($entries as $entry) {
-                $apId = $entry->get('activitypub_id');
-                if (
-                    str_contains($entry->slug(), 'test-') ||
-                    ($apId && str_contains($apId, 'external.com')) ||
-                    $entry->slug() === 'fan-at-external-dot-com' ||
-                    $entry->slug() === 'poster-at-external-dot-com' ||
-                    $entry->slug() === 'updater-at-external-dot-com' ||
-                    $entry->slug() === 'liker'
-                ) {
-                    $entry->delete();
-                }
-            }
-        }
-
         if ($this->originalQueue) {
             \Illuminate\Support\Facades\Queue::swap($this->originalQueue);
         }

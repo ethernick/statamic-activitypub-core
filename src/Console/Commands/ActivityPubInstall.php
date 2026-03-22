@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Statamic\Facades\Collection;
 use Statamic\Facades\File;
 use Statamic\Facades\YAML;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 use Statamic\Facades\User;
 use Statamic\Facades\Entry;
 use Statamic\Facades\Site;
@@ -30,7 +31,7 @@ class ActivityPubInstall extends Command
         // Step 3: Publish frontend assets
         $this->publishAssets();
 
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $settings = [];
 
         if (File::exists($settingsPath)) {
@@ -80,7 +81,8 @@ class ActivityPubInstall extends Command
 
     protected function configureUserBlueprint(string $collectionHandle): void
     {
-        $blueprintPath = resource_path('blueprints/user.yaml');
+        // Add activitypub_collections taxonomy to User blueprint
+        $blueprintPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::blueprintPath('user.yaml');
 
         if (!File::exists($blueprintPath)) {
             $this->warn("User blueprint not found at [{$blueprintPath}]. Skipping Actor field configuration.");
@@ -286,40 +288,47 @@ class ActivityPubInstall extends Command
     protected function ensureTaxonomy(): void
     {
         // 1. Ensure Taxonomy Exists
-        $taxonomyPath = base_path('content/taxonomies/activitypub_collections.yaml');
+        $taxonomyPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::collectionPath('taxonomies/activitypub_collections');
+        if (!File::exists(dirname($taxonomyPath))) {
+            File::makeDirectory(dirname($taxonomyPath), 0755, true);
+        }
         if (!File::exists($taxonomyPath)) {
             $this->info("Creating 'activitypub_collections' taxonomy...");
             File::put($taxonomyPath, "title: 'ActivityPub Collections'");
         }
+    }
 
-        // 2. Ensure Taxonomy Blueprint Exists
-        $blueprintDir = resource_path('blueprints/taxonomies/activitypub_collections');
+    protected function ensureTaxonomyBlueprint()
+    {
+        $blueprintDir = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::blueprintPath('taxonomies/activitypub_collections');
         if (!File::exists($blueprintDir)) {
             File::makeDirectory($blueprintDir, 0755, true);
         }
 
-        $blueprintPath = "{$blueprintDir}/activity_link.yaml";
+        $blueprintPath = $blueprintDir . '/activitypub_collections.yaml';
         if (!File::exists($blueprintPath)) {
-            $this->info("Creating 'activity_link' blueprint for taxonomy...");
-            // Load stub from package resources
-            $stubPath = __DIR__ . '/../../../resources/blueprints/templates/taxonomies/activity_link.yaml';
-
-            if (File::exists($stubPath)) {
-                File::copy($stubPath, $blueprintPath);
-            } else {
-                $this->error("Taxonomy blueprint stub not found at [{$stubPath}]");
-            }
+            $template = __DIR__ . '/../../../resources/blueprints/activitypub_collections.yaml';
+            File::copy($template, $blueprintPath);
+            $this->info("Created ActivityPub Collections taxonomy blueprint.");
         }
     }
 
-    protected function ensureBlueprint(string $handle, string $type): void
+    protected function ensureCollectionBlueprint($handle)
     {
-        $blueprintDir = resource_path("blueprints/collections/{$handle}");
+        $blueprintDir = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::blueprintPath("collections/{$handle}");
         if (!File::exists($blueprintDir)) {
             File::makeDirectory($blueprintDir, 0755, true);
         }
 
         $blueprintPath = "{$blueprintDir}/{$handle}.yaml";
+        // The rest of the blueprint creation logic will be handled by ensureBlueprint
+    }
+
+    protected function ensureBlueprint(string $handle, string $type): void
+    {
+        $this->ensureCollectionBlueprint($handle); // Ensure directory and basic blueprint structure
+
+        $blueprintPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::blueprintPath("collections/{$handle}/{$handle}.yaml");
 
         $targetFields = $this->getBlueprintStub($type);
 

@@ -8,56 +8,23 @@ use Statamic\Facades\Entry;
 use Statamic\Facades\User;
 use Ethernick\ActivityPubCore\Jobs\InboxHandler;
 use Illuminate\Support\Carbon;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 
 class InboxHandlerTest extends TestCase
 {
-    use BackupsFiles;
-
     public function setUp(): void
     {
         parent::setUp();
 
-        // Backup settings file before modifying it
-        $this->backupFile('resources/settings/activitypub.yaml');
-
-        // Clean up test data only - preserve real user data
-        Entry::query()->whereIn('collection', ['activities', 'notes'])->get()
-            ->filter(function ($e) {
-                $slug = $e->slug() ?? '';
-                $apId = $e->get('activitypub_id') ?? '';
-                return str_contains($apId, 'example.com') || str_contains($slug, 'test-');
-            })
-            ->each->delete();
-        Entry::query()->where('collection', 'actors')->get()
-            ->filter(function ($e) {
-                $apId = $e->get('activitypub_id') ?? '';
-                $slug = $e->slug() ?? '';
-                return str_contains($apId, 'example.com')
-                    || $slug === 'actor-at-example-dot-com'
-                    || $slug === 'me'
-                    || str_contains($slug, 'test-');
-            })
-            ->each->delete();
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
-        file_put_contents(
-            resource_path('settings/activitypub.yaml'),
-            "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
-        );
+        // Ensure collections exist in sandbox
+        $this->setupCollections(['actors', 'activities', 'notes', 'polls']);
     }
 
     protected function tearDown(): void
     {
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_fetches_missing_parent_note()
     {
         Http::fake([
@@ -139,7 +106,7 @@ class InboxHandlerTest extends TestCase
         $this->assertEquals('https://example.com/parent-note', $child->get('in_reply_to'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_saves_activity_with_correct_date_from_payload()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());
@@ -181,7 +148,7 @@ class InboxHandlerTest extends TestCase
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_saves_msg_as_sensitive_if_specified()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());
@@ -221,7 +188,7 @@ class InboxHandlerTest extends TestCase
         $this->assertTrue($note->get('sensitive'));
         $this->assertEquals('Content Warning', $note->get('summary'));
     }
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_defaults_sensitive_summary_if_missing()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());
@@ -260,7 +227,7 @@ class InboxHandlerTest extends TestCase
         $this->assertTrue($note->get('sensitive'));
         $this->assertEquals('Sensitive Content', $note->get('summary'));
     }
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_updates_original_note_on_announce()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());
@@ -346,6 +313,81 @@ class InboxHandlerTest extends TestCase
         $updatedNote = Entry::find($note->id());
         $boostedBy = $updatedNote->get('boosted_by');
         $this->assertCount(2, $boostedBy, 'Should not duplicate booster in array on re-run');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_accepts_reply_to_local_uri()
+    {
+        $this->actingAs(User::make()->id('admin')->makeSuper()->save());
+        $localActor = Entry::make()->collection('actors')->slug('me')->data(['title' => 'Me']);
+        $localActor->save();
+        $externalApp = Entry::make()->collection('actors')->slug('ext')->data(['title' => 'Ext', 'activitypub_id' => 'https://example.com/ext']);
+        $externalApp->save();
+
+        // Create a local note without activitypub_id (standard production case)
+        $note = Entry::make()
+            ->collection('notes')
+            ->slug('my-test-note')
+            ->data(['title' => 'Original Note', 'is_internal' => true]);
+        $note->save();
+
+        $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
+        $noteUrl = $baseUrl . '/notes/' . $note->slug();
+
+        $payload = [
+            'id' => 'https://example.com/activity/reply',
+            'type' => 'Create',
+            'actor' => 'https://example.com/ext',
+            'object' => [
+                'id' => 'https://example.com/note/reply',
+                'type' => 'Note',
+                'content' => 'I agree!',
+                'inReplyTo' => $noteUrl,
+                'attributedTo' => 'https://example.com/ext',
+            ]
+        ];
+
+        $handler = new InboxHandler();
+        $handler->handle($payload, $localActor, $externalApp);
+
+        // Verify the note was created (meaning it passed the 'isReplyToKnown' anti-spam gate)
+        $savedNote = Entry::query()->where('collection', 'notes')->where('activitypub_id', 'https://example.com/note/reply')->first();
+        $this->assertNotNull($savedNote, 'Note should be saved because it is a reply to a known local note URI');
+
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_accepts_mention_to_local_actor_handle()
+    {
+        $this->actingAs(User::make()->id('admin')->makeSuper()->save());
+        $localActor = Entry::make()->collection('actors')->slug('nick')->data(['title' => 'Nick']);
+        $localActor->save();
+        
+        $externalApp = Entry::make()->collection('actors')->slug('ext')->data(['title' => 'Ext', 'activitypub_id' => 'https://example.com/ext']);
+        $externalApp->save();
+
+        // The handle URL used in Fediverse is usually https://domain.com/@nick
+        $myHandleUrl = url('/@' . $localActor->slug());
+
+        $payload = [
+            'id' => 'https://example.com/activity/mention',
+            'type' => 'Create',
+            'actor' => 'https://example.com/ext',
+            'object' => [
+                'id' => 'https://example.com/note/mention',
+                'type' => 'Note',
+                'content' => 'Hello @nick',
+                'to' => [$myHandleUrl],
+                'attributedTo' => 'https://example.com/ext',
+            ]
+        ];
+
+        $handler = new InboxHandler();
+        $handler->handle($payload, $localActor, $externalApp);
+
+        // Verify the note was created (meaning it passed the 'isMentioned' anti-spam gate)
+        $note = Entry::query()->where('collection', 'notes')->where('activitypub_id', 'https://example.com/note/mention')->first();
+        $this->assertNotNull($note, 'Note should be saved because it mentions the local actor via handle URL');
     }
 }
 

@@ -7,10 +7,9 @@
             @filter-change="setFilter"
             @create-note="createNote"
             @toggle-dropdown="toggleNewDropdown"
-            @create-poll="createPollAndClose"
         />
 
-        <div class="@container/panel relative bg-gray-150 dark:bg-gray-950/35 dark:inset-shadow-2xs dark:inset-shadow-black w-full rounded-2xl mb-8 max-[600px]:p-1.25 p-1.75 [&:has(>[data-ui-panel-header])]:pt-0 focus-none starting-style-transition mb-6">
+        <div class="@container/panel relative bg-gray-150 dark:bg-gray-950/35 dark:inset-shadow-2xs dark:inset-shadow-black w-full rounded-2xl mb-8 max-[600px]:p-1.25 p-1.75 focus-none starting-style-transition mb-6">
         <div class="h-auto visible transition-[height,visibility] duration-[250ms,2s]">
         <div class="bg-white dark:bg-gray-850 rounded-xl ring ring-gray-200 dark:ring-x-0 dark:ring-b-0 dark:ring-gray-700/80 shadow-ui-md px-4 sm:px-4.5 py-5 space-y-2">
         <inbox-feed
@@ -75,17 +74,17 @@
             @submit="submitNote"
         />
 
-        <!-- Create Poll Stack -->
-        <inbox-poll-form
-            :open="isCreatingPoll"
-            :form="newPoll"
-            :actors="localActors"
-            :loading="creating"
-            :hashtag-enabled="hashtagEnabled"
-            :hashtag-taxonomy="hashtagTaxonomy"
-            :search-terms-url="searchTermsUrl"
-            @close="closePollModal"
-            @submit="submitPoll"
+        <!-- Modals Hook -->
+        <activity-pub-hook-loader 
+            name="inbox-modals" 
+            :props="{ 
+                actors: localActors, 
+                storePollUrl: storePollUrl, 
+                hashtagEnabled: hashtagEnabled, 
+                hashtagTaxonomy: hashtagTaxonomy, 
+                searchTermsUrl: searchTermsUrl 
+            }" 
+            @submit-success="loadNotes"
         />
 
         <!-- Quote Stack -->
@@ -225,7 +224,6 @@ import InboxThreadStack from './InboxThreadStack.v6.vue';
 import InboxTitle from './InboxTitle.v6.vue';
 import InboxFeed from './InboxFeed.v6.vue';
 import InboxNoteForm from './InboxNoteForm.v6.vue';
-import InboxPollForm from './InboxPollForm.v6.vue';
 import InboxQuoteForm from './InboxQuoteForm.v6.vue';
 import InboxReplyForm from './InboxReplyForm.v6.vue';
 
@@ -239,7 +237,6 @@ export default {
         InboxTitle,
         InboxFeed,
         InboxNoteForm,
-        InboxPollForm,
         InboxQuoteForm,
         InboxReplyForm
     },
@@ -356,14 +353,7 @@ export default {
                 content: '',
                 content_warning: '',
                 actor: null,
-                tags: []
-            },
-            isCreatingPoll: false,
-            newPoll: {
-                actor: null,
-                content: '',
-                multiple_choice: false,
-                options: ['', ''],
+                date: this.getInitialDate(),
                 tags: []
             },
             isCreatingQuote: false,
@@ -373,6 +363,7 @@ export default {
                 content: '',
                 content_warning: '',
                 quote_of: null,
+                date: this.getInitialDate(),
                 tags: []
             },
             showNewDropdown: false,
@@ -486,8 +477,10 @@ export default {
             this.page = 1;
             this.loadNotes();
         },
-        retry() {
-            this.loadNotes();
+        getInitialDate() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
         },
         toggleNewDropdown() {
             this.showNewDropdown = !this.showNewDropdown;
@@ -499,6 +492,7 @@ export default {
                 content: '',
                 content_warning: '',
                 actor: this.localActors[0]?.id || null,
+                date: this.getInitialDate(),
                 tags: []
             };
         },
@@ -509,6 +503,7 @@ export default {
                 content: note.content_raw || note.content,
                 content_warning: note.summary || '',
                 actor: note.actor.id,
+                date: note.date ? note.date.replace(' ', 'T') : this.getInitialDate(),
                 tags: note.tags || []
             };
         },
@@ -525,7 +520,6 @@ export default {
             if (!this.newNote.content.trim()) return;
 
             this.creating = true;
-            this.creating = true;
             this.$axios[method.toLowerCase()](url, this.newNote)
             .then(() => {
                 this.closeNoteModal();
@@ -539,53 +533,7 @@ export default {
                 this.creating = false;
             });
         },
-        createPollAndClose() {
-             this.showNewDropdown = false;
-             this.isCreatingPoll = true;
-             this.newPoll = {
-                actor: this.localActors[0]?.id || null,
-                content: '',
-                multiple_choice: false,
-                options: ['', '']
-            };
-        },
-        closePollModal() {
-            this.isCreatingPoll = false;
-        },
-        addOption() {
-            this.newPoll.options.push('');
-        },
-        removeOption(idx) {
-            this.newPoll.options.splice(idx, 1);
-        },
-        submitPoll() {
-            if (this.creating) return;
-            if (!this.newPoll.content.trim()) return;
-            const opts = this.newPoll.options.filter(o => o.trim());
-            if (opts.length < 2 && opts.length > 0) {
-                 alert('A poll needs at least 2 options, or none for open-ended.');
-                 return;
-            }
 
-            this.creating = true;
-            this.creating = true;
-            this.$axios.post(this.storePollUrl, {
-                actor: this.newPoll.actor,
-                content: this.newPoll.content,
-                options: opts,
-                multiple_choice: this.newPoll.multiple_choice
-            })
-            .then(() => {
-                this.closePollModal();
-                this.loadNotes();
-            })
-            .catch(e => {
-                const message = e.response && e.response.data.message ? e.response.data.message : e.message;
-                alert(message);
-            })
-            .finally(() => this.creating = false);
-        },
-        
         // Reply Logic
         toggleReply(note) {
             if (this.activeReplyId === note.id) {
@@ -604,7 +552,6 @@ export default {
             if (this.sendingReply) return;
             if (!this.replyForm.content.trim()) return;
 
-            this.sendingReply = true;
             this.sendingReply = true;
             this.$axios.post(this.replyUrl, {
                 in_reply_to: note.id,
@@ -632,6 +579,7 @@ export default {
                 content: '',
                 content_warning: '',
                 quote_of: note.id,
+                date: this.getInitialDate(),
                 tags: []
             };
         },
@@ -641,7 +589,6 @@ export default {
         },
         submitQuote() {
             if (this.creating) return;
-            this.creating = true;
             this.creating = true;
             this.$axios.post(this.storeNoteUrl, this.newQuote)
             .then(() => {
@@ -759,7 +706,6 @@ export default {
             this.threadNote = note;
         },
         closeThreadModal() {
-            this.isViewingThread = false;
             this.isViewingThread = false;
             this.threadNote = null;
         }

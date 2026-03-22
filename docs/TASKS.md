@@ -61,10 +61,10 @@
 - [x] Support for Actor profiles (via bio/content parsing)
 
 ### Advanced ActivityPub Experimentation
-- [ ] Add the ability to provide specific Activitypub JSON to notes
-  - [ ] Validate proper ActivityPub JSON format before saving
-- [ ] Add the ability to provide specific ActivityPub JSON to activities
-  - [ ] Validate proper ActivityPub JSON format before saving
+- [x] Add the ability to provide specific Activitypub JSON to notes
+  - [x] Validate proper ActivityPub JSON format before saving
+- [x] Add the ability to provide specific ActivityPub JSON to activities
+  - [x] Validate proper ActivityPub JSON format before saving
 
 ### Testing
 - [x] **Quote Authorization Test Suite** (FEP-044f)

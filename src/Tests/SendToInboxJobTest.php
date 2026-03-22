@@ -74,7 +74,7 @@ class SendToInboxJobTest extends TestCase
         return $privateKey;
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_implements_should_queue_interface()
     {
         $this->assertContains(
@@ -83,7 +83,7 @@ class SendToInboxJobTest extends TestCase
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_has_correct_queue_configuration()
     {
         $job = new SendToInbox('https://example.com/inbox', $this->actor->id(), ['type' => 'Create']);
@@ -93,7 +93,7 @@ class SendToInboxJobTest extends TestCase
         $this->assertEquals(120, $job->timeout);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_be_dispatched_to_queue()
     {
         Queue::fake();
@@ -108,7 +108,7 @@ class SendToInboxJobTest extends TestCase
         Queue::assertPushed(SendToInbox::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_signed_http_request_successfully()
     {
         Http::fake([
@@ -134,7 +134,7 @@ class SendToInboxJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_throws_exception_for_missing_actor()
     {
         $this->skipStatamicFileRestore = true;
@@ -153,7 +153,7 @@ class SendToInboxJobTest extends TestCase
         $job->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_throws_exception_for_actor_without_private_key()
     {
         $this->skipStatamicFileRestore = true;
@@ -187,7 +187,7 @@ class SendToInboxJobTest extends TestCase
         $actorNoKey->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_throws_exception_for_actor_without_activitypub_id()
     {
         $this->skipStatamicFileRestore = true;
@@ -222,7 +222,7 @@ class SendToInboxJobTest extends TestCase
         $actorNoId->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_retries_on_server_errors()
     {
         Http::fake([
@@ -237,7 +237,7 @@ class SendToInboxJobTest extends TestCase
         $job->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_retries_on_rate_limit()
     {
         Http::fake([
@@ -252,7 +252,7 @@ class SendToInboxJobTest extends TestCase
         $job->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_retry_on_client_errors()
     {
         $this->skipStatamicFileRestore = true;
@@ -275,7 +275,7 @@ class SendToInboxJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_logs_successful_delivery()
     {
         $this->skipStatamicFileRestore = true;
@@ -298,7 +298,7 @@ class SendToInboxJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_network_exceptions()
     {
         $this->skipStatamicFileRestore = true;
@@ -322,7 +322,7 @@ class SendToInboxJobTest extends TestCase
         $job->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_preserves_unicode_in_payload()
     {
         Http::fake([
@@ -346,7 +346,7 @@ class SendToInboxJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_escape_slashes_in_urls()
     {
         Http::fake([
@@ -369,7 +369,7 @@ class SendToInboxJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_includes_proper_content_type_header()
     {
         Http::fake([
@@ -384,7 +384,7 @@ class SendToInboxJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_timeout_setting()
     {
         Http::fake([

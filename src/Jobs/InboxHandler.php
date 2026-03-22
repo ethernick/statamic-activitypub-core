@@ -13,6 +13,10 @@ use Statamic\Facades\File;
 use Statamic\Facades\YAML;
 use Ethernick\ActivityPubCore\Services\HttpSignature;
 use Ethernick\ActivityPubCore\Services\ThreadService;
+use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
+use Ethernick\ActivityPubCore\Contracts\InboxActivityHandlerInterface;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
+
 
 class InboxHandler
 {
@@ -49,27 +53,17 @@ class InboxHandler
                 // Map Object Type to Collection
                 // Use ActivityPubTypes if available
                 $targetCollection = null;
-                if (class_exists(\Ethernick\ActivityPubCore\Services\ActivityPubTypes::class)) {
-                    $types = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getCollections($objectType);
-                    if (!empty($types)) {
-                        $targetCollection = $types[0]; // Take first associated collection
-                    }
+                if (!$targetCollection && class_exists(ActivityPubTypes::class)) {
+                    $collections = ActivityPubTypes::getCollections($objectType);
+                    $targetCollection = !empty($collections) ? $collections[0] : null;
                 }
 
-                // Fallback for core types if not resolved via service (e.g. if service not reg yet or whatever)
-                if (!$targetCollection) {
-                    if ($objectType === 'Note')
-                        $targetCollection = 'notes';
-                    elseif ($objectType === 'Article')
-                        $targetCollection = 'articles';
-                    elseif ($objectType === 'Question')
-                        $targetCollection = 'polls';
-                }
 
-                if ($targetCollection && !$this->isFederated($targetCollection)) {
+                if ($targetCollection && !ActivityPubUtils::isFederated($targetCollection)) {
                     Log::info("InboxHandler: Dropping $type:$objectType because collection $targetCollection is not federated.");
                     return;
                 }
+
             }
 
             // 1. Try Dispatcher
@@ -286,7 +280,10 @@ class InboxHandler
                 $cc = [$cc];
 
             $addressed = array_merge($to, $cc);
-            $myApId = $actor->get('activitypub_id') ?: $actor->absoluteUrl();
+            $myApId = $actor->get('activitypub_id');
+            if (!$myApId) {
+                $myApId = $actor->collection()->handle() === 'actors' ? url('/@' . $actor->slug()) : $actor->absoluteUrl();
+            }
             $isMentioned = in_array($myApId, $addressed);
 
             // Check if Reply to Local/Known content
@@ -295,31 +292,56 @@ class InboxHandler
             if ($inReplyTo) {
                 // Check if it's a reply to a local note or a known external note
                 $isReplyToKnown = Entry::query()
-                    ->where('collection', 'notes')
+                    ->whereIn('collection', ['notes', 'polls'])
                     ->where('activitypub_id', $inReplyTo)
                     ->exists()
                     || Entry::find($inReplyTo);
+
+                if (!$isReplyToKnown) {
+                    $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
+                    if (\Illuminate\Support\Str::startsWith($inReplyTo, $baseUrl)) {
+                        $uri = str_replace($baseUrl, '', $inReplyTo);
+                        $uri = '/' . ltrim($uri, '/');
+                        
+                        $parts = explode('/', trim($uri, '/'));
+                        if (count($parts) === 2 && in_array($parts[0], ['notes', 'polls'])) {
+                            $isReplyToKnown = Entry::query()
+                                ->where('collection', $parts[0])
+                                ->where('slug', $parts[1])
+                                ->exists();
+                        }
+                        
+                        if (!$isReplyToKnown && Entry::findByUri($uri, \Statamic\Facades\Site::selected()->handle())) {
+                            $isReplyToKnown = true;
+                        }
+                    }
+                }
             }
 
             if (in_array($externalActor->id(), $following) || $isMentioned || $isReplyToKnown) {
+                // Try dynamic handler
+                $handlerClass = ActivityPubTypes::getInboxHandler($object['type'] ?? '');
+                if ($handlerClass && class_exists($handlerClass)) {
+                    $handler = app($handlerClass);
+                    if ($handler instanceof InboxActivityHandlerInterface) {
+                        return $handler->handle($payload, $object, $actor, $externalActor);
+                    }
+                }
+
+                // Fallback to legacy hardcoded types (Note, Article)
                 $targetCollection = 'notes';
-                if (($object['type'] ?? '') === 'Question') {
-                    $targetCollection = 'polls';
-                } elseif (($object['type'] ?? '') === 'Article') {
+                if (($object['type'] ?? '') === 'Article') {
                     $targetCollection = 'articles';
                 }
 
-                if (!$this->isFederated($targetCollection)) {
+                if (!ActivityPubUtils::isFederated($targetCollection)) {
                     Log::info("InboxHandler: Dropping {$object['type']} because $targetCollection is not federated.");
                     return false;
                 }
 
-                if (($object['type'] ?? '') === 'Question') {
-                    $this->createPollEntry($object, $externalActor);
-                } else {
-                    $this->createNoteEntry($object, $externalActor);
-                }
+                $this->createNoteEntry($object, $externalActor);
                 return true;
+
             } else {
                 Log::info("InboxHandler: Ignoring Create Note from non-followed/irrelevant actor $actorId");
                 return false;
@@ -352,7 +374,8 @@ class InboxHandler
         $existingNote = Entry::query()->whereIn('collection', ['notes', 'polls'])->where('activitypub_id', $objectId)->first();
 
         // Federated Check for existing object
-        if ($existingNote && !$this->isFederated($existingNote->collection()->handle())) {
+        if ($existingNote && !ActivityPubUtils::isFederated($existingNote->collection()->handle())) {
+
             Log::info("InboxHandler: Dropping Update for {$objectId} because collection is not federated.");
             return false;
         }
@@ -415,15 +438,16 @@ class InboxHandler
         // Check if we have the object locally
         $existingEntry = $this->findLocalEntryByUrl($objectId);
 
-        if ($existingEntry && !$this->isFederated($existingEntry->collection()->handle())) {
+        if ($existingEntry && !ActivityPubUtils::isFederated($existingEntry->collection()->handle())) {
             Log::info("InboxHandler: Dropping Delete for {$objectId} because collection is not federated.");
             return false;
         }
 
-        if ($existingEntry && !$this->isFederated($existingEntry->collection()->handle())) {
+        if ($existingEntry && !ActivityPubUtils::isFederated($existingEntry->collection()->handle())) {
             Log::info("InboxHandler: Dropping Delete for {$objectId} because collection is not federated.");
             return false;
         }
+
 
         // STRAY RULE: If we are not connected AND the object is not in our system, DISCARD.
         if (!$isConnected && !$existingEntry) {
@@ -745,108 +769,13 @@ class InboxHandler
         if ($inReplyTo) {
             ThreadService::increment($inReplyTo);
 
-            // Handle Poll Voting
-            $this->handlePollVote($inReplyTo, $note, $authorActor, $title);
+            // Handle Poll Voting (Delegated to dynamic handler if applicable)
+            // Note: In a fully decoupled system, this would be an event or hook.
+            // For now, if the parent is a Poll, we might need to find its handler.
         }
+
 
         return $note;
-    }
-
-    protected function createPollEntry(array $object, mixed $authorActor): mixed
-    {
-        $id = $object['id'] ?? null;
-        if ($id) {
-            $existing = Entry::query()->where('collection', 'polls')->where('activitypub_id', $id)->first();
-            if ($existing)
-                return $existing;
-        }
-
-        $uuid = (string) Str::uuid();
-        $content = $object['content'] ?? '';
-
-        $dateStr = $object['published'] ?? $object['updated'] ?? null;
-        $date = $dateStr ? \Illuminate\Support\Carbon::parse($dateStr) : now();
-        $published = $date->toIso8601String();
-
-        $endTimeStr = $object['endTime'] ?? null;
-        $endTime = $endTimeStr ? \Illuminate\Support\Carbon::parse($endTimeStr) : null;
-
-        $closed = $object['closed'] ?? null; // Usually a timestamp or boolean
-        // If closed is a string formatted as date, verify if it's past? 
-        // Or if endTime is past.
-        $isClosed = false;
-        if ($endTime && $endTime->isPast()) {
-            $isClosed = true;
-        }
-        if ($closed) {
-            $isClosed = true;
-        }
-
-
-        // Options parsing
-        $options = [];
-        $isMultipleChoice = false;
-
-        if (isset($object['anyOf'])) {
-            $isMultipleChoice = true;
-            $oneOf = $object['anyOf'];
-        } else {
-            $oneOf = $object['oneOf'] ?? [];
-        }
-
-        foreach ($oneOf as $opt) {
-            $name = $opt['name'] ?? 'Option';
-            $replies = $opt['replies'] ?? [];
-            $count = 0;
-            if (is_array($replies)) {
-                $count = $replies['totalItems'] ?? 0;
-            }
-            $options[] = [
-                'name' => $name,
-                'count' => $count
-            ];
-        }
-
-        $poll = Entry::make()
-            ->collection('polls')
-            ->id($uuid)
-            ->slug($uuid)
-            ->date($date)
-            ->data([
-                'title' => strip_tags($content),
-                'content' => $content,
-                'actor' => $authorActor->id(),
-                'date' => $published,
-                'activitypub_id' => $id,
-                'activitypub_json' => json_encode($object),
-                'is_internal' => false,
-                'sensitive' => $object['sensitive'] ?? false,
-                'summary' => (!empty($object['summary'])) ? $object['summary'] : (
-                    ($object['sensitive'] ?? false) ? 'Sensitive Content' : null
-                ),
-                'options' => $options,
-                'multiple_choice' => $isMultipleChoice,
-                'voters_count' => $object['votersCount'] ?? 0,
-                'end_time' => $endTime ? $endTime->toIso8601String() : null,
-                'closed' => $isClosed
-            ]);
-
-        // Parse Mentions (Polls)
-        $mentioned = [];
-        if (isset($object['tag']) && is_array($object['tag'])) {
-            foreach ($object['tag'] as $tag) {
-                if (($tag['type'] ?? '') === 'Mention' && isset($tag['href'])) {
-                    $mentioned[] = $tag['href'];
-                }
-            }
-        }
-        if (!empty($mentioned)) {
-            $poll->set('mentioned_urls', array_values(array_unique($mentioned)));
-        }
-
-        $poll->save();
-
-        return $poll;
     }
 
     protected function handleUpdateActivity(array $object, mixed $externalActor): void
@@ -872,7 +801,7 @@ class InboxHandler
         if (!$id)
             return;
 
-        $note = Entry::query()->whereIn('collection', ['notes', 'polls'])->where('activitypub_id', $id)->first();
+        $note = Entry::query()->whereIn('collection', ['notes', 'polls', 'articles'])->where('activitypub_id', $id)->first();
 
         if ($note) {
             $content = $object['content'] ?? $note->get('content');
@@ -925,34 +854,6 @@ class InboxHandler
                 }
             }
 
-            // Poll specific updates
-            if ($note->collection()->handle() === 'polls') {
-                if (isset($object['votersCount'])) {
-                    $note->set('voters_count', $object['votersCount']);
-                }
-                if (isset($object['endTime'])) {
-                    $note->set('end_time', $object['endTime']);
-                }
-                // Update Options Counts
-                $oneOf = $object['oneOf'] ?? $object['anyOf'] ?? [];
-                if (!empty($oneOf)) {
-                    $newOptions = [];
-                    foreach ($oneOf as $opt) {
-                        $name = $opt['name'] ?? 'Option';
-                        $replies = $opt['replies'] ?? [];
-                        $count = 0;
-                        if (is_array($replies)) {
-                            $count = $replies['totalItems'] ?? 0;
-                        }
-                        $newOptions[] = [
-                            'name' => $name,
-                            'count' => $count
-                        ];
-                    }
-                    $note->set('options', $newOptions);
-                }
-            }
-
             // Update mentions if tags present
             if (isset($object['tag'])) {
                 $mentioned = [];
@@ -974,10 +875,6 @@ class InboxHandler
             Log::info("InboxHandler: Updated Note $id");
             return;
         }
-
-        // What if note not found?
-        // We might need to fetch it?
-        // But handle() only calls us if we found it or are connected.
     }
 
 
@@ -1114,8 +1011,6 @@ class InboxHandler
         }
     }
 
-
-
     protected function sendAcceptActivity(mixed $localActor, mixed $followActivity, mixed $remoteActor): void
     {
         $inbox = $remoteActor->get('inbox_url');
@@ -1207,20 +1102,7 @@ class InboxHandler
 
     protected function findLocalEntryByUrl(string $url): mixed
     {
-        $entry = Entry::find($url);
-        if (!$entry) {
-            $entry = Entry::query()->whereIn('collection', ['notes', 'polls'])->where('activitypub_id', $url)->first();
-        }
-        if (!$entry) {
-            // Check absolute URL match
-            $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
-            if (Str::startsWith($url, $baseUrl)) {
-                $uri = str_replace($baseUrl, '', $url);
-                $uri = '/' . ltrim($uri, '/');
-                $entry = Entry::findByUri($uri, \Statamic\Facades\Site::selected()->handle());
-            }
-        }
-        return $entry;
+        return ActivityPubUtils::findLocalEntryByUrl($url);
     }
 
     protected function updateRelatedActivityCount(mixed $note): void
@@ -1247,69 +1129,5 @@ class InboxHandler
             $note->saveQuietly();
         }
     }
-    protected function handlePollVote(string $pollId, mixed $voteNote, mixed $actor, ?string $voteValue = null): void
-    {
-        // 1. Find the Poll/Question
-        $poll = Entry::find($pollId);
-        if (!$poll) {
-            $poll = Entry::query()->where('collection', 'polls')->where('activitypub_id', $pollId)->first();
-        }
-
-        // Also try local URI if internal
-        if (!$poll && is_string($pollId) && \Illuminate\Support\Str::startsWith($pollId, \Statamic\Facades\Site::selected()->absoluteUrl())) {
-            $uri = str_replace(\Statamic\Facades\Site::selected()->absoluteUrl(), '', $pollId);
-            $uri = '/' . ltrim($uri, '/');
-            $poll = Entry::findByUri($uri, \Statamic\Facades\Site::selected()->handle());
-        }
-
-        if (!$poll || $poll->collection()->handle() !== 'polls') {
-            return;
-        }
-
-        // 2. Check if the vote matches an option
-        // Use passed value or fallback to title
-        if (!$voteValue) {
-            $voteValue = $voteNote->get('title');
-        }
-
-        if (!$voteValue)
-            return;
-
-        $options = $poll->get('options', []);
-        $updated = false;
-
-        $newOptions = collect($options)->map(function ($opt) use ($voteValue, &$updated) {
-            // Case-insensitive match (UTF-8 safe)
-            if (mb_strtolower(trim($opt['name'])) === mb_strtolower(trim($voteValue))) {
-                $count = (int) ($opt['count'] ?? 0);
-                $opt['count'] = $count + 1;
-                $updated = true;
-            }
-            return $opt;
-        })->all();
-
-        if ($updated) {
-            $poll->set('options', $newOptions);
-            $poll->save();
-            Log::info("ActivityPub: Poll vote recorded for poll {$poll->id()}. Option: '{$voteValue}'");
-        } else {
-            Log::warning("ActivityPub: Poll vote received for {$poll->id()} but no matching option found for value '{$voteValue}'. Options: " . collect($options)->pluck('name')->implode(', '));
-        }
-    }
-
-    protected function isFederated(string $handle): bool
-    {
-        $path = resource_path('settings/activitypub.yaml');
-        if (!File::exists($path)) {
-            return false;
-        }
-        $settings = YAML::parse(File::get($path));
-        $config = $settings[$handle] ?? [];
-
-        if (is_array($config)) {
-            return $config['federated'] ?? false;
-        }
-
-        return false;
-    }
 }
+

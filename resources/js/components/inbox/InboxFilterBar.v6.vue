@@ -27,7 +27,7 @@
                 </svg>
             </button>
             <div v-if="showNewDropdown" class="absolute right-0 w-48 mt-2 origin-top-right border divide-y rounded-md shadow-lg outline-none z-50 py-1 ap-dropdown-menu" style="top: 2.75em; text-align: left;">
-                <a href="#" @click.prevent="$emit('create-poll')" class="block px-4 py-2 text-sm ap-dropdown-item">New Poll</a>
+                <activity-pub-hook-loader name="inbox-new-dropdown" />
             </div>
         </div>
     </div>

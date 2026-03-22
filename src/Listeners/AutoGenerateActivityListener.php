@@ -241,9 +241,30 @@ class AutoGenerateActivityListener
         $activity->save();
     }
 
+    protected function isEnabled(string $collection): bool
+    {
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
+
+        if (!File::exists($path)) {
+            return false;
+        }
+        $settings = YAML::parse(File::get($path));
+        $config = $settings[$collection] ?? [];
+
+        // Support array config format
+        if (is_array($config)) {
+            return $config['federated'] ?? false;
+        }
+
+        // Legacy boolean format (though AutoGenerateActivityListener seemingly only used for new format collections?)
+        // If it was just 'true', it meant enabled, but we need federated flag specifically.
+        // Assuming legacy config didn't have federated separte from enabled, or this listener assumes new config.
+        return false;
+    }
+
     protected function shouldAutoGenerate(string $handle): bool
     {
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         if (!File::exists($path)) {
             return false;
         }
@@ -263,7 +284,7 @@ class AutoGenerateActivityListener
 
     protected function getType(string $handle): string
     {
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         if (!File::exists($path)) {
             return 'Object';
         }

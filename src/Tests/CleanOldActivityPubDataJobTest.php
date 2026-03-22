@@ -14,32 +14,24 @@ use Ethernick\ActivityPubCore\Jobs\CleanOldActivityPubData;
 class CleanOldActivityPubDataJobTest extends TestCase
 {
     protected $actor;
-    protected $settingsBackup;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Ensure queue tables exist (only create if they don't exist)
-        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
-            $this->artisan('queue:table');
-            $this->artisan('migrate', ['--force' => true]);
-        }
-        if (!DB::getSchemaBuilder()->hasTable('failed_jobs')) {
-            $this->artisan('queue:failed-table');
-            $this->artisan('migrate', ['--force' => true]);
-        }
+        // Migrate queue tables for in-memory SQLite
+        $this->artisan('queue:table');
+        $this->artisan('queue:failed-table');
+        $this->artisan('migrate', ['--force' => true]);
 
-        // Clear jobs
-        DB::table('jobs')->delete();
-
-        // Backup settings file if it exists
-        $settingsPath = resource_path('settings/activitypub.yaml');
-        if (File::exists($settingsPath)) {
-            $this->settingsBackup = File::get($settingsPath);
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'activities', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
         }
 
-        // Create test actor
+        // Create test actor in sandbox
         $this->actor = Entry::make()
             ->collection('actors')
             ->slug('test-actor')
@@ -50,23 +42,12 @@ class CleanOldActivityPubDataJobTest extends TestCase
             ->published(true);
         $this->actor->save();
 
-        // Create test settings
+        // Create test settings in sandbox
         $this->createTestSettings();
     }
 
     protected function tearDown(): void
     {
-        // Cleanup
-        Entry::query()->where('collection', 'activities')->where('slug', 'like', 'test-activity%')->get()->each->delete();
-        Entry::query()->where('collection', 'notes')->where('slug', 'like', 'test-note%')->get()->each->delete();
-
-        if ($this->actor) $this->actor->delete();
-
-        // Restore settings file from backup
-        if ($this->settingsBackup !== null) {
-            File::put(resource_path('settings/activitypub.yaml'), $this->settingsBackup);
-        }
-
         parent::tearDown();
     }
 
@@ -82,12 +63,12 @@ class CleanOldActivityPubDataJobTest extends TestCase
         ];
 
         File::put(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             YAML::dump($settings)
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_implements_should_queue_interface()
     {
         $this->assertContains(
@@ -96,7 +77,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_has_correct_queue_configuration()
     {
         $job = new CleanOldActivityPubData();
@@ -106,7 +87,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertEquals(600, $job->timeout);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_be_dispatched_to_queue()
     {
         Queue::fake();
@@ -116,7 +97,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         Queue::assertPushedOn('maintenance', CleanOldActivityPubData::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_deletes_old_external_activities()
     {
         // Create external activity
@@ -141,7 +122,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_keeps_internal_activities()
     {
         // Create old internal activity (3 days old)
@@ -164,7 +145,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertNotNull(Entry::find($internalActivity->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_deletes_old_external_notes()
     {
         // Create external note
@@ -189,7 +170,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_keeps_internal_notes()
     {
         // Create old internal note (40 days old)
@@ -213,7 +194,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertNotNull(Entry::find($internalNote->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_custom_retention_settings()
     {
         // Set shorter retention (1 day for activities)
@@ -239,12 +220,12 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_missing_settings_file()
     {
         // Delete settings file
-        if (File::exists(resource_path('settings/activitypub.yaml'))) {
-            File::delete(resource_path('settings/activitypub.yaml'));
+        if (File::exists(\Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath())) {
+            File::delete(\Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath());
         }
 
         // Should not throw exception
@@ -254,7 +235,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_skips_actors_collection()
     {
         // Create old external actor (should never be deleted)
@@ -278,7 +259,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $externalActor->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_only_enabled_collections()
     {
         // Create settings with notes disabled
@@ -292,7 +273,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         ];
 
         File::put(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             YAML::dump($settings)
         );
 
@@ -317,7 +298,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $this->assertNotNull(Entry::find($note->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_deletes_multiple_old_entries()
     {
         // Create 5 external activities

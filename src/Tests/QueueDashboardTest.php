@@ -22,7 +22,7 @@ class QueueDashboardTest extends TestCase
         Artisan::call('migrate');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function an_authenticated_super_user_can_view_queue_dashboard(): void
     {
         $user = User::make()->email('test@example.com')->makeSuper()->save();
@@ -34,14 +34,14 @@ class QueueDashboardTest extends TestCase
             ->assertSee('queue-status');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function queue_dashboard_requires_authentication(): void
     {
         $this->get(cp_route('activitypub.queue.index'))
             ->assertRedirect(cp_route('login'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_queue_status_counts(): void
     {
         $user = User::make()->email('test@example.com')->makeSuper()->save();
@@ -74,7 +74,7 @@ class QueueDashboardTest extends TestCase
             ]);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_pending_jobs_with_parsed_payloads(): void
     {
         $user = User::make()->email('test@example.com')->makeSuper()->save();
@@ -99,7 +99,7 @@ class QueueDashboardTest extends TestCase
         $this->assertEquals('App\Jobs\TheRealJobName', $response->json('data.0.parsed_name'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_delete_a_specific_pending_job(): void
     {
         $user = User::make()->email('test@example.com')->makeSuper()->save();
@@ -121,7 +121,7 @@ class QueueDashboardTest extends TestCase
         $this->assertEquals(0, DB::table('jobs')->count());
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_flush_pending_jobs_by_type(): void
     {
         $user = User::make()->email('test@example.com')->makeSuper()->save();

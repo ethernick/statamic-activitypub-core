@@ -26,7 +26,7 @@ class InboxMarkdownTest extends TestCase
         }
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_renders_markdown_with_strikethrough()
     {
         // Create a note with strikethrough markdown

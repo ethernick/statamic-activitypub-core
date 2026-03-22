@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Ethernick\ActivityPubCore\Http\Controllers;
 
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 use Ethernick\ActivityPubCore\Services\HttpSignature;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Statamic\Facades\Entry;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
 
 class QuoteRequestController
 {
@@ -33,12 +37,12 @@ class QuoteRequestController
         }
 
         // Check if the local actor allows quotes
-        // This is determined by the allow_quotes setting in activitypub.yaml
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        // This is determined by the allow_quotes setting
+        $settingsPath = ActivityPubUtils::settingsPath();
         $allowQuotes = false;
 
         if (file_exists($settingsPath)) {
-            $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($settingsPath));
+            $settings = YAML::parse(File::get($settingsPath));
             $allowQuotes = $settings['allow_quotes'] ?? false;
         }
 

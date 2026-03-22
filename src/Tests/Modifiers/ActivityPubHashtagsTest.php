@@ -8,28 +8,21 @@ use Tests\TestCase;
 use Statamic\Facades\Term;
 use Statamic\Facades\Taxonomy;
 use Ethernick\ActivityPubCore\Modifiers\ActivityPubHashtags;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class ActivityPubHashtagsTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
 
-        // Ensure settings exist
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "hashtags:\n  enabled: true\n  taxonomy: tags\n  field: tags\n"
         );
 
-        // Ensure taxonomy exists
+        // Ensure taxonomy exists in sandbox
         if (!Taxonomy::findByHandle('tags')) {
             Taxonomy::make('tags')->save();
         }
@@ -40,11 +33,10 @@ class ActivityPubHashtagsTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_linkifies_hashtags()
     {
         Term::make()
@@ -62,11 +54,11 @@ class ActivityPubHashtagsTest extends TestCase
         $this->assertStringContainsString('<a href="/tags/unknown" class="hashtag" rel="tag">#unknown</a>', $result);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ignores_hashtags_when_disabled()
     {
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "hashtags:\n  enabled: false\n"
         );
         \Statamic\Facades\Blink::forget('activitypub-settings');
@@ -79,7 +71,7 @@ class ActivityPubHashtagsTest extends TestCase
         $this->assertEquals('Hello #statamic', $result);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ignores_hashtags_inside_html_tags()
     {
         Term::make()

@@ -345,7 +345,7 @@ class InboxController extends CpController
             });
 
         $settings = Blink::once('activitypub-settings', function () {
-            $path = resource_path('settings/activitypub.yaml');
+            $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
             if (!File::exists($path)) {
                 return [];
             }
@@ -383,7 +383,7 @@ class InboxController extends CpController
             return response()->json(['error' => 'Actor not found'], 404);
         }
 
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
         $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
@@ -411,46 +411,7 @@ class InboxController extends CpController
      */
     public function storeNote(Request $request): mixed
     {
-        $request->validate([
-            'content' => 'required|string',
-            'actor' => 'required|string',
-            'content_warning' => 'nullable|string',
-            'quote_of' => 'nullable|string',
-            'tags' => 'nullable|array',
-        ]);
-
-        $actor = Entry::find($request->input('actor'));
-        if (!$actor) {
-            return response()->json(['error' => 'Actor not found'], 404);
-        }
-
-        $quoteOf = $request->input('quote_of');
-
-        $path = resource_path('settings/activitypub.yaml');
-        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
-        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
-
-        $entry = Entry::make()
-            ->collection('notes')
-            ->published(true)
-            ->data([
-                'content' => $request->input('content'),
-                'actor' => [$actor->id()],
-                'date' => now()->format('Y-m-d H:i'),
-                'sensitive' => $request->filled('content_warning'),
-                'summary' => $request->input('content_warning'),
-                'quote_of' => $quoteOf ? [$quoteOf] : null,
-                $hashtagField => $request->input('tags', []),
-                'is_internal' => true,
-                'quote_authorization_status' => $quoteOf ? 'pending' : null,
-            ]);
-
-        $entry->save();
-
-        // Note: SendQuoteRequest is automatically dispatched by ActivityPubListener
-        // when it detects a quote_of field, so no manual dispatch needed here
-
-        return response()->json(['success' => true, 'message' => 'Note created', 'id' => $entry->id()]);
+        return $this->storeByType($request, 'Note');
     }
 
     /**
@@ -458,55 +419,42 @@ class InboxController extends CpController
      */
     public function storePoll(Request $request): mixed
     {
-        $request->validate([
-            'content' => 'required|string',
-            'actor' => 'required|string',
-            'options' => 'required|array|min:2',
-            'options.*' => 'required|string',
-            'multiple_choice' => 'boolean',
-            'end_time' => 'nullable|date',
-            'content_warning' => 'nullable|string',
-            'tags' => 'nullable|array',
-        ]);
+        return $this->storeByType($request, 'Question');
+    }
 
-        $actor = Entry::find($request->input('actor'));
-        if (!$actor) {
-            return response()->json(['error' => 'Actor not found'], 404);
+    /**
+     * Generic store method that delegates to registered type handlers.
+     */
+    protected function storeByType(Request $request, string $type): mixed
+    {
+        $handlerClass = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getStoreHandler($type);
+
+        if (!$handlerClass) {
+            return response()->json(['error' => "No store handler registered for type: {$type}"], 400);
         }
 
-        // Format options for storage
-        $options = collect($request->input('options'))->map(function ($optionText) {
-            return [
-                'name' => $optionText,
-                'count' => 0,
-            ];
-        })->all();
+        try {
+            /** @var \Ethernick\ActivityPubCore\Contracts\StoreHandlerInterface $handler */
+            $handler = app($handlerClass);
+            $entry = $handler->store($request);
 
-        $path = resource_path('settings/activitypub.yaml');
-        $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
-        $hashtagField = $settings['hashtags']['field'] ?? 'tags';
-
-        $entry = Entry::make()
-            ->collection('polls')
-            ->published(true)
-            ->data([
-                'content' => $request->input('content'),
-                'actor' => [$actor->id()],
-                'date' => now()->format('Y-m-d H:i'),
-                'options' => $options,
-                'multiple_choice' => $request->boolean('multiple_choice', false),
-                'end_time' => $request->input('end_time'),
-                'closed' => false,
-                'voters_count' => 0,
-                'sensitive' => $request->filled('content_warning'),
-                'summary' => $request->input('content_warning'),
-                $hashtagField => $request->input('tags', []),
-                'is_internal' => true,
+            return response()->json([
+                'success' => true,
+                'message' => "{$type} created",
+                'id' => $entry->id()
             ]);
-
-        $entry->save();
-
-        return response()->json(['success' => true, 'message' => 'Poll created', 'id' => $entry->id()]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -530,7 +478,7 @@ class InboxController extends CpController
             return response()->json(['error' => 'Cannot edit external notes'], 403);
         }
 
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
         $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
@@ -921,7 +869,9 @@ class InboxController extends CpController
         if ($aid = $rootNote->get('activitypub_id')) {
             $rootIds[] = $aid;
         }
-        $rootIds[] = $rootNote->absoluteUrl();
+        if ($absUrl = $rootNote->absoluteUrl()) {
+            $rootIds[] = $absUrl;
+        }
 
         // Query directly for replies using whereIn on in_reply_to
         // This is much more efficient than loading all entries and filtering

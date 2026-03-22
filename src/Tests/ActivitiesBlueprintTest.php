@@ -4,12 +4,20 @@ namespace Ethernick\ActivityPubCore\Tests;
 
 use Statamic\Facades\Blueprint;
 use Tests\TestCase;
+use Ethernick\ActivityPubCore\Tests\Concerns\ProvidesSandbox;
 
 class ActivitiesBlueprintTest extends TestCase
 {
+    use ProvidesSandbox;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->setupSandbox();
+        
+        // Seed the blueprint from production to sandbox
+        $this->seedSandboxFile('resources/blueprints/collections/activities/activities.yaml');
+        
         // Ensure stache is clear
         \Statamic\Facades\Stache::clear();
     }
@@ -17,10 +25,6 @@ class ActivitiesBlueprintTest extends TestCase
     public function test_activities_blueprint_has_expected_fields()
     {
         $path = resource_path('blueprints/collections/activities/activities.yaml');
-
-        if (!file_exists($path)) {
-            $path = base_path('resources/blueprints/collections/activities/activities.yaml');
-        }
 
         $this->assertFileExists($path);
 

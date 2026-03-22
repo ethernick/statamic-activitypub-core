@@ -132,7 +132,7 @@ class AcceptQuoteRequest extends Command
         $this->info("Inbox: {$inbox}");
 
         // Check if quotes are enabled
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $allowQuotes = false;
 
         if (file_exists($settingsPath)) {

@@ -7,7 +7,6 @@
             @filter-change="setFilter"
             @create-note="createNote"
             @toggle-dropdown="toggleNewDropdown"
-            @create-poll="createPollAndClose"
         />
 
         <inbox-feed
@@ -22,6 +21,7 @@
             :hashtag-enabled="hashtagEnabled"
             :hashtag-taxonomy="hashtagTaxonomy"
             :search-terms-url="searchTermsUrl"
+            :store-note-url="storeNoteUrl"
             @page-change="changePage"
             @per-page-change="changePerPage"
             @update:activeReplyId="activeReplyId = $event"
@@ -37,7 +37,6 @@
             @lightbox="params => openLightbox(params.attachments, params.index)"
             @delete="deleteItem"
             @edit="editNote"
-            @vote="handleVote"
         />
         
         <!-- Lightbox -->
@@ -71,18 +70,6 @@
             @submit="submitNote"
         />
 
-        <!-- Create Poll Stack -->
-        <inbox-poll-form
-            :open="isCreatingPoll"
-            :form="newPoll"
-            :actors="localActors"
-            :loading="creating"
-            :hashtag-enabled="hashtagEnabled"
-            :hashtag-taxonomy="hashtagTaxonomy"
-            :search-terms-url="searchTermsUrl"
-            @close="closePollModal"
-            @submit="submitPoll"
-        />
 
         <!-- Quote Stack -->
         <inbox-quote-form
@@ -107,7 +94,6 @@
             @view-json="viewJson"
         />
 
-        <!-- Thread Drawer Stack -->
         <inbox-thread-stack
             :open="isViewingThread"
             :note-id="threadNote ? threadNote.id : null"
@@ -133,6 +119,19 @@
             @lightbox="params => openLightbox(params.attachments, params.index)"
             @delete="deleteItem"
             @edit="editNote"
+        />
+
+        <!-- Dynamic Modals Hook (e.g., New Poll Form, New Article Form) -->
+        <activity-pub-hook-loader 
+            name="inbox-modals" 
+            :props="{ 
+                actors: localActors,
+                storePollUrl,
+                hashtagEnabled,
+                hashtagTaxonomy,
+                searchTermsUrl
+            }"
+            @submit-success="loadNotes"
         />
     </div>
 </template>
@@ -221,7 +220,6 @@ import InboxThreadStack from './InboxThreadStack.vue';
 import InboxTitle from './InboxTitle.vue';
 import InboxFeed from './InboxFeed.vue';
 import InboxNoteForm from './InboxNoteForm.vue';
-import InboxPollForm from './InboxPollForm.vue';
 import InboxQuoteForm from './InboxQuoteForm.vue';
 import InboxReplyForm from './InboxReplyForm.vue';
 
@@ -232,12 +230,9 @@ export default {
         InboxJsonStack,
         InboxHistoryStack,
         InboxThreadStack,
-        InboxThreadStack,
         InboxTitle,
         InboxFeed,
-        InboxFeed,
         InboxNoteForm,
-        InboxPollForm,
         InboxQuoteForm,
         InboxReplyForm
     },
@@ -352,14 +347,7 @@ export default {
                 content: '',
                 content_warning: '',
                 actor: null,
-                tags: []
-            },
-            isCreatingPoll: false,
-            newPoll: {
-                actor: null,
-                content: '',
-                multiple_choice: false,
-                options: ['', ''],
+                date: this.getInitialDate(),
                 tags: []
             },
             isCreatingQuote: false,
@@ -369,6 +357,7 @@ export default {
                 content: '',
                 content_warning: '',
                 quote_of: null,
+                date: this.getInitialDate(),
                 tags: []
             },
             showNewDropdown: false,
@@ -463,8 +452,10 @@ export default {
         retry() {
             this.loadNotes();
         },
-        toggleNewDropdown() {
-            this.showNewDropdown = !this.showNewDropdown;
+        getInitialDate() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
         },
         createNote() {
             this.isCreatingNote = true;
@@ -473,6 +464,7 @@ export default {
                 content: '',
                 content_warning: '',
                 actor: this.localActors[0]?.id || null,
+                date: this.getInitialDate(),
                 tags: []
             };
         },
@@ -483,6 +475,7 @@ export default {
                 content: note.content_raw || note.content,
                 content_warning: note.summary || '',
                 actor: note.actor.id,
+                date: note.date ? note.date.replace(' ', 'T') : this.getInitialDate(),
                 tags: note.tags || []
             };
         },
@@ -512,59 +505,6 @@ export default {
             .finally(() => {
                 this.creating = false;
             });
-        },
-        createPollAndClose() {
-             this.showNewDropdown = false;
-             this.isCreatingPoll = true;
-             this.newPoll = {
-                actor: this.localActors[0]?.id || null,
-                content: '',
-                multiple_choice: false,
-                options: ['', '']
-            };
-        },
-        closePollModal() {
-            this.isCreatingPoll = false;
-        },
-        addOption() {
-            this.newPoll.options.push('');
-        },
-        removeOption(idx) {
-            this.newPoll.options.splice(idx, 1);
-        },
-        submitPoll() {
-            if (this.creating) return;
-            if (!this.newPoll.content.trim()) return;
-            const opts = this.newPoll.options.filter(o => o.trim());
-            if (opts.length < 2 && opts.length > 0) {
-                 alert('A poll needs at least 2 options, or none for open-ended.');
-                 return;
-            }
-
-            console.log('Inbox: submitPoll payload:', JSON.stringify({
-                actor: this.newPoll.actor,
-                content: this.newPoll.content,
-                options: opts,
-                multiple_choice: this.newPoll.multiple_choice,
-                tags: this.newPoll.tags
-            }));
-            this.creating = true;
-            this.$axios.post(this.storePollUrl, {
-                actor: this.newPoll.actor,
-                content: this.newPoll.content,
-                options: opts,
-                multiple_choice: this.newPoll.multiple_choice,
-                tags: this.newPoll.tags
-            })
-            .then(() => {
-                this.closePollModal();
-                this.loadNotes();
-            })
-            .catch(e => {
-                const message = e.response && e.response.data.message ? e.response.data.message : e.message;
-                alert(message);
-            })
-            .finally(() => this.creating = false);
         },
         
         // Reply Logic
@@ -620,6 +560,7 @@ export default {
                 content: '',
                 content_warning: '',
                 quote_of: note.id,
+                date: this.getInitialDate(),
                 tags: []
             };
         },
@@ -629,7 +570,6 @@ export default {
         },
         submitQuote() {
             if (this.creating) return;
-            this.creating = true;
             this.creating = true;
             this.$axios.post(this.storeNoteUrl, this.newQuote)
             .then(() => {
@@ -679,20 +619,6 @@ export default {
             });
         },
 
-        // Vote
-        handleVote(payload) {
-             const { note, option, callback } = payload;
-
-             this.$axios.post(this.storeNoteUrl + '/vote', {
-                 poll: note.id,
-                 choices: [option.name],
-                 actor: this.localActors[0].id
-             })
-             .then(response => {
-                 callback(true);
-             })
-             .catch(() => callback(false));
-        },
 
         // Delete
         deleteItem(note) {

@@ -18,8 +18,12 @@
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
             </button>
-            <div v-if="showNewDropdown" class="absolute right-0 bg-white dark:bg-dark-550 border border-gray-100 dark:border-dark-900 shadow-popover rounded-md z-50 py-1" style="top: 2.75em; width: 100%; text-align: left;">
-                <a href="#" @click.prevent="$emit('create-poll')" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-600">New Poll</a>
+            <div v-if="showNewDropdown" class="absolute right-0 bg-white dark:bg-dark-550 border border-gray-100 dark:border-dark-900 shadow-popover rounded-md z-50 py-1" style="top: 2.75em; min-width: 140px; text-align: left;">
+                <activity-pub-hook-loader 
+                    name="inbox-new-dropdown" 
+                    @create-note="$emit('create-note')"
+                    @create-poll="$emit('create-poll')"
+                />
             </div>
         </div>
     </div>

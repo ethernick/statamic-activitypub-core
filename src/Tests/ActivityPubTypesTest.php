@@ -59,8 +59,8 @@ class ActivityPubTypesTest extends TestCase
     {
         $typesService = app(ActivityPubTypes::class);
 
-        // Register a base type
-        $typesService->register('BaseType', 'Base Type', 'OldController');
+        // Register a base type (slug=null, controller='OldController')
+        $typesService->register('BaseType', 'Base Type', null, 'OldController');
 
         // Modify it
         $typesService->modify('BaseType', ['controller' => 'NewController']);

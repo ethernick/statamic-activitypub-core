@@ -13,6 +13,8 @@
                     :key="note.id"
                     :note="note"
                     :permissions="permissions"
+                    :actors="actors"
+                    :store-note-url="storeNoteUrl"
                     @reply="$emit('reply', $event)"
                     @boost="$emit('boost', $event)"
                     @quote="$emit('quote', $event)"
@@ -148,6 +150,10 @@ export default {
             default: 'tags'
         },
         searchTermsUrl: {
+            type: String,
+            default: null
+        },
+        storeNoteUrl: {
             type: String,
             default: null
         }

@@ -5,6 +5,8 @@ namespace Ethernick\ActivityPubCore\Tests;
 use Tests\TestCase;
 use Statamic\Facades\Entry;
 use Statamic\Facades\Config;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
 use Illuminate\Support\Facades\Event;
 
 class AutoGenerateActivityTest extends TestCase
@@ -16,23 +18,25 @@ class AutoGenerateActivityTest extends TestCase
         // Ensure Pro is on for collection features
         config(['statamic.editions.pro' => true]);
 
-        // Clean up any previous test artifacts
-        $this->cleanup();
+        // Ensure settings exist in sandbox
+        File::put(
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
+            YAML::dump([
+                'actors' => ['enabled' => true, 'federated' => true, 'type' => 'Person'],
+                'notes' => ['enabled' => true, 'federated' => true, 'type' => 'Note'],
+                'activities' => ['enabled' => true, 'federated' => true, 'type' => 'Activity'],
+            ])
+        );
+
+        $this->setupCollections(['actors', 'activities', 'notes']);
+
+        // Clear Blink cache
+        \Statamic\Facades\Blink::forget('activitypub-settings');
     }
 
     protected function tearDown(): void
     {
-        $this->cleanup();
         parent::tearDown();
-    }
-
-    protected function cleanup()
-    {
-        Entry::query()
-            ->whereIn('collection', ['notes', 'activities', 'actors'])
-            ->get()
-            ->filter(fn($entry) => str_contains($entry->slug(), 'test-auto-gen'))
-            ->each->delete();
     }
 
     public function test_creating_internal_note_generates_create_activity()
@@ -99,7 +103,10 @@ class AutoGenerateActivityTest extends TestCase
         $note->save();
 
         // Clear only test activities from creation (those for test-auto-gen notes)
-        Entry::query()->where('collection', 'activities')->get()
+        Entry::query()
+            ->where('collection', 'activities')
+            ->where('slug', 'like', 'activity-%')
+            ->get()
             ->filter(function ($entry) use ($note) {
                 $object = $entry->get('object');
                 if (!$object) {

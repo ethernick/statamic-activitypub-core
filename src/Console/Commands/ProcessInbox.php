@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Ethernick\ActivityPubCore\Console\Commands;
 
-use Illuminate\Console\Command;
 use Ethernick\ActivityPubCore\Jobs\FileQueue;
 use Ethernick\ActivityPubCore\Jobs\InboxHandler;
-use Statamic\Facades\Entry;
-use Illuminate\Support\Facades\Log;
 use Ethernick\ActivityPubCore\Logging\ActivityPubLog;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use Statamic\Facades\Entry;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
 
 class ProcessInbox extends Command
 {
@@ -34,12 +37,13 @@ class ProcessInbox extends Command
         $limit = $this->option('limit');
 
         if ($limit === null) {
-            $settingsPath = resource_path('settings/activitypub.yaml');
-            $limit = 50;
-            if (\Statamic\Facades\File::exists($settingsPath)) {
-                $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($settingsPath));
-                $limit = $settings['inbox_batch_size'] ?? 50;
+            $settingsPath = ActivityPubUtils::settingsPath();
+            if (!File::exists($settingsPath)) {
+                $this->info('No settings found. Skipping inbox processing.');
+                return 0; // Changed return to return 0 to match method signature
             }
+            $settings = YAML::parse(File::get($settingsPath));
+            $limit = $settings['inbox_batch_size'] ?? 50;
         } else {
             $limit = (int) $limit;
         }

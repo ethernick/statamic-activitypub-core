@@ -59,7 +59,7 @@ class RateLimitingTest extends TestCase
         return $privateKey;
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_rate_limits_in_send_to_inbox()
     {
         Http::fake([
@@ -89,7 +89,7 @@ class RateLimitingTest extends TestCase
         $job3->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_disable_rate_limiting()
     {
         Http::fake([
@@ -117,7 +117,7 @@ class RateLimitingTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_applies_rate_limits_per_domain()
     {
         Http::fake([
@@ -137,7 +137,7 @@ class RateLimitingTest extends TestCase
         $job2->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_skips_rate_limited_requests_in_concurrent_sending()
     {
         Http::fake([

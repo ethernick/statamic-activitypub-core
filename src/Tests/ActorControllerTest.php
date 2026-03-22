@@ -14,7 +14,7 @@ class ActorControllerTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_falls_back_to_manual_key_fetch_when_library_fails()
     {
         // 0. Setup Local Actor

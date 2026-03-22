@@ -30,6 +30,7 @@ class ActivityPubHashtags extends Modifier
             return $value;
         }
 
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $settings = $this->getSettings();
         $hashtagSettings = $settings['hashtags'] ?? [];
 
@@ -57,7 +58,7 @@ class ActivityPubHashtags extends Modifier
 
     protected function getSettings(): array
     {
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
 
         if (!File::exists($path)) {
             return [];

@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Queue;
 use Ethernick\ActivityPubCore\Jobs\FileQueue;
 use Illuminate\Support\Facades\Event;
 use Statamic\Events\EntrySaved;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
 
 class ActorUpdateTest extends TestCase
 {
@@ -16,20 +18,38 @@ class ActorUpdateTest extends TestCase
     {
         parent::setUp();
         Queue::fake();
+
+        // Ensure settings exist in sandbox
+        File::put(
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
+            YAML::dump([
+                'actors' => ['enabled' => true, 'federated' => true, 'type' => 'Person'],
+                'activities' => ['enabled' => true, 'federated' => true, 'type' => 'Activity'],
+            ])
+        );
+
+        $this->setupCollections(['actors', 'activities']);
+
+        \Statamic\Facades\Blink::forget('activitypub-settings');
     }
 
-    #[Test]
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_generates_update_activity_when_actor_is_saved()
     {
         // 1. Create a User with an Actor
         $user = User::make()
-            ->email('actorupdate@test.com')
+            ->email('test-actor-update@test.com')
             ->data(['name' => 'Original Name'])
             ->save();
 
         $actor = Entry::make()
             ->collection('actors')
-            ->slug('create-test-actor')
+            ->slug('test-actor-update')
             ->data([
                 'title' => 'Original Name',
                 'is_internal' => true,
@@ -40,10 +60,11 @@ class ActorUpdateTest extends TestCase
         $this->actingAs($user);
 
         // 2. Clear any activities generated during setup
-        $activities = Entry::query()->where('collection', 'activities')->get();
-        foreach ($activities as $activity) {
-            $activity->delete();
-        }
+        Entry::query()
+            ->where('collection', 'activities')
+            ->where('slug', 'like', 'activity-%')
+            ->get()
+            ->each->delete();
 
         // 3. Update the Actor
         $actor->set('title', 'Updated Name');

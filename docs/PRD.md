@@ -79,12 +79,18 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 
 ## Appendix
 
-### 1. Supplemental Documentation
-- `addons/ethernick/ActivityPubLongFormat/docs/PRD.md` - Article addon docs.
 - `addons/ethernick/ActivityPubQuestions/docs/PRD.md` - Poll addon docs.
 
-### 2. Work Log / Session History
+### 2. Technical Decisions
+#### Reference Resolution (Internal vs External)
+To minimize database overhead and handle Statamic's URI-based routing, the core uses a dual-lookup strategy:
+- **External (Explicit):** Entries from Fediverse instances are identified by their unique `activitypub_id` (URL).
+- **Internal (Mathematical/Parsed):** Local Statamic entries omit the `activitypub_id` field. Instead, inbound references (e.g., `inReplyTo: /polls/slug`) are resolved by parsing the URI, stripping the base domain, and performing a slug-based database query. Actor mentions (e.g., `@nick`) are matched by mathematically constructing the actor's handle URL from the local site configuration.
+
+### 3. Work Log / Session History
 - **2026-03-02**: Implemented DLQ Management CLI and UI. Added "Actor Lookup" tool (renamed from Utilities). Resolved critical environment issues: downgraded to Vite 6 to fix Vue 2 compiler crashes and implemented string-based routes in `cp.php` to bypass PHP parser bugs. All 121 tests passing.
 - **2026-03-05**: Audited `activitypub_collections` taxonomy usage. Confirmed hybrid approach: taxonomy for outbox distribution and external actor classification, but hard-coded relationship fields for local actor profiles.
 - **2026-03-06**: Overhauled Tag Input UX. Implemented comma-based multi-splitting, auto-commit on form submission, automated backend term creation for manual tags, and polished dark mode UI visibility for the tag selector. Added tag chicklets to the InboxFeed for better context. Verified across Note, Poll, Quote, and Reply variants.
+- **2026-03-14**: Audited "Advanced ActivityPub Experimentation" tasks. Verified manual JSON override injection, validation logic in `ActivityPubListener`, and propagation from objects to activities. Confirmed 100% test coverage for these features.
+- **2026-03-22**: Resolved critical poll federation blockers. Implemented aggressive UUID slug generation for new polls to ensure unique IDs. Fixed vote tallying by introducing robust local URI resolution in `PollVoteListener` and `InboxHandler`. Verified that vote tallying triggers `Update` activities. Added regression tests for handle-based mentions (`@nick`) and local URI replies.
 - *Consult `docs/sessions/` for detailed logs of specific development sessions.*

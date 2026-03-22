@@ -110,7 +110,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
     protected function schedule(\Illuminate\Console\Scheduling\Schedule $schedule): void
     {
         // Load configuration from both settings file and config
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $interval = config('activitypub.schedule.interval', 1);
         $maintenanceTime = config('activitypub.schedule.maintenance_time', '02:00');
         $inboxBatchSize = config('activitypub.queue.inbox.batch_size', 50);
@@ -203,8 +203,6 @@ class ActivityPubServiceProvider extends AddonServiceProvider
     }
 
 
-
-
     protected $listen = [
         \Statamic\Events\EntrySaving::class => [
             \Ethernick\ActivityPubCore\Listeners\GenerateActorKeys::class,
@@ -288,14 +286,14 @@ class ActivityPubServiceProvider extends AddonServiceProvider
     {
         // Register custom ActivityPub types
         // Core Types
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Object', 'Generic Object', \Ethernick\ActivityPubCore\Http\Controllers\GenericObjectController::class, 'objects');
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Page', 'Page', null, 'pages', ['pages']);
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Note', 'Note', \Ethernick\ActivityPubCore\Http\Controllers\NoteController::class, 'notes', ['notes']);
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Object', 'Generic Object', 'objects', \Ethernick\ActivityPubCore\Http\Controllers\GenericObjectController::class);
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Page', 'Page', 'pages', null, ['pages']);
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Note', 'Note', 'notes', \Ethernick\ActivityPubCore\Http\Controllers\NoteController::class, ['notes'], \Ethernick\ActivityPubCore\Http\Handlers\NoteStoreHandler::class, \Ethernick\ActivityPubCore\Http\Handlers\NoteOutboxHandler::class);
 
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Person', 'Person (Actor)', null, 'people');
-        //\Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Organization', 'Organization (Actor)', null, 'organizations');
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Activity', 'Activity', null, 'activities');
-        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('OrderedCollection', 'OrderedCollection', null, 'ordered-collections');
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Person', 'Person (Actor)', 'people');
+        //\Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Organization', 'Organization (Actor)', 'organizations');
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Activity', 'Activity', 'activities');
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('OrderedCollection', 'OrderedCollection', 'ordered-collections');
 
         // Dynamically Register Controllers from Types
         \Ethernick\ActivityPubCore\Services\ActivityDispatcher::registerControllersFromTypes();

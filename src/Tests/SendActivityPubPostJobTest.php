@@ -94,7 +94,7 @@ class SendActivityPubPostJobTest extends TestCase
         return $privateKey;
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_implements_should_queue_interface()
     {
         $this->assertContains(
@@ -103,7 +103,7 @@ class SendActivityPubPostJobTest extends TestCase
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_has_correct_queue_configuration()
     {
         $job = new SendActivityPubPost('test-id');
@@ -114,7 +114,7 @@ class SendActivityPubPostJobTest extends TestCase
         $this->assertEquals([60, 300, 900], $job->backoff);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_be_dispatched_to_queue()
     {
         Queue::fake();
@@ -129,7 +129,7 @@ class SendActivityPubPostJobTest extends TestCase
         Queue::assertPushedOn('activitypub-outbox', SendActivityPubPost::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_activity_to_followers()
     {
         Http::fake([
@@ -152,7 +152,7 @@ class SendActivityPubPostJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_logs_success_for_successful_delivery()
     {
         Http::fake([
@@ -169,7 +169,7 @@ class SendActivityPubPostJobTest extends TestCase
         $this->assertTrue(true); // Placeholder - add proper log assertion if needed
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_missing_entry_gracefully()
     {
         $job = new SendActivityPubPost('non-existent-id');
@@ -180,7 +180,7 @@ class SendActivityPubPostJobTest extends TestCase
         $this->assertTrue(true); // No exception means test passed
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_skips_external_activities()
     {
         Http::fake();
@@ -208,7 +208,7 @@ class SendActivityPubPostJobTest extends TestCase
         Http::assertNothingSent();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_skips_blocked_actors()
     {
         Http::fake();
@@ -226,7 +226,7 @@ class SendActivityPubPostJobTest extends TestCase
         Http::assertNothingSent();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_to_multiple_followers()
     {
         Http::fake([
@@ -276,7 +276,7 @@ class SendActivityPubPostJobTest extends TestCase
         $secondFollower->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_http_errors_gracefully()
     {
         Http::fake([
@@ -293,7 +293,7 @@ class SendActivityPubPostJobTest extends TestCase
         $this->assertTrue(true); // Completed without throwing
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_requires_actor_with_keys()
     {
         // Create actor without keys
@@ -336,7 +336,7 @@ class SendActivityPubPostJobTest extends TestCase
         $actorWithoutKeys->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_counts_successes_and_failures()
     {
         Http::fake([

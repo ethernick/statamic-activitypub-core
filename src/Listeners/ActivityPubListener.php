@@ -12,8 +12,10 @@ use Ethernick\ActivityPubCore\Jobs\SendActivityPubPost;
 use Statamic\Facades\YAML;
 use Statamic\Facades\File;
 use Statamic\Facades\User;
-use Statamic\Facades\Markdown;
 use Statamic\Facades\Blink;
+use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
+use Ethernick\ActivityPubCore\Contracts\OutboxHandlerInterface;
 
 class ActivityPubListener
 {
@@ -23,6 +25,14 @@ class ActivityPubListener
      * Cache actors in memory to avoid repeated Entry::find() calls
      */
     protected static $actorCache = [];
+
+    /**
+     * Cache settings in memory
+     */
+    /**
+     * Cache settings in memory
+     */
+    protected static $settingsCache = [];
 
     public function handle(mixed $event): void
     {
@@ -73,21 +83,29 @@ class ActivityPubListener
         }
     }
 
-    /**
-     * Get cached settings to avoid repeated file reads
-     */
-    /**
-     * Get cached settings to avoid repeated file reads
-     */
-    protected function getSettings(): array
+    protected function getSettings(string $collection = 'all'): ?array
     {
-        return Blink::once('activitypub-settings', function () {
-            $path = resource_path('settings/activitypub.yaml');
-            if (!File::exists($path)) {
-                return [];
-            }
-            return YAML::parse(File::get($path));
-        });
+        if (!app()->runningUnitTests() && isset(self::$settingsCache[$collection])) {
+            return self::$settingsCache[$collection];
+        }
+
+        $path = ActivityPubUtils::settingsPath();
+        if (!File::exists($path)) {
+            return null;
+        }
+
+        $raw = File::get($path);
+        $settings = YAML::parse($raw);
+        self::$settingsCache[$collection] = $settings;
+        return $settings;
+    }
+
+    /**
+     * Clear the settings cache (useful for testing)
+     */
+    public static function clearSettingsCache(): void
+    {
+        self::$settingsCache = [];
     }
 
     /**
@@ -223,34 +241,7 @@ class ActivityPubListener
             'instructions' => 'Advanced: Override the generated ActivityPub payload or view the current payload. Must be valid JSON.',
             'validate' => [
                 'nullable',
-                function ($attribute, $value, $fail) {
-                    $json = $value;
-                    if (is_array($value) && isset($value['code'])) {
-                        $json = $value['code'];
-                    }
-
-                    if (!is_string($json)) {
-                        $fail("The $attribute must be a string or a valid code object.");
-                        return;
-                    }
-
-                    if (empty($json))
-                        return;
-
-                    $decoded = json_decode($json, true);
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        $fail("Invalid JSON: " . json_last_error_msg());
-                        return;
-                    }
-
-                    // Semantic Check
-                    if (!isset($decoded['@context'])) {
-                        $fail("ActivityPub Warning: Missing '@context' attribute.");
-                    }
-                    if (!isset($decoded['type'])) {
-                        $fail("ActivityPub Warning: Missing 'type' attribute.");
-                    }
-                }
+                new \Ethernick\ActivityPubCore\Rules\ActivityPubJson,
             ],
         ];
 
@@ -439,6 +430,24 @@ class ActivityPubListener
         }
 
         $url = $entry->absoluteUrl();
+        $handle = $entry->collection()->handle();
+        $slug = $entry->slug();
+        
+        $isNonUnique = empty($url) || ($handle !== 'actors' && str_ends_with(rtrim($url, '/'), '/' . $handle));
+
+        if ($isNonUnique) {
+            // If slug is also empty (brand new entry not yet saved), generate and SET one now
+            if (empty($slug)) {
+                $slug = (string) \Illuminate\Support\Str::uuid();
+                $entry->slug($slug);
+            }
+            
+            // Force construction of a unique path
+            $url = url("/{$handle}/{$slug}");
+            
+            \Illuminate\Support\Facades\Log::info("ActivityPubListener: Forced unique URL for {$entry->id()}: $url (slug: $slug)");
+        }
+
         $published = now();
         if (method_exists($entry, 'date') && $entry->date()) {
             $published = $entry->date();
@@ -689,35 +698,13 @@ class ActivityPubListener
             }
         }
 
-        // Handle Question/Poll Options
-        if ($type === 'Question') {
-            $options = $entry->get('options', []);
-            $isMultiple = $entry->get('multiple_choice', false);
-            $apOptions = [];
-
-            foreach ($options as $opt) {
-                $apOptions[] = [
-                    'type' => 'Note',
-                    'name' => $opt['name'],
-                    'replies' => [
-                        'type' => 'Collection',
-                        'totalItems' => (int) ($opt['count'] ?? 0)
-                    ]
-                ];
-            }
-
-            if ($isMultiple) {
-                $data['anyOf'] = $apOptions;
-            } else {
-                $data['oneOf'] = $apOptions;
-            }
-
-            if ($endTime = $entry->get('end_time')) {
-                $data['endTime'] = \Carbon\Carbon::parse($endTime)->toIso8601String();
-            }
-
-            if ($entry->get('closed')) {
-                $data['closed'] = ($entry->date() ?: now())->toIso8601String();
+        // Type-specific formatting via registered outbox handlers (JSON formatting)
+        if ($handlerClass = ActivityPubTypes::getOutboxHandler($type)) {
+            if (class_exists($handlerClass)) {
+                $handler = app($handlerClass);
+                if ($handler instanceof OutboxHandlerInterface) {
+                    $data = $handler->format($data, $entry);
+                }
             }
         }
 

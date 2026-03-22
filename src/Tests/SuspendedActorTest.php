@@ -15,7 +15,7 @@ class SuspendedActorTest extends TestCase
         Entry::query()->where('collection', 'actors')->get()->each->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_null_for_suspended_actor_flag()
     {
         $actorUrl = 'https://example.com/users/suspended_user';
@@ -35,7 +35,7 @@ class SuspendedActorTest extends TestCase
         $this->assertNull($actor, 'Resolver should return null for actor with suspended: true');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_null_for_toot_suspended_actor_flag()
     {
         $actorUrl = 'https://example.com/users/toot_suspended_user';
@@ -55,7 +55,7 @@ class SuspendedActorTest extends TestCase
         $this->assertNull($actor, 'Resolver should return null for actor with toot:suspended: true');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_returns_actor_if_not_suspended()
     {
         $actorUrl = 'https://example.com/users/good_user';

@@ -26,7 +26,7 @@ class InboxDeleteTest extends TestCase
             ->each->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_delete_a_note_and_its_activity()
     {
         $this->withoutExceptionHandling();
@@ -63,7 +63,7 @@ class InboxDeleteTest extends TestCase
         $user->save();
 
         $response = $this->actingAs($user)
-            ->post(cp_route('activitypub.inbox.delete'), ['id' => $note->id()]);
+            ->delete(cp_route('activitypub.inbox.delete'), ['id' => $note->id()]);
 
         // Assert
         $response->assertOk();
@@ -71,7 +71,7 @@ class InboxDeleteTest extends TestCase
         $this->assertNull(Entry::find($activity->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_delete_an_activity()
     {
         $this->withoutExceptionHandling();
@@ -93,7 +93,7 @@ class InboxDeleteTest extends TestCase
         $user->save();
 
         $response = $this->actingAs($user)
-            ->post(cp_route('activitypub.inbox.delete'), ['id' => $activity->id()]);
+            ->delete(cp_route('activitypub.inbox.delete'), ['id' => $activity->id()]);
 
         // Assert
         $response->assertOk();

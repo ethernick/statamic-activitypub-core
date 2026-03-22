@@ -43,7 +43,7 @@ class RegenerateActivityPubJson extends Command
         // Determine collections
         $collections = $this->option('collection');
         if (empty($collections)) {
-            $collections = ['notes', 'articles'];
+            $collections = ['notes', 'articles', 'polls'];
         }
 
         $this->info('Targeting collections: ' . implode(', ', $collections));

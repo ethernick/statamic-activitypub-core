@@ -34,7 +34,7 @@ class AnnounceControllerTest extends TestCase
         $this->actingAs($this->user);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_announce_a_url()
     {
         $objectUrl = 'https://example.com/notes/123';
@@ -59,7 +59,7 @@ class AnnounceControllerTest extends TestCase
         $this->assertEquals([$this->actor->id()], $activity->get('actor'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ignores_duplicate_announce()
     {
         $objectUrl = 'https://example.com/notes/duplicate';
@@ -85,7 +85,7 @@ class AnnounceControllerTest extends TestCase
         $this->assertEquals(1, $count);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_undo_announce()
     {
         $objectUrl = 'https://example.com/notes/undo';

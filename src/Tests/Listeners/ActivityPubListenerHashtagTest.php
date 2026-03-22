@@ -9,51 +9,38 @@ use Statamic\Facades\Entry;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Taxonomy;
 use Statamic\Facades\Term;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class ActivityPubListenerHashtagTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
 
-        // Ensure settings exist
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "hashtags:\n  enabled: true\n  taxonomy: tags\n  field: tags\nnotes:\n  enabled: true\n  type: Note\n  federated: true\n"
         );
 
-        // Ensure taxonomy exists
+        // Ensure taxonomy exists in sandbox
         if (!Taxonomy::findByHandle('tags')) {
             Taxonomy::make('tags')->save();
         }
 
-        // Ensure collections exist
-        if (!Collection::findByHandle('actors')) {
-            Collection::make('actors')->save();
-        }
-        if (!Collection::findByHandle('notes')) {
-            Collection::make('notes')->save();
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::findByHandle($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
         }
 
         // Clear Blink cache
         \Statamic\Facades\Blink::forget('activitypub-settings');
-
-        // Clear existing terms to avoid interference
-        Term::all()->each->delete();
     }
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
-
         // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
         $actorCache = $reflection->getProperty('actorCache');
@@ -63,7 +50,7 @@ class ActivityPubListenerHashtagTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_extracts_hashtags_from_content_and_creates_terms()
     {
         $actor = Entry::make()
@@ -94,7 +81,7 @@ class ActivityPubListenerHashtagTest extends TestCase
         $this->assertContains('activitypub', $tags);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ignores_non_hashtags()
     {
         $actor = Entry::make()
@@ -118,7 +105,7 @@ class ActivityPubListenerHashtagTest extends TestCase
         $this->assertNotNull(Term::find('tags::fff'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_generates_correct_activitypub_json_and_html()
     {
         $actor = Entry::make()
@@ -155,7 +142,7 @@ class ActivityPubListenerHashtagTest extends TestCase
         $this->assertStringContainsString('#<span>statamic</span>', $content);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_manual_tags_and_creates_terms()
     {
         $actor = Entry::make()

@@ -46,87 +46,13 @@
 
                 <div v-if="!note.sensitive || note.showContent" class="mt-2 prose dark:prose-invert text-sm max-w-none break-words" v-html="note.content"></div>
 
-                <!-- POLL UI -->
-                <!-- POLL UI -->
-                <div v-if="note.type === 'question'" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold uppercase text-gray-500">Poll</span>
-                        <span v-if="note.closed" class="text-xs font-bold text-red-500">Closed</span>
-                        <span v-else-if="note.end_time" class="text-xs text-gray-400">Ends {{ formatTime(note.end_time) }}</span>
-                    </div>
+                <!-- Dynamic Content Hook (e.g., Poll UI, Article Preview) -->
+                <activity-pub-hook-loader 
+                    name="inbox-note-content" 
+                    :props="{ note, permissions, actors, storeNoteUrl }"
+                    @vote="$emit('vote', $event)"
+                />
 
-                    <!-- Open Ended Question -->
-                    <div v-if="!note.options || note.options.length === 0" class="flex flex-col gap-2">
-                        <template v-if="hasVoted(note) || note.closed">
-                            <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm text-gray-500 italic">
-                                Open-ended responses are hidden.
-                            </div>
-                        </template>
-                        <template v-else>
-                            <textarea 
-                                v-model="openEndedResponse" 
-                                class="input-text w-full text-sm" 
-                                rows="3" 
-                                placeholder="Type your answer..."
-                                :disabled="isVoting"
-                            ></textarea>
-                            <div class="flex justify-end mt-2">
-                                <button @click="submitVote(note)" :disabled="isVoting || !openEndedResponse.trim()" class="btn-primary text-xs px-3 py-1.5">
-                                    {{ isVoting ? 'Submitting...' : 'Submit Answer' }}
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-
-                    <!-- Standard Poll (Options) -->
-                    <div v-else class="flex flex-col gap-2">
-                         <div v-for="(opt, idx) in note.options" :key="idx" class="relative">
-                            <!-- Show Results -->
-                            <template v-if="hasVoted(note) || note.closed">
-                                <div class="absolute inset-y-0 left-0 bg-blue-100 dark:bg-blue-900/30 rounded"
-                                     :style="{ width: getPercentage(opt, note) + '%' }"></div>
-                                <div class="relative flex items-center justify-between p-2 border border-blue-200 dark:border-blue-800 rounded z-10">
-                                    <span class="text-sm font-medium">{{ opt.name }}</span>
-                                    <span class="text-xs text-gray-500">
-                                        {{ getPercentage(opt, note) }}% ({{ opt.count }})
-                                    </span>
-                                </div>
-                            </template>
-
-                            <!-- Vote Form -->
-                            <template v-else>
-                                <label class="relative flex items-center p-2 border border-gray-200 dark:border-gray-700 rounded hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                                    <input 
-                                        v-if="note.multiple_choice" 
-                                        type="checkbox" 
-                                        :value="opt" 
-                                        v-model="selectedOptions" 
-                                        class="mr-2 text-blue-600 focus:ring-blue-500 rounded"
-                                    >
-                                    <input 
-                                        v-else 
-                                        type="radio" 
-                                        :value="opt" 
-                                        v-model="selectedOptions" 
-                                        class="mr-2 text-blue-600 focus:ring-blue-500"
-                                    >
-                                    <span class="text-sm font-medium">{{ opt.name }}</span>
-                                </label>
-                            </template>
-                         </div>
-
-                         <!-- Submit Button -->
-                         <div v-if="!hasVoted(note) && !note.closed" class="flex justify-end mt-2">
-                            <button @click="submitVote(note)" :disabled="isVoting || (!openEndedResponse && selectedOptions.length === 0 && !selectedOptions.name)" class="btn-primary text-xs px-3 py-1.5">
-                                {{ isVoting ? 'Voting...' : 'Vote' }}
-                            </button>
-                         </div>
-                    </div>
-                    
-                    <div class="mt-2 text-xs text-gray-400 text-right">
-                        {{ note.voters_count }} votes
-                    </div>
-                </div>
                 
                 <!-- Attachments -->
                 <div v-if="note.attachments && note.attachments.length > 0" class="mt-3 flex gap-2">
@@ -233,6 +159,20 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
                      </button>
+
+                     <!-- Dynamic Actions Hook -->
+                     <activity-pub-hook-loader 
+                        name="inbox-note-actions" 
+                        :props="{ note, permissions }"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @like="$emit('like', $event)"
+                        @quote="$emit('quote', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
+                        @json="$emit('json', $event)"
+                        @vote="$emit('vote', $event)"
+                     />
                 </div>
 
                 <!-- INDENTED PARENT NOTE -->
@@ -308,83 +248,26 @@ export default {
         permissions: {
             type: Object,
             default: () => ({ update: false, delete: false })
+        },
+        actors: {
+            type: Array,
+            default: () => []
+        },
+        storeNoteUrl: {
+            type: String,
+            default: null
         }
     },
     data() {
         return {
-            isVoting: false,
-            selectedOptions: [], // For checkbox/radio (store objects or just val? Objects for name access)
-            openEndedResponse: ''
+            // Internal state moved to dynamic components
         }
     },
+
     methods: {
-        hasVoted(note) {
-             return note.has_voted || note.closed;
-        },
-        getPercentage(opt, note) {
-            if (!note.voters_count || note.voters_count === 0) return 0;
-            return Math.round((opt.count / note.voters_count) * 100);
-        },
-        formatTime(dateStr) {
-            return new Date(dateStr).toLocaleString();
-        },
-        submitVote(note) {
-            if (this.isVoting) return;
-            
-            let votes = [];
-            
-            if (!note.options || note.options.length === 0) {
-                // Open Ended
-                if (!this.openEndedResponse.trim()) return;
-                 votes.push(this.openEndedResponse);
-            } else {
-                // Options
-                if (Array.isArray(this.selectedOptions)) {
-                    // Checkbox (multiple) or just initialized array
-                     votes = this.selectedOptions.map(o => o.name);
-                } else if (this.selectedOptions) {
-                    // Radio (single object)
-                    votes = [this.selectedOptions.name];
-                }
-                
-                if (votes.length === 0) return;
-            }
-
-            this.isVoting = true;
-
-            // Helper to emit vote
-            const emitVote = (optionName, isLast = true) => {
-                this.$emit('vote', {
-                    note: note,
-                    option: { name: optionName }, // Pass simplified option obj
-                    callback: (success) => {
-                         if (isLast) {
-                            this.isVoting = false;
-                            if (success) {
-                                note.has_voted = true;
-                                note.voters_count = (note.voters_count || 0) + 1;
-                                
-                                // Optimistic update for counts
-                                if (note.options) {
-                                    votes.forEach(vName => {
-                                        const opt = note.options.find(o => o.name === vName);
-                                        if (opt) opt.count = (opt.count || 0) + 1;
-                                    });
-                                }
-                            }
-                         }
-                    }
-                });
-            };
-
-            // Send votes (sequentially or parallel? Parallel is fine)
-            // Ideally backend supports array, but 'vote' event expects single option usually?
-            // Existing logic handles single vote. Let's loop.
-            votes.forEach((vName, index) => {
-                emitVote(vName, index === votes.length - 1);
-            });
-        }
+        // Core methods kept, type-specific ones removed
     }
+
 }
 </script>
 

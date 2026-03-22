@@ -22,14 +22,14 @@ class ActorLookupControllerTest extends TestCase
         }
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_requires_authentication(): void
     {
         $this->get(cp_route('activitypub.actor-lookup.index'))
             ->assertRedirect(cp_route('login'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function an_authenticated_super_user_can_view_actor_lookup_page(): void
     {
         $user = User::make()->email('admin@example.com')->makeSuper()->save();
@@ -41,7 +41,7 @@ class ActorLookupControllerTest extends TestCase
             ->assertSee('activity-pub-actor-lookup');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_perform_webfinger_lookup(): void
     {
         $user = User::make()->email('admin@example.com')->makeSuper()->save();
@@ -68,7 +68,7 @@ class ActorLookupControllerTest extends TestCase
             ->assertJsonPath('subject', 'acct:ethernick@mastodon.social');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_perform_actor_lookup_via_webfinger(): void
     {
         $user = User::make()->email('admin@example.com')->makeSuper()->save();
@@ -106,7 +106,7 @@ class ActorLookupControllerTest extends TestCase
         $this->assertEquals('ethernick', $response->json('username'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_invalid_handle_format(): void
     {
         $user = User::make()->email('admin@example.com')->makeSuper()->save();

@@ -39,7 +39,7 @@ class BlockList
             return static::$blocklist;
         }
 
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
 
         $rawList = '';
         if (File::exists($path)) {

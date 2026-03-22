@@ -20,74 +20,58 @@ class QueueIntegrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Configure and migrate in-memory SQLite for queue
         config(['queue.default' => 'database']);
+        $this->artisan('queue:table');
+        $this->artisan('queue:failed-table');
+        $this->artisan('migrate', ['--force' => true]);
 
-        // Ensure queue tables exist (only create if they don't exist)
-        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
-            $this->artisan('queue:table');
-            $this->artisan('migrate', ['--force' => true]);
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'activities', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
         }
-        if (!DB::getSchemaBuilder()->hasTable('failed_jobs')) {
-            $this->artisan('queue:failed-table');
-            $this->artisan('migrate', ['--force' => true]);
-        }
 
-        // Clear queue tables
-        DB::table('jobs')->delete();
-        DB::table('failed_jobs')->delete();
-
-        // Clean up any leftover test data
-        Entry::query()->where('collection', 'activities')->where('slug', 'like', 'test-%')->get()->each->delete();
-        Entry::query()->where('collection', 'notes')->where('slug', 'like', 'test-%')->get()->each->delete();
-
-        // Create actors
+        // Create actors in sandbox
         $this->localActor = Entry::make()
             ->collection('actors')
-            ->slug('local-user')
+            ->slug('test-queue-local-user')
             ->data([
                 'title' => 'Local User',
                 'is_internal' => true,
-                'activitypub_id' => 'https://localhost/users/local-user',
+                'activitypub_id' => 'https://localhost/users/test-queue-local-user',
                 'private_key' => $this->generatePrivateKey(),
                 'public_key' => 'dummy-public-key',
-                'followed_by_actors' => [], // Will be set after external actor is created
+                'followed_by_actors' => [],
             ])
             ->published(true);
         $this->localActor->saveQuietly();
 
         $this->externalActor = Entry::make()
             ->collection('actors')
-            ->slug('external-user')
+            ->slug('test-queue-external-user')
             ->data([
                 'title' => 'External User',
                 'is_internal' => false,
-                'activitypub_id' => 'https://external.com/users/user',
-                'inbox_url' => 'https://external.com/users/user/inbox',
+                'activitypub_id' => 'https://external.com/users/test-queue-user',
+                'inbox_url' => 'https://external.com/users/test-queue-user/inbox',
                 'following_actors' => [$this->localActor->id()],
             ])
             ->published(true);
         $this->externalActor->saveQuietly();
 
-        // Set up bidirectional relationship - external actor is following local actor
+        // Set up bidirectional relationship
         $this->localActor->set('followed_by_actors', [$this->externalActor->id()]);
         $this->localActor->saveQuietly();
 
-        // Clear any jobs that might have been created during setup
+        // Clear setup-generated jobs
         DB::table('jobs')->delete();
     }
 
     protected function tearDown(): void
     {
-        // Cleanup
-        Entry::query()->where('collection', 'activities')->where('slug', 'like', 'test-%')->get()->each->delete();
-        Entry::query()->where('collection', 'notes')->where('slug', 'like', 'test-%')->get()->each->delete();
-
-        if ($this->externalActor) $this->externalActor->delete();
-        if ($this->localActor) $this->localActor->delete();
-
-        DB::table('jobs')->delete();
-        DB::table('failed_jobs')->delete();
-
         parent::tearDown();
     }
 
@@ -102,7 +86,7 @@ class QueueIntegrationTest extends TestCase
         return $privateKey;
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_full_activity_publishing_workflow()
     {
         Http::fake([
@@ -146,13 +130,13 @@ class QueueIntegrationTest extends TestCase
 
         // 5. Verify HTTP request was sent
         Http::assertSent(function ($request) {
-            return $request->url() === 'https://external.com/users/user/inbox';
+            return $request->url() === 'https://external.com/users/test-queue-user/inbox';
         });
 
         $activity->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_failed_jobs_with_retry()
     {
         // Simulate server error that will retry
@@ -197,7 +181,7 @@ class QueueIntegrationTest extends TestCase
         $activity->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_maintenance_queue()
     {
         // Create a note that needs count recalculation
@@ -244,7 +228,7 @@ class QueueIntegrationTest extends TestCase
         $this->assertEquals(1, $note->get('like_count'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_multiple_queues_independently()
     {
         Http::fake([
@@ -288,7 +272,7 @@ class QueueIntegrationTest extends TestCase
         $activity->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_max_jobs_limit()
     {
         Http::fake([
@@ -328,7 +312,7 @@ class QueueIntegrationTest extends TestCase
         $this->assertEquals(3, DB::table('jobs')->where('queue', 'activitypub-outbox')->count());
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_monitor_queue_status()
     {
         // Queue various jobs (don't call onQueue since constructor already does it)

@@ -179,15 +179,22 @@ class ActorController extends BaseObjectController
 
     protected function getEnabledCollections(): array
     {
-        $path = resource_path('settings/activitypub.yaml');
-        if (!File::exists($path)) {
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
+        if (!\Statamic\Facades\File::exists($path)) {
             return [];
         }
-        $settings = YAML::parse(File::get($path));
+        $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($path));
+
+        $actualCollections = \Statamic\Facades\Collection::all()->map->handle()->toArray();
 
         $enabled = [];
         foreach ($settings as $handle => $config) {
             if ($handle === 'activitypub_collections') {
+                continue;
+            }
+
+            // Must be an actual collection in Statamic
+            if (!in_array($handle, $actualCollections)) {
                 continue;
             }
 

@@ -134,7 +134,7 @@ class ActivityPubClean extends Command
 
     protected function getSettings(): array
     {
-        $path = resource_path('settings/activitypub.yaml');
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         if (!File::exists($path)) {
             return [];
         }

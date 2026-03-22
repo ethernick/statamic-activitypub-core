@@ -7,37 +7,26 @@ namespace Ethernick\ActivityPubCore\Tests\Listeners;
 use Tests\TestCase;
 use Statamic\Facades\Entry;
 use Statamic\Facades\Collection;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class ActivityPubListenerJsonOverrideTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
 
-        // Ensure settings exist
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\n" .
             "activities:\n  enabled: true\n  type: Activity\n  federated: true\n"
         );
 
-        // Ensure collections exist
-        if (!Collection::findByHandle('actors')) {
-            Collection::make('actors')->save();
-        }
-        if (!Collection::findByHandle('notes')) {
-            Collection::make('notes')->save();
-        }
-        if (!Collection::findByHandle('activities')) {
-            Collection::make('activities')->save();
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'notes', 'activities'] as $col) {
+            if (!Collection::findByHandle($col)) {
+                Collection::make($col)->save();
+            }
         }
 
         // Clear Blink cache
@@ -46,16 +35,15 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_manual_json_override()
     {
         $actor = Entry::make()
             ->collection('actors')
-            ->slug('test-actor')
+            ->slug('test-json-actor')
             ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
@@ -63,7 +51,7 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
 
         $note = Entry::make()
             ->collection('notes')
-            ->slug('manual-note')
+            ->slug('test-manual-note')
             ->data([
                 'content' => 'Auto Content',
                 'actor' => [$actor->id()],
@@ -78,18 +66,18 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
         $this->assertEquals($manualJson, $note->get('activitypub_json'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_auto_generates_json_when_override_is_disabled()
     {
         $actor = Entry::make()
             ->collection('actors')
-            ->slug('test-actor')
+            ->slug('test-json-actor')
             ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
         $note = Entry::make()
             ->collection('notes')
-            ->slug('auto-note')
+            ->slug('test-auto-note')
             ->data([
                 'content' => 'Auto Content',
                 'actor' => [$actor->id()],
@@ -107,12 +95,12 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
         $this->assertStringContainsString('Auto Content', $decoded['content']);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_propagates_manual_json_to_activities()
     {
         $actor = Entry::make()
             ->collection('actors')
-            ->slug('test-actor')
+            ->slug('test-json-actor')
             ->data(['activitypub_id' => 'https://test.com/users/test', 'is_internal' => true]);
         $actor->save();
 
@@ -125,7 +113,7 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
 
         $note = Entry::make()
             ->collection('notes')
-            ->slug('manual-note')
+            ->slug('test-manual-note')
             ->data([
                 'content' => 'Auto Content',
                 'actor' => [$actor->id()],

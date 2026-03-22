@@ -23,7 +23,7 @@ class FollowActionTest extends TestCase
         // Setup user and actors if needed
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_is_visible_for_external_unfollowed_actors()
     {
         // 1. Create Local User Actor
@@ -42,7 +42,7 @@ class FollowActionTest extends TestCase
         $this->assertTrue($action->visibleTo($externalActor));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_is_not_visible_for_internal_actors()
     {
         $localActor = Entry::make()->collection('actors')->slug('me')->data(['is_internal' => true]);
@@ -51,7 +51,7 @@ class FollowActionTest extends TestCase
         $this->assertFalse($action->visibleTo($localActor));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_is_not_visible_if_already_following()
     {
         // 1. Create Actors
@@ -74,7 +74,7 @@ class FollowActionTest extends TestCase
         $this->assertFalse($action->visibleTo($externalActor));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_follow_activity_on_run()
     {
         Http::fake();

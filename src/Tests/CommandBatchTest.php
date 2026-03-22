@@ -13,24 +13,20 @@ use Tests\TestCase;
 class CommandBatchTest extends TestCase
 {
     protected $settingsPath;
-    protected $originalSettings;
 
     public function setUp(): void
     {
         parent::setUp();
-        $this->settingsPath = resource_path('settings/activitypub.yaml');
-        if (File::exists($this->settingsPath)) {
-            $this->originalSettings = File::get($this->settingsPath);
+        $this->settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
+        
+        // Ensure settings directory exists in sandbox
+        if (!file_exists(resource_path('settings'))) {
+            mkdir(resource_path('settings'), 0755, true);
         }
     }
 
-    public function tearDown(): void
+    protected function tearDown(): void
     {
-        if ($this->originalSettings) {
-            File::put($this->settingsPath, $this->originalSettings);
-        } else {
-            File::delete($this->settingsPath);
-        }
         parent::tearDown();
     }
 

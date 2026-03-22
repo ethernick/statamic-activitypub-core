@@ -22,7 +22,7 @@ class ComposeNoteTest extends TestCase
         Config::set('statamic.editions.pro', true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_create_note_with_content_warning()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());
@@ -45,7 +45,7 @@ class ComposeNoteTest extends TestCase
         $this->assertEquals('Spoiler', $note->get('summary'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_reply_with_content_warning()
     {
         $this->actingAs(User::make()->id('admin')->makeSuper()->save());

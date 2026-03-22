@@ -7,12 +7,9 @@ namespace Ethernick\ActivityPubCore\Tests;
 use Ethernick\ActivityPubCore\Jobs\InboxHandler;
 use Statamic\Facades\Entry;
 use Tests\TestCase;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 
 class UpdateActivityTest extends TestCase
 {
-    use BackupsFiles;
-
     protected $handler;
     protected $localActor;
     protected $remoteActor;
@@ -21,32 +18,27 @@ class UpdateActivityTest extends TestCase
     {
         parent::setUp();
 
-        // Backup settings file before modifying it
-        $this->backupFile('resources/settings/activitypub.yaml');
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Create activitypub.yaml config in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
         );
 
+        $this->setupCollections(['actors', 'notes', 'activities', 'polls']);
+
         $this->handler = new InboxHandler();
 
-        // Setup Helpers
-        // Create Local Actor
+        // Create Local Actor in sandbox
         $this->localActor = Entry::make()
             ->collection('actors')
-            ->slug('me')
+            ->slug('test-update-me')
             ->data(['title' => 'Me']);
         $this->localActor->save();
 
-        // Create Remote Actor (Followed)
+        // Create Remote Actor in sandbox
         $this->remoteActor = Entry::make()
             ->collection('actors')
-            ->slug('remote')
+            ->slug('test-update-remote')
             ->data([
                 'title' => 'Remote',
                 'activitypub_id' => 'https://remote.com/users/alice',
@@ -61,23 +53,10 @@ class UpdateActivityTest extends TestCase
 
     protected function tearDown(): void
     {
-        if ($this->localActor)
-            $this->localActor->delete();
-        if ($this->remoteActor)
-            $this->remoteActor->delete();
-        // Only delete test notes (those with remote.com in activitypub_id)
-        Entry::query()->where('collection', 'notes')->get()
-            ->filter(fn($e) => str_contains($e->get('activitypub_id') ?? '', 'remote.com'))
-            ->each->delete();
-
-        // Restore activitypub.yaml from git to prevent test pollution
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
-
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_updates_correct_note_entity()
     {
         // 1. Create Note
@@ -123,7 +102,7 @@ class UpdateActivityTest extends TestCase
         $this->assertEquals('New Summary', $note->get('summary'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_supports_partial_updates_preserving_summary()
     {
         // 1. Create Note
@@ -163,7 +142,7 @@ class UpdateActivityTest extends TestCase
         $this->assertEquals('Preserved Summary', $note->get('summary'), 'Summary should be preserved if missing in payload');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_updates_actor_profile_if_id_matches_actor_and_no_note_found()
     {
         // 1. Ensure no Note exists with Actor ID (unlikely but possible identifier collision check)

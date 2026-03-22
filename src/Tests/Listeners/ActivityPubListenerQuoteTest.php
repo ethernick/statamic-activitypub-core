@@ -9,33 +9,31 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Event;
 use Statamic\Facades\Entry;
 use Ethernick\ActivityPubCore\Jobs\SendQuoteRequest;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class ActivityPubListenerQuoteTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
         Queue::fake();
 
-        // Create activitypub.yaml config
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Create activitypub.yaml config in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\n"
         );
+
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'notes', 'activities'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
+        }
     }
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
-
         // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
         $actorCache = $reflection->getProperty('actorCache');
@@ -45,15 +43,15 @@ class ActivityPubListenerQuoteTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_dispatches_quote_request_only_once_on_create()
     {
         // Create actor
         $actor = Entry::make()
             ->collection('actors')
-            ->slug('test-actor')
+            ->slug('test-quote-actor')
             ->data([
-                'activitypub_id' => 'https://test.com/users/test',
+                'activitypub_id' => 'https://test.com/users/test-quote',
                 'is_internal' => true,
             ]);
         $actor->save();
@@ -61,9 +59,9 @@ class ActivityPubListenerQuoteTest extends TestCase
         // Create external note to quote
         $quotedNote = Entry::make()
             ->collection('notes')
-            ->slug('external-note')
+            ->slug('test-quote-external-note')
             ->data([
-                'activitypub_id' => 'https://remote.com/notes/123',
+                'activitypub_id' => 'https://remote.com/notes/test-quote-123',
                 'is_internal' => false,
             ]);
         $quotedNote->save();
@@ -71,7 +69,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         // Create quote - this should trigger listener ONCE
         $quote = Entry::make()
             ->collection('notes')
-            ->slug('quote-note')
+            ->slug('test-quote-note')
             ->data([
                 'content' => 'My quote',
                 'actor' => [$actor->id()],
@@ -89,7 +87,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_dispatches_quote_request_when_quote_added_via_edit()
     {
         // Create actor
@@ -134,7 +132,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_dispatch_quote_request_for_non_quote_posts()
     {
         $actor = Entry::make()
@@ -158,7 +156,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertNotPushed(SendQuoteRequest::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_dispatch_duplicate_on_subsequent_saves()
     {
         $actor = Entry::make()
@@ -202,7 +200,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertNotPushed(SendQuoteRequest::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_detects_quote_added_from_empty_array_to_populated()
     {
         $actor = Entry::make()
@@ -242,7 +240,7 @@ class ActivityPubListenerQuoteTest extends TestCase
         Queue::assertPushed(SendQuoteRequest::class, 1);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_works_with_different_collection_types()
     {
         $actor = Entry::make()

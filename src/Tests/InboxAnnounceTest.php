@@ -8,14 +8,12 @@ use Ethernick\ActivityPubCore\Jobs\InboxHandler;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
 use Tests\TestCase;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 
 class InboxAnnounceTest extends TestCase
 {
-    use BackupsFiles;
     use RefreshDatabase;
 
     protected $user;
@@ -25,30 +23,23 @@ class InboxAnnounceTest extends TestCase
     {
         parent::setUp();
 
-        // Backup collection YAML files before modifying them
-        $this->backupFiles([
-            'resources/settings/activitypub.yaml',
-            'content/collections/actors.yaml',
-            'content/collections/notes.yaml',
-            'content/collections/activities.yaml',
-        ]);
-
         config(['statamic.editions.pro' => true]);
 
-        // Clean up test entries (not the entire directories to preserve YAML files)
-        $this->cleanupTestEntries();
-
-        // Ensure collections exist with correct routes
-        $this->ensureCollectionsExist();
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
         );
+
+        // Ensure collections exist in sandbox
+        $handles = ['actors', 'notes', 'activities'];
+        foreach ($handles as $handle) {
+            if (!\Statamic\Facades\Collection::find($handle)) {
+                $col = \Statamic\Facades\Collection::make($handle);
+                if ($handle === 'actors') $col->route('/actor/{slug}');
+                $col->save();
+            }
+        }
 
         $this->user = User::make()
             ->email('test@statamic.com')
@@ -62,48 +53,12 @@ class InboxAnnounceTest extends TestCase
         $this->localActor->save();
     }
 
-    protected function ensureCollectionsExist(): void
-    {
-        // Ensure actors collection exists with correct route
-        if (!\Statamic\Facades\Collection::find('actors')) {
-            $actors = \Statamic\Facades\Collection::make('actors');
-            $actors->route('/actor/{slug}');
-            $actors->save();
-        }
-
-        // Ensure other collections exist
-        if (!\Statamic\Facades\Collection::find('notes')) {
-            \Statamic\Facades\Collection::make('notes')->save();
-        }
-        if (!\Statamic\Facades\Collection::find('activities')) {
-            \Statamic\Facades\Collection::make('activities')->save();
-        }
-    }
-
-    protected function cleanupTestEntries(): void
-    {
-        // Delete ALL entries from test collections to ensure clean slate
-        foreach (['notes', 'actors', 'activities'] as $collection) {
-            $entries = Entry::query()->where('collection', $collection)->get();
-            foreach ($entries as $entry) {
-                try {
-                    $entry->delete();
-                } catch (\Exception $e) {
-                    // Ignore errors during cleanup
-                }
-            }
-        }
-    }
-
     protected function tearDown(): void
     {
-        // Restore activitypub.yaml from git to prevent test pollution
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_incoming_announce_activity()
     {
         // 1. Create a local note to be boosted (simplifies testing so we don't fetch)
@@ -162,7 +117,7 @@ class InboxAnnounceTest extends TestCase
     }
 
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_resolves_external_note_for_boost()
     {
         // This test would require mocking HTTP requests which is more complex.

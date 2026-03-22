@@ -61,7 +61,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_implements_should_queue_interface()
     {
         $this->assertContains(
@@ -70,7 +70,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         );
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_has_correct_queue_configuration()
     {
         $job = new RecalculateActivityPubCounts();
@@ -80,7 +80,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals(600, $job->timeout);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_be_dispatched_to_queue()
     {
         Queue::fake();
@@ -90,7 +90,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         Queue::assertPushedOn('maintenance', RecalculateActivityPubCounts::class);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_recalculates_reply_count()
     {
         // Create a note
@@ -131,7 +131,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals(3, $note->get('reply_count'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_recalculates_like_count()
     {
         // Create a note
@@ -171,7 +171,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals(5, $note->get('like_count'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_recalculates_boost_count()
     {
         // Create a note
@@ -211,7 +211,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals(2, $note->get('boost_count'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_recalculates_related_activity_count()
     {
         // Create a note (use saveQuietly to prevent AutoGenerateActivityListener from creating an activity)
@@ -260,7 +260,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals(2, $note->get('related_activity_count'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_only_updates_notes_with_changed_counts()
     {
         // Create note with correct counts (use saveQuietly to prevent AutoGenerateActivityListener)
@@ -291,7 +291,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertEquals($originalUpdatedAt->timestamp, $note->lastModified()->timestamp);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_notes_without_activitypub_id()
     {
         // Create note without activitypub_id
@@ -313,7 +313,7 @@ class RecalculateActivityPubCountsJobTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_matches_by_multiple_identifiers()
     {
         // Create note

@@ -24,6 +24,11 @@
         </div>
 
         <div class="mb-5">
+            <label class="block text-sm font-bold mb-2 font-bold">Date</label>
+            <input type="datetime-local" v-model="form.date" class="input-text w-full">
+        </div>
+
+        <div class="mb-5">
             <label class="block text-sm font-bold mb-2">Content Warning (Optional)</label>
             <input
                 type="text"

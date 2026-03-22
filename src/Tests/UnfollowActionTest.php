@@ -11,7 +11,7 @@ use Ethernick\ActivityPubCore\Actions\UnfollowAction;
 
 class UnfollowActionTest extends TestCase
 {
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_is_visible_for_followed_actors()
     {
         $localActor = Entry::make()->collection('actors')->slug('me')->data(['is_internal' => true]);
@@ -30,7 +30,7 @@ class UnfollowActionTest extends TestCase
         $this->assertTrue($action->visibleTo($externalActor));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_is_visible_for_pending_actors()
     {
         $localActor = Entry::make()->collection('actors')->slug('me')->data(['is_internal' => true]);
@@ -49,7 +49,7 @@ class UnfollowActionTest extends TestCase
         $this->assertTrue($action->visibleTo($externalActor));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_undo_follow_on_run()
     {
         Http::fake();

@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class ActorTemplateOverrideTest extends TestCase
 {
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_prioritizes_user_template_if_exists()
     {
         // Mock Actor
@@ -31,6 +31,9 @@ class ActorTemplateOverrideTest extends TestCase
         // Actually, a better way is to inspect response content if possible, or verify View::make called with specific args.
         // But Controller does (new View)->template(...). 
 
+        $this->withoutExceptionHandling();
+
+        $response = $this->get('/@me');
         // Simplification: We already manually verified the code change. 
         // Let's just create a basic test ensuring /@me returns 200 now that is_internal is true.
         $this->assertEquals(200, $response->status());

@@ -5,14 +5,11 @@ namespace Ethernick\ActivityPubCore\Tests;
 use Ethernick\ActivityPubCore\Jobs\InboxHandler;
 use Statamic\Facades\Entry;
 use Tests\TestCase;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 
 class StrayActivityTest extends TestCase
 {
-    use BackupsFiles;
-
     protected $handler;
     protected $localActor;
 
@@ -20,35 +17,29 @@ class StrayActivityTest extends TestCase
     {
         parent::setUp();
 
-        // Backup collection YAML files before modifying them
-        $this->backupFiles([
-            'resources/settings/activitypub.yaml',
-            'content/collections/actors.yaml',
-            'content/collections/notes.yaml',
-            'content/collections/activities.yaml',
-        ]);
-
         $this->handler = new InboxHandler();
 
-        // Clean up test entries (not the entire directories to preserve YAML files)
-        $this->cleanupTestEntries();
-
-        // Ensure collections exist with correct routes
-        $this->ensureCollectionsExist();
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
+        // Ensure collections exist in sandbox
+        $collections = ['notes', 'actors', 'activities'];
+        foreach ($collections as $handle) {
+            if (!\Statamic\Facades\Collection::find($handle)) {
+                $col = \Statamic\Facades\Collection::make($handle);
+                if ($handle !== 'actors') $col->dated(true);
+                if ($handle === 'actors') $col->route('/actor/{slug}');
+                $col->save();
+            }
         }
+
+        // Create activitypub.yaml config in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
         );
 
-        // Create a local actor
+        // Create a local actor in sandbox
         $this->localActor = Entry::make()
             ->collection('actors')
-            ->slug('local-actor')
+            ->slug('test-stray-local-actor')
             ->data([
                 'title' => 'Local Actor',
                 'is_internal' => true,
@@ -58,53 +49,12 @@ class StrayActivityTest extends TestCase
         $this->localActor->save();
     }
 
-    protected function ensureCollectionsExist(): void
-    {
-        // Ensure actors collection exists with correct route
-        if (!\Statamic\Facades\Collection::find('actors')) {
-            $actors = \Statamic\Facades\Collection::make('actors');
-            $actors->route('/actor/{slug}');
-            $actors->save();
-        }
-
-        // Ensure other collections exist
-        if (!\Statamic\Facades\Collection::find('notes')) {
-            \Statamic\Facades\Collection::make('notes')->save();
-        }
-        if (!\Statamic\Facades\Collection::find('activities')) {
-            \Statamic\Facades\Collection::make('activities')->save();
-        }
-    }
-
-    protected function cleanupTestEntries(): void
-    {
-        // Delete ALL entries from test collections to ensure clean slate
-        foreach (['notes', 'actors', 'activities'] as $collection) {
-            $entries = Entry::query()->where('collection', $collection)->get();
-            foreach ($entries as $entry) {
-                try {
-                    $entry->delete();
-                } catch (\Exception $e) {
-                    // Ignore errors during cleanup
-                }
-            }
-        }
-    }
-
     protected function tearDown(): void
     {
-        if ($this->localActor) {
-            $this->localActor->delete();
-        }
-
-        // Restore activitypub.yaml from git to prevent test pollution
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
-
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_discards_stray_delete_activity()
     {
         // Stranger actor (not following, not followed) - Ephemeral (Not Saved)
@@ -137,7 +87,7 @@ class StrayActivityTest extends TestCase
 
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_valid_delete_activity_for_existing_object()
     {
         // Stranger actor (author of the note)
@@ -186,7 +136,7 @@ class StrayActivityTest extends TestCase
             $activity->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_discards_stray_update_activity()
     {
         // Stranger actor - Ephemeral
@@ -221,7 +171,7 @@ class StrayActivityTest extends TestCase
         $this->assertNull($savedActor, 'Stray Actor should not be saved');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_update_activity_if_object_exists()
     {
         // 1. Create Valid Author and Note first
@@ -292,7 +242,7 @@ class StrayActivityTest extends TestCase
             $restoredActor->delete();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_delete_activity_from_followed_actor_even_if_object_not_found()
     {
         // Followed actor

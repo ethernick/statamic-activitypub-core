@@ -9,6 +9,9 @@ use Ethernick\ActivityPubCore\Jobs\FileQueue;
 use Statamic\Facades\Entry;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 use Ethernick\ActivityPubCore\Logging\ActivityPubLog;
 
 class ProcessOutbox extends Command
@@ -34,11 +37,12 @@ class ProcessOutbox extends Command
         $limit = $this->option('limit');
 
         if ($limit === null) {
-            $settingsPath = resource_path('settings/activitypub.yaml');
-            $limit = 50;
-            if (\Statamic\Facades\File::exists($settingsPath)) {
-                $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($settingsPath));
+            $settingsPath = ActivityPubUtils::settingsPath();
+            if (File::exists($settingsPath)) {
+                $settings = YAML::parse(File::get($settingsPath));
                 $limit = $settings['outbox_batch_size'] ?? 50;
+            } else {
+                $limit = 50;
             }
         } else {
             $limit = (int) $limit;

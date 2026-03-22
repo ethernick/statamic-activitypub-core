@@ -3,7 +3,6 @@
 namespace Ethernick\ActivityPubCore\Tests\Regression;
 
 use Tests\TestCase;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
 use Ethernick\ActivityPubCore\Http\Controllers\ActorController;
@@ -11,8 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class ActivityPubInteractionTest extends TestCase
 {
-    use BackupsFiles;
-
     protected $localActor;
     protected $localUser;
     protected $externalActor;
@@ -21,37 +18,15 @@ class ActivityPubInteractionTest extends TestCase
     {
         parent::setUp();
 
-        // Backup settings file before modifying it
-        $this->backupFile('resources/settings/activitypub.yaml');
-
-        // 1. Cleanup test data only - preserve real user data
-        Entry::query()->whereIn('collection', ['activities', 'notes'])->get()
-            ->filter(function ($e) {
-                $apId = $e->get('activitypub_id') ?? '';
-                return str_contains($apId, 'external.com') || str_contains($apId, 'example.com');
-            })
-            ->each->delete();
-        Entry::query()->where('collection', 'actors')->get()
-            ->filter(function ($e) {
-                $slug = $e->slug() ?? '';
-                $apId = $e->get('activitypub_id') ?? '';
-                return $slug === 'me'
-                    || $slug === 'external-user-at-external-dot-com'
-                    || str_contains($apId, 'external.com');
-            })
-            ->each->delete();
-        \Statamic\Facades\Stache::clear();
-
-        // Create activitypub.yaml config with federated: true
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\npolls:\n  enabled: true\n  type: Question\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n"
         );
 
-        // 2. Setup Local Actor
+        $this->setupCollections(['actors', 'activities', 'notes', 'polls']);
+
+        // Setup Local Actor in sandbox
         $this->localUser = User::make()
             ->id('local-user')
             ->email('local@example.com')
@@ -65,14 +40,14 @@ class ActivityPubInteractionTest extends TestCase
             ->data(['title' => 'Me', 'user' => 'local-user', 'is_internal' => true]);
         $this->localActor->save();
 
-        // 3. Setup External Actor (needed for logic)
+        // Setup External Actor in sandbox
         $this->externalActor = Entry::make()
             ->collection('actors')
             ->slug('stranger')
             ->data(['activitypub_id' => 'https://example.com/users/stranger', 'title' => 'Stranger']);
         $this->externalActor->save();
 
-        // 4. Setup Taxonomy (Critical for Outbox route)
+        // Setup Taxonomy in sandbox
         if (!\Statamic\Facades\Taxonomy::find('activitypub_collections')) {
             \Statamic\Facades\Taxonomy::make('activitypub_collections')->title('ActivityPub Collections')->save();
         }
@@ -80,18 +55,12 @@ class ActivityPubInteractionTest extends TestCase
             \Statamic\Facades\Term::make()->taxonomy('activitypub_collections')->slug('outbox')->data(['title' => 'Outbox'])->save();
         }
 
-        // 5. Disable Signature Verification for Tests
         ActorController::$shouldSkipSignatureVerificationInTests = true;
     }
 
     public function tearDown(): void
     {
-        ActorController::$shouldSkipSignatureVerificationInTests = false; // Reset
-
-        // Restore activitypub.yaml from git to prevent test pollution
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
-
+        ActorController::$shouldSkipSignatureVerificationInTests = false;
         parent::tearDown();
     }
 
@@ -103,7 +72,7 @@ class ActivityPubInteractionTest extends TestCase
         ]);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function external_user_can_create_note()
     {
         $this->withoutExceptionHandling();
@@ -144,7 +113,7 @@ class ActivityPubInteractionTest extends TestCase
         $this->assertEquals('Hello World Regression', $note->get('content'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function external_user_can_update_note()
     {
         $this->withoutExceptionHandling();
@@ -190,7 +159,7 @@ class ActivityPubInteractionTest extends TestCase
         $this->assertEquals('New Summary', $updatedNote->get('summary'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function external_user_can_delete_note()
     {
         $this->withoutExceptionHandling();
@@ -232,7 +201,7 @@ class ActivityPubInteractionTest extends TestCase
         $this->assertNull($deleted, 'Note should be deleted');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function local_user_outbox_contains_created_note()
     {
         $this->withoutExceptionHandling();

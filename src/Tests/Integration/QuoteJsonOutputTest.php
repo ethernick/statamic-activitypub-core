@@ -6,32 +6,30 @@ namespace Ethernick\ActivityPubCore\Tests\Integration;
 
 use Tests\TestCase;
 use Statamic\Facades\Entry;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class QuoteJsonOutputTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
 
-        // Create activitypub.yaml config
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\n"
         );
+
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
+        }
     }
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
-
         // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
         $actorCache = $reflection->getProperty('actorCache');
@@ -41,7 +39,7 @@ class QuoteJsonOutputTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_includes_quote_fields_in_activitypub_json()
     {
         // Create actors
@@ -128,7 +126,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertEquals($authStamp, $data['quoteAuthorization']);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_omits_quote_authorization_if_not_present()
     {
         $actor = Entry::make()
@@ -176,11 +174,11 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertArrayNotHasKey('quoteAuthorization', $data);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_includes_interaction_policy_with_quote_vocabulary()
     {
         // Configure settings to allow quotes
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $settingsDir = dirname($settingsPath);
 
         if (!file_exists($settingsDir)) {
@@ -188,7 +186,8 @@ class QuoteJsonOutputTest extends TestCase
         }
 
         // Must include base config
-        file_put_contents($settingsPath, "notes:\n  enabled: true\n  type: Note\n  federated: true\nallow_quotes: true\n");
+        $content = "notes:\n  enabled: true\n  type: Note\n  federated: true\nallow_quotes: true\n";
+        file_put_contents($settingsPath, $content);
 
         $actor = Entry::make()
             ->collection('actors')
@@ -231,7 +230,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertEquals('https://gotosocial.org/ns#', $contextArray['gts']);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_omits_quote_fields_for_non_quote_posts()
     {
         $actor = Entry::make()
@@ -274,7 +273,7 @@ class QuoteJsonOutputTest extends TestCase
         $this->assertArrayNotHasKey('quoteAuthorization', $data);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_uses_correct_context_vocabulary_types()
     {
         $actor = Entry::make()

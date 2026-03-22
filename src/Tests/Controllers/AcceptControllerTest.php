@@ -8,29 +8,27 @@ use Tests\TestCase;
 use Illuminate\Support\Facades\Queue;
 use Statamic\Facades\Entry;
 use Ethernick\ActivityPubCore\Http\Controllers\AcceptController;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 class AcceptControllerTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
+        
+        $this->setupCollections(['actors', 'notes', 'activities']);
     }
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_processes_accept_with_quote_authorization()
     {
         Queue::fake();
+        $this->setupCollections(['actors', 'activities', 'notes', 'polls']);
 
         // Create local actor
         $localActor = Entry::make()
@@ -96,7 +94,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue($quote->get('_quote_approved'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_accept_without_authorization_stamp()
     {
         // Create actors and pending quote
@@ -148,7 +146,7 @@ class AcceptControllerTest extends TestCase
         $this->assertNull($quote->get('quote_authorization_stamp'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_ignores_accept_if_quote_not_found()
     {
         $localActor = Entry::make()
@@ -183,7 +181,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_validates_accept_object_is_quote_request()
     {
         $localActor = Entry::make()
@@ -217,7 +215,7 @@ class AcceptControllerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_triggers_create_activity_after_approval()
     {
         Queue::fake();

@@ -79,25 +79,25 @@ class ActivityPubSettingsController extends Controller
         return back()->withSuccess('Settings saved.');
     }
 
-    protected function getSettingsPath(): string
+    protected function settingsPath(): string
     {
-        return resource_path('settings/activitypub.yaml');
+        return \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
     }
 
     protected function getSettings(): array
     {
-        if (!File::exists($this->getSettingsPath())) {
+        if (!File::exists($this->settingsPath())) {
             return [];
         }
 
-        $settings = YAML::parse(File::get($this->getSettingsPath()));
+        $settings = YAML::parse(File::get($this->settingsPath()));
 
         return $settings;
     }
 
     protected function saveSettings(array $settings): void
     {
-        File::put($this->getSettingsPath(), YAML::dump($settings));
+        File::put($this->settingsPath(), YAML::dump($settings));
     }
 
     public function logs(): mixed

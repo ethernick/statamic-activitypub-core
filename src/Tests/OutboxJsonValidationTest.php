@@ -21,37 +21,19 @@ use Illuminate\Support\Facades\Queue;
  */
 class OutboxJsonValidationTest extends TestCase
 {
-    protected $settingsPath;
-    protected $backupPath;
-
     protected function setUp(): void
     {
         parent::setUp();
 
         config(['statamic.editions.pro' => true]);
 
-        $this->settingsPath = resource_path('settings/activitypub.yaml');
-        $this->backupPath = resource_path('settings/activitypub.yaml.bak');
-
-        // Ensure collections exist
-        foreach (['notes', 'activities', 'actors'] as $handle) {
-            if (!\Statamic\Facades\Collection::find($handle)) {
-                \Statamic\Facades\Collection::make($handle)->save();
-            }
-        }
-
-        // Backup existing config
-        if (file_exists($this->settingsPath)) {
-            copy($this->settingsPath, $this->backupPath);
-        } elseif (!file_exists(dirname($this->settingsPath))) {
-            mkdir(dirname($this->settingsPath), 0755, true);
-        }
-
-        // Write test config with notes federated
+        // Write test config in sandbox
         file_put_contents(
-            $this->settingsPath,
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\nactivities:\n  enabled: true\n  type: Activity\n  federated: false\nactors:\n  enabled: true\n  type: Person\n  federated: true\n"
         );
+
+        $this->setupCollections(['notes', 'activities', 'actors']);
 
         // Clear Blink cache so settings are re-read
         Blink::forget('activitypub-settings');
@@ -59,16 +41,6 @@ class OutboxJsonValidationTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Cleanup test entries
-        $this->cleanupTestEntries();
-
-        // Restore settings
-        if (file_exists($this->backupPath)) {
-            rename($this->backupPath, $this->settingsPath);
-        } elseif (file_exists($this->settingsPath)) {
-            unlink($this->settingsPath);
-        }
-
         parent::tearDown();
     }
 

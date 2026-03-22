@@ -10,28 +10,28 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Statamic\Facades\Entry;
 use Ethernick\ActivityPubCore\Jobs\SendQuoteRequest;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 use PHPUnit\Framework\Attributes\Test;
 
 
 
 class SendQuoteRequestJobTest extends TestCase
 {
-    use BackupsFiles;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $this->backupFiles([]);
 
-        // Create activitypub.yaml config
-        if (!file_exists(resource_path('settings'))) {
-            mkdir(resource_path('settings'), 0755, true);
-        }
+        // Ensure settings exist in sandbox
         file_put_contents(
-            resource_path('settings/activitypub.yaml'),
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
             "notes:\n  enabled: true\n  type: Note\n  federated: true\n"
         );
+
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
+        }
 
         // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
@@ -44,8 +44,6 @@ class SendQuoteRequestJobTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->restoreBackedUpFiles();
-
         // Reset ActivityPubListener static actor cache
         $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
         $actorCache = $reflection->getProperty('actorCache');
@@ -55,7 +53,7 @@ class SendQuoteRequestJobTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_sends_quote_request_with_instrument_field()
     {
         Http::fake([
@@ -164,7 +162,7 @@ class SendQuoteRequestJobTest extends TestCase
         });
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_handles_synchronous_accept_response()
     {
         $stampUrl = 'https://remote.com/users/remote/quote_authorizations/12345';
@@ -244,7 +242,7 @@ class SendQuoteRequestJobTest extends TestCase
         $this->assertTrue($quoteNote->get('_quote_approved'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_marks_as_pending_when_no_immediate_accept()
     {
         Http::fake([
@@ -303,7 +301,7 @@ class SendQuoteRequestJobTest extends TestCase
         $this->assertNull($quoteNote->get('quote_authorization_stamp'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_auto_approves_internal_quotes_without_http_request()
     {
         Http::fake();
@@ -358,7 +356,7 @@ class SendQuoteRequestJobTest extends TestCase
         $this->assertStringContainsString('#quote-authorization-', $quoteNote->get('quote_authorization_stamp'));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_fails_if_quoted_note_not_found()
     {
         Http::fake();
@@ -373,7 +371,7 @@ class SendQuoteRequestJobTest extends TestCase
         $job->handle();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_fails_if_quote_has_no_quote_of()
     {
         $actor = Entry::make()

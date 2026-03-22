@@ -43,7 +43,10 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
             $cc = [$cc];
         $addressed = array_merge($to, $cc);
 
-        $myApId = $localActor->get('activitypub_id') ?: $localActor->absoluteUrl();
+        $myApId = $localActor->get('activitypub_id');
+        if (!$myApId) {
+            $myApId = $localActor->collection()->handle() === 'actors' ? url('/@' . $localActor->slug()) : $localActor->absoluteUrl();
+        }
         $isMentioned = in_array($myApId, $addressed);
 
         $inReplyTo = $object['inReplyTo'] ?? null;
@@ -56,8 +59,33 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
             if (is_string($inReplyTo)) {
                 $isReplyToKnown = Entry::query()->where('collection', 'notes')->where('activitypub_id', $inReplyTo)->exists()
                     || Entry::find($inReplyTo);
+
+                if (!$isReplyToKnown) {
+                    $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
+                    if (\Illuminate\Support\Str::startsWith($inReplyTo, $baseUrl)) {
+                        $uri = str_replace($baseUrl, '', $inReplyTo);
+                        $uri = '/' . ltrim($uri, '/');
+                        
+                        $parts = explode('/', trim($uri, '/'));
+                        
+                        $allSlugs = Entry::query()->where('collection', 'polls')->get()->pluck('slug')->toArray();
+
+                        if (count($parts) === 2 && in_array($parts[0], ['notes', 'polls'])) {
+                            $isReplyToKnown = Entry::query()
+                                ->where('collection', $parts[0])
+                                ->where('slug', $parts[1])
+                                ->exists();
+                        }
+                        
+                        if (!$isReplyToKnown) {
+                            $foundByUri = Entry::findByUri($uri, \Statamic\Facades\Site::selected()->handle());
+                            $isReplyToKnown = (bool) $foundByUri;
+                        }
+                    }
+                }
             }
         }
+
 
         // Check if we should accept this activity
         $isFollowing = $externalActor && $externalActor->id() && in_array($externalActor->id(), $following);
@@ -302,8 +330,6 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
 
         if ($inReplyTo) {
             ThreadService::increment($inReplyTo);
-            // Handle Poll Vote if parent is Poll
-            // $this->handlePollVote($inReplyTo, $note, $authorActor, $title);
         }
 
         return $note;

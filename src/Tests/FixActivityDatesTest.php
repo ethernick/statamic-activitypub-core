@@ -6,21 +6,18 @@ use Tests\TestCase;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
 use Illuminate\Support\Carbon;
-use Ethernick\ActivityPubCore\Tests\Concerns\BackupsFiles;
 
 class FixActivityDatesTest extends TestCase
 {
-    use BackupsFiles;
-
     public function setUp(): void
     {
         parent::setUp();
 
-        // Backup blueprint before modifying it
-        $this->backupFile('resources/blueprints/collections/activities/activities.yaml');
-
+        // Ensure collections exist with correct configuration in sandbox
         \Statamic\Facades\Collection::make('activities')->dated(true)->save();
+        \Statamic\Facades\Collection::make('notes')->dated(true)->save();
 
+        // Create blueprints in sandbox
         $blueprint = \Statamic\Facades\Blueprint::make()->setHandle('activities')->setNamespace('collections.activities')->setContents([
             'fields' => [
                 [
@@ -30,23 +27,14 @@ class FixActivityDatesTest extends TestCase
             ]
         ]);
         $blueprint->save();
-
-        \Statamic\Facades\Collection::make('notes')->dated(true)->save();
-        // Clean up test data only - preserve real user data
-        Entry::query()->whereIn('collection', ['activities', 'notes'])->get()
-            ->filter(fn($e) => str_contains($e->slug() ?? '', 'test-'))
-            ->each->delete();
     }
 
     protected function tearDown(): void
     {
-        // Restore backed up files
-        $this->restoreBackedUpFiles();
-
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_fixes_activity_date_based_on_payload()
     {
         \Illuminate\Support\Facades\Event::fake(); // Prevent listeners from modifying our test data

@@ -8,6 +8,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
 use Tests\TestCase;
 
 class ExternalDeletionTest extends TestCase
@@ -17,15 +19,39 @@ class ExternalDeletionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Ensure settings exist in sandbox
+        File::put(
+            \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(),
+            YAML::dump([
+                'actors' => ['enabled' => true, 'federated' => true, 'type' => 'Person'],
+                'notes' => ['enabled' => true, 'federated' => true, 'type' => 'Note'],
+                'activities' => ['enabled' => true, 'federated' => true, 'type' => 'Activity'],
+            ])
+        );
+
+        // Ensure collections exist in sandbox
+        foreach (['actors', 'activities', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->save();
+            }
+        }
+
+        \Statamic\Facades\Blink::forget('activitypub-settings');
     }
 
-    #[Test]
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_does_not_create_delete_activity_for_external_item()
     {
         // 1. Create an external note
         $note = Entry::make()
             ->collection('notes')
-            ->slug('external-note')
+            ->slug('test-delete-external-note')
             ->data([
                 'title' => 'External Note',
                 'is_internal' => false, // KEY FLAG
@@ -54,20 +80,20 @@ class ExternalDeletionTest extends TestCase
         $this->assertNull($activity, 'A Delete activity should NOT have been generated for an external note.');
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_creates_delete_activity_for_internal_item()
     {
         // 1. Create an internal note
         $note = Entry::make()
             ->collection('notes')
-            ->slug('internal-note')
+            ->slug('test-delete-internal-note')
             ->data([
                 'title' => 'Internal Note',
                 'is_internal' => true,
                 // 'actor' => 'local-user-id' // Let system find current user or set explicit
             ]);
 
-        $user = User::make()->email('test@example.com')->makeSuper();
+        $user = User::make()->email('test-delete@example.com')->makeSuper();
         $user->save();
         $note->set('actor', $user->id());
 

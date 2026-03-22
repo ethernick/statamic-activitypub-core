@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Ethernick\ActivityPubCore\Transformers;
 
 use Statamic\Entries\Entry;
+use Statamic\Facades\File;
+use Statamic\Facades\YAML;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 
 class ActorTransformer
 {
@@ -15,11 +18,11 @@ class ActorTransformer
         $domain = request()->getHost();
 
         // Load settings to check if quotes are allowed
-        $settingsPath = resource_path('settings/activitypub.yaml');
+        $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
         $allowQuotes = false;
 
-        if (file_exists($settingsPath)) {
-            $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($settingsPath));
+        if (File::exists($settingsPath)) {
+            $settings = YAML::parse(File::get($settingsPath));
             $allowQuotes = $settings['allow_quotes'] ?? false;
         }
 

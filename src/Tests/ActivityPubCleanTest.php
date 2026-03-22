@@ -18,26 +18,11 @@ class ActivityPubCleanTest extends TestCase
     // However, if we are in a test environment tailored for Statamic, we might need to properly mock Entries.
     // For simplicity, we will assume standard Statamic Entry testing utils are available.
 
-    protected $originalSettingsPath;
-    protected $backupSettingsPath;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->originalSettingsPath = resource_path('settings/activitypub.yaml');
-        $this->backupSettingsPath = resource_path('settings/activitypub.yaml.bak');
-
-        // Backup existing settings if they exist
-        if (File::exists($this->originalSettingsPath)) {
-            File::move($this->originalSettingsPath, $this->backupSettingsPath);
-        }
-
-        // Mock Settings
-        // Create Collections
-        \Statamic\Facades\Collection::make('activities')->title('Activities')->dated(true)->save();
-        \Statamic\Facades\Collection::make('notes')->title('Notes')->dated(true)->save();
-
+        // Mock Settings in sandbox
         $settings = [
             'enabled' => true,
             'retention_activities' => 2,
@@ -45,33 +30,22 @@ class ActivityPubCleanTest extends TestCase
             'notes' => ['enabled' => true, 'type' => 'Note'],
             'activities' => ['enabled' => true, 'type' => 'Activity']
         ];
-        File::put($this->originalSettingsPath, YAML::dump($settings));
+        File::put(\Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath(), YAML::dump($settings));
+
+        // Ensure collections exist
+        foreach (['activities', 'notes'] as $col) {
+            if (!\Statamic\Facades\Collection::find($col)) {
+                \Statamic\Facades\Collection::make($col)->dated(true)->save();
+            }
+        }
     }
 
     protected function tearDown(): void
     {
-        // Delete test settings
-        if (File::exists($this->originalSettingsPath)) {
-            File::delete($this->originalSettingsPath);
-        }
-
-        // Restore original settings
-        if (File::exists($this->backupSettingsPath)) {
-            File::move($this->backupSettingsPath, $this->originalSettingsPath);
-        }
-
-        // Cleanup only test entries (those with MD5-looking slugs created by createEntry)
-        Entry::query()->where('collection', 'activities')->get()
-            ->filter(fn($e) => preg_match('/^[a-f0-9]{32}$/', $e->slug()))
-            ->each->delete();
-        Entry::query()->where('collection', 'notes')->get()
-            ->filter(fn($e) => preg_match('/^[a-f0-9]{32}$/', $e->slug()))
-            ->each->delete();
-
         parent::tearDown();
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_cleans_old_external_activities()
     {
         // Create Old External Activity (Should be deleted)
@@ -92,7 +66,7 @@ class ActivityPubCleanTest extends TestCase
         $this->assertNotNull(Entry::find($oldInternal->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_cleans_old_external_notes()
     {
         // Create Old External Note (Should be deleted, 30 days retention)
@@ -112,13 +86,14 @@ class ActivityPubCleanTest extends TestCase
         $this->assertNotNull(Entry::find($oldInternal->id()));
     }
 
-    #[Test]
+    #[\PHPUnit\Framework\Attributes\Test]
     public function it_respects_custom_retention_settings()
     {
         // Change settings to 10 days for activities
-        $settings = YAML::parse(File::get($this->originalSettingsPath));
+        $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
+        $settings = YAML::parse(File::get($path));
         $settings['retention_activities'] = 10;
-        File::put($this->originalSettingsPath, YAML::dump($settings));
+        File::put($path, YAML::dump($settings));
 
         // Create Activity 5 days old (Should be kept now)
         $activity = $this->createEntry('activities', -5, false);
@@ -131,10 +106,10 @@ class ActivityPubCleanTest extends TestCase
 
     protected function createEntry($collection, $daysAgo, $isInternal)
     {
-        $id = md5(uniqid());
+        $id = 'test-clean-' . md5(uniqid());
         $entry = Entry::make()
             ->collection($collection)
-            ->id($id)
+            ->id(md5(uniqid())) // Give it a real UUID-like ID
             ->slug($id)
             ->data([
                 'title' => 'Test Entry',
