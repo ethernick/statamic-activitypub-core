@@ -18,6 +18,7 @@ use Statamic\Facades\Taxonomy;
 use Statamic\Facades\YAML;
 use Statamic\Facades\File;
 use Statamic\Facades\Blink;
+use Illuminate\Support\Facades\Log;
 
 class InboxController extends CpController
 {
@@ -35,16 +36,16 @@ class InboxController extends CpController
      */
     protected function preloadBatchData(array $items, array $userActors): void
     {
-        // Collect all actor IDs, quote IDs, and poll data needed
+        // Collect all actor IDs, quote IDs, and other data for hooks
         $actorIds = [];
         $quoteIds = [];
-        $pollIds = [];
-        $pollUrls = [];
+        
+        $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
 
         foreach ($items as $item) {
             $collection = $item->collection()->handle();
 
-            if (in_array($collection, ['notes', 'polls'])) {
+            if (in_array($collection, $inboxCollections)) {
                 // Collect actor ID
                 $actorId = $item->get('actor');
                 if (is_array($actorId)) {
@@ -72,15 +73,6 @@ class InboxController extends CpController
                 }
                 if ($quoteOf && is_string($quoteOf)) {
                     $quoteIds[$quoteOf] = true;
-                }
-
-                // Collect poll data for vote checks
-                if ($collection === 'polls') {
-                    $pollIds[] = $item->id();
-                    $pollUrl = $item->get('activitypub_id');
-                    if ($pollUrl) {
-                        $pollUrls[$item->id()] = $pollUrl;
-                    }
                 }
 
                 // Collect parent actor IDs (for in_reply_to)
@@ -116,7 +108,7 @@ class InboxController extends CpController
         $quoteIds = array_keys($quoteIds);
         if (!empty($quoteIds)) {
             $quotes = Entry::query()
-                ->whereIn('collection', ['notes', 'polls'])
+                ->whereIn('collection', $inboxCollections)
                 ->whereIn('id', $quoteIds)
                 ->get();
 
@@ -150,40 +142,8 @@ class InboxController extends CpController
             }
         }
 
-        // Batch load vote data for polls
-        if (!empty($pollIds) && !empty($userActors)) {
-            $allPollIdentifiers = [];
-            foreach ($pollIds as $pollId) {
-                $allPollIdentifiers[] = (string) $pollId;
-                if (isset($pollUrls[$pollId])) {
-                    $allPollIdentifiers[] = (string) $pollUrls[$pollId];
-                }
-            }
-
-            $votes = Entry::query()
-                ->where('collection', 'notes')
-                ->whereIn('in_reply_to', $allPollIdentifiers)
-                ->whereIn('actor', $userActors)
-                ->get();
-
-            // Build vote cache keyed by poll ID
-            foreach ($pollIds as $pollId) {
-                $pollIdentifiers = [(string) $pollId];
-                if (isset($pollUrls[$pollId])) {
-                    $pollIdentifiers[] = (string) $pollUrls[$pollId];
-                }
-
-                $pollVotes = $votes->filter(function ($vote) use ($pollIdentifiers) {
-                    $inReplyTo = $vote->get('in_reply_to');
-                    return in_array($inReplyTo, $pollIdentifiers);
-                });
-
-                $this->voteCache[$pollId] = [
-                    'has_voted' => $pollVotes->isNotEmpty(),
-                    'voted_options' => $pollVotes->map(fn($v) => $v->get('content'))->unique()->values()->all(),
-                ];
-            }
-        }
+        // Execute addon preloading hooks
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::executePreloadHooks($items, $userActors);
     }
 
     /**
@@ -215,10 +175,11 @@ class InboxController extends CpController
         }
 
         return [
+            'id' => $actorEntry->id(),
             'name' => $name,
             'handle' => str_starts_with($handle, '@') ? $handle : '@' . $handle,
             'avatar' => $avatar ?? 'https://www.gravatar.com/avatar/' . md5($handle) . '?d=mp',
-            'url' => $actorEntry->absoluteUrl(),
+            'url' => $actorEntry->get('url') ?? $actorEntry->absoluteUrl(),
         ];
     }
 
@@ -333,16 +294,10 @@ class InboxController extends CpController
     {
         $actors = Entry::query()
             ->where('collection', 'actors')
-            ->where('is_internal', true)
             ->get()
-            ->map(function ($actor) {
-                return [
-                    'id' => $actor->id(),
-                    'name' => $actor->get('title'),
-                    'handle' => $actor->slug() . '@' . request()->getHost(), // Simple handle formatting
-                    'avatar' => $actor->get('avatar')
-                ];
-            });
+            ->unique(fn($actor) => $actor->slug())
+            ->values()
+            ->map(fn($actor) => $this->buildActorData($actor));
 
         $settings = Blink::once('activitypub-settings', function () {
             $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
@@ -357,11 +312,7 @@ class InboxController extends CpController
         return view('activitypub::inbox', [
             'title' => 'Inbox',
             'localActors' => $actors,
-            // 'createNoteUrl' => cp_route('collections.entries.create', ['collection' => 'notes', 'site' => \Statamic\Facades\Site::selected()->handle()])
-            // Use long form route name to be safe if cp_route helper shorthands vary, though cp_route usually takes route name.
-            // Actually cp_route takes the route name.
             'createNoteUrl' => cp_route('collections.entries.create', ['collection' => 'notes', 'site' => \Statamic\Facades\Site::selected()->handle()]),
-            'storePollUrl' => cp_route('activitypub.inbox.store-poll'),
             'hashtagField' => $hashtagSettings['field'] ?? 'tags',
             'hashtagTaxonomy' => $hashtagSettings['taxonomy'] ?? 'tags',
             'hashtagEnabled' => $hashtagSettings['enabled'] ?? false,
@@ -412,14 +363,6 @@ class InboxController extends CpController
     public function storeNote(Request $request): mixed
     {
         return $this->storeByType($request, 'Note');
-    }
-
-    /**
-     * Store a new poll from the CP compose form.
-     */
-    public function storePoll(Request $request): mixed
-    {
-        return $this->storeByType($request, 'Question');
     }
 
     /**
@@ -560,9 +503,10 @@ class InboxController extends CpController
         }
 
         $collection = $entry->collection()->handle();
+        $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
 
-        // Handle note/poll deletion
-        if (in_array($collection, ['notes', 'polls'])) {
+        // Handle collection-based deletion
+        if (in_array($collection, $inboxCollections)) {
             $apId = $entry->get('activitypub_id');
             $entryUrl = $entry->absoluteUrl();
             $inReplyTo = $entry->get('in_reply_to');
@@ -616,7 +560,9 @@ class InboxController extends CpController
         }
 
         $collection = $entry->collection()->handle();
-        if (!in_array($collection, ['notes', 'polls'])) {
+        $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
+
+        if (!in_array($collection, $inboxCollections)) {
             return response()->json(['error' => 'Invalid entry type'], 400);
         }
 
@@ -631,7 +577,9 @@ class InboxController extends CpController
             ->filter(function ($activity) use ($apId, $entryUrl, $id) {
                 $object = $activity->get('object');
                 if (is_array($object)) {
-                    $object = $object['id'] ?? $object[0] ?? null;
+                    $objId = $object['id'] ?? $object[0] ?? null;
+                    if (is_array($objId)) $objId = $objId['id'] ?? null;
+                    $object = $objId;
                 }
                 return $object === $apId || $object === $entryUrl || $object === $id;
             })
@@ -664,15 +612,17 @@ class InboxController extends CpController
 
         $query = Entry::query();
 
+        $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
+
         if ($filter === 'activities') {
             // Only query activities collection when filtering by activities
             $query->where('collection', 'activities');
         } elseif ($filter === 'mentions') {
-            // For mentions, we need to search notes and polls (activities don't have mentioned_urls)
-            $query->whereIn('collection', ['notes', 'polls']);
+            // For mentions, we need to search inbox collections
+            $query->whereIn('collection', $inboxCollections);
         } else {
             // Default: include all relevant collections
-            $query->whereIn('collection', ['notes', 'polls', 'activities']);
+            $query->whereIn('collection', array_merge(['activities'], $inboxCollections));
         }
 
         // Store mention targets for post-query filtering (array field queries don't work in Statamic)
@@ -698,8 +648,8 @@ class InboxController extends CpController
         if ($filter === 'all') {
             // For 'all' filter, exclude Announce, Create, and Delete activities
             // These are metadata activities that wrap or reference other objects
-            $query->where(function ($q) {
-                $q->whereIn('collection', ['notes', 'polls'])
+            $query->where(function ($q) use ($inboxCollections) {
+                $q->whereIn('collection', $inboxCollections)
                     ->orWhere(function ($q2) {
                         $q2->where('collection', 'activities')
                             ->whereNotIn('type', ['Announce', 'Create', 'Delete']);
@@ -753,7 +703,7 @@ class InboxController extends CpController
         $objectIds = [];
         $items = $inboxItems->items();
         foreach ($items as $item) {
-            if (in_array($item->collection()->handle(), ['notes', 'polls'])) {
+            if (in_array($item->collection()->handle(), $inboxCollections)) {
                 if ($apId = $item->get('activitypub_id')) {
                     if (is_string($apId)) {
                         $objectIds[] = $apId;
@@ -789,7 +739,7 @@ class InboxController extends CpController
                 }
             } catch (\Throwable $e) {
                 // If optimization fails (e.g. dirty data crashing Stache), log it but allow inbox to load.
-                \Log::error("ActivityPub Inbox Optimization Failed: " . $e->getMessage());
+                Log::error("ActivityPub Inbox Optimization Failed: " . $e->getMessage());
             }
         }
 
@@ -939,19 +889,20 @@ class InboxController extends CpController
     protected function transformEntry(mixed $entry, Request $request, array $userActors, bool $includeParent = false): ?array
     {
         $collection = $entry->collection()->handle();
+        $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
 
         // Shared properties
         $id = $entry->id();
         $date = $entry->date();
         $apJson = $entry->get('activitypub_json');
-        $payload = $apJson ? json_decode($apJson, true) : [];
+        $payload = is_string($apJson) ? json_decode($apJson, true) : [];
 
         if (!$date && !empty($payload['published'])) {
             $date = \Carbon\Carbon::parse($payload['published']);
         }
 
-        // NOTES & POLLS Processing
-        if (in_array($collection, ['notes', 'polls'])) {
+        // INBOX COLLECTIONS Processing
+        if (in_array($collection, $inboxCollections)) {
             $note = $entry;
             $actor = $this->resolveActor($note->get('actor'), $request);
             if (!$actor) {
@@ -1056,8 +1007,8 @@ class InboxController extends CpController
                 }
             }
 
-            return [
-                'type' => $collection === 'polls' ? 'question' : 'note',
+            $data = [
+                'type' => $collection === 'notes' ? 'note' : $collection,
                 'id' => $note->id(),
                 'content' => $cleanContent,
                 'content_raw' => $note->get('content'), // Raw markdown for editing
@@ -1089,14 +1040,13 @@ class InboxController extends CpController
                 'is_internal' => (bool) $note->get('is_internal', false),
                 'related_activity_count' => (int) $note->get('related_activity_count', 0),
                 'parent' => $parent,
-                'options' => $note->get('options', []),
-                'voters_count' => $note->get('voters_count', 0),
-                'end_time' => $note->get('end_time'),
-                'closed' => (bool) $note->get('closed', false),
-                'has_voted' => $this->checkIfVoted($note, $userActors),
-                'voted_options' => $this->getVotedOptions($note, $userActors),
-                'tags' => $note->get('tags', []),
+                'tags' => $entry->get('tags', []),
             ];
+
+            // Execute addon transform hooks
+            \Ethernick\ActivityPubCore\Services\ActivityPubTypes::executeTransformHooks($entry, $data);
+
+            return $data;
         }
 
         // ACTIVITIES Processing
@@ -1286,76 +1236,4 @@ class InboxController extends CpController
     }
 
 
-    protected function checkIfVoted(mixed $note, array $actors): bool
-    {
-        if ($note->collection()->handle() !== 'polls') {
-            return false;
-        }
-
-        $pollId = $note->id();
-
-        // Use cache if available (populated by preloadBatchData)
-        if (isset($this->voteCache[$pollId])) {
-            return $this->voteCache[$pollId]['has_voted'];
-        }
-
-        // Fallback: query if not in cache (e.g., thread view)
-        $pollUrl = $note->get('activitypub_id');
-        if (!$pollUrl) {
-            $pollUrl = $note->absoluteUrl();
-        }
-
-        $ids = array_values(array_filter([(string) $pollId, (string) $pollUrl]));
-
-        $hasVoted = Entry::query()
-            ->where('collection', 'notes')
-            ->whereIn('in_reply_to', $ids)
-            ->whereIn('actor', $actors)
-            ->exists();
-
-        // Cache the result
-        if (!isset($this->voteCache[$pollId])) {
-            $this->voteCache[$pollId] = ['has_voted' => $hasVoted, 'voted_options' => []];
-        }
-
-        return $hasVoted;
-    }
-
-    protected function getVotedOptions(mixed $note, array $actors): array
-    {
-        if ($note->collection()->handle() !== 'polls') {
-            return [];
-        }
-
-        $pollId = $note->id();
-
-        // Use cache if available (populated by preloadBatchData)
-        if (isset($this->voteCache[$pollId])) {
-            return $this->voteCache[$pollId]['voted_options'];
-        }
-
-        // Fallback: query if not in cache (e.g., thread view)
-        $pollUrl = $note->get('activitypub_id');
-        if (!$pollUrl) {
-            $pollUrl = $note->absoluteUrl();
-        }
-
-        $ids = array_values(array_filter([(string) $pollId, (string) $pollUrl]));
-
-        $votes = Entry::query()
-            ->where('collection', 'notes')
-            ->whereIn('in_reply_to', $ids)
-            ->whereIn('actor', $actors)
-            ->get();
-
-        $votedOptions = $votes->map(fn($v) => $v->get('content'))->unique()->values()->all();
-
-        // Cache the result
-        $this->voteCache[$pollId] = [
-            'has_voted' => !empty($votedOptions),
-            'voted_options' => $votedOptions,
-        ];
-
-        return $votedOptions;
-    }
 }

@@ -13,6 +13,7 @@
                     :key="note.id"
                     :note="note"
                     :permissions="permissions"
+                    :actors="actors"
                     @reply="$emit('reply', $event)"
                     @boost="$emit('boost', $event)"
                     @quote="$emit('quote', $event)"

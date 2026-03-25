@@ -101,11 +101,28 @@ class ActivityPubListener
     }
 
     /**
+     * Clear all static caches (useful for testing)
+     */
+    public static function clearCaches(): void
+    {
+        self::$settingsCache = [];
+        self::$actorCache = [];
+    }
+
+    /**
      * Clear the settings cache (useful for testing)
      */
     public static function clearSettingsCache(): void
     {
         self::$settingsCache = [];
+    }
+
+    /**
+     * Clear the actor cache (useful for testing)
+     */
+    public static function clearActorCache(): void
+    {
+        self::$actorCache = [];
     }
 
     /**

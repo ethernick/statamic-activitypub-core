@@ -23,6 +23,12 @@ class QueueIntegrationTest extends TestCase
 
         // Configure and migrate in-memory SQLite for queue
         config(['queue.default' => 'database']);
+        config(['statamic.search.index_on_save' => false]);
+        config(['activitypub.rate_limits.enabled' => false]);
+
+        // Clear static caches to avoid state leakage
+        \Ethernick\ActivityPubCore\Listeners\ActivityPubListener::clearCaches();
+
         $this->artisan('queue:table');
         $this->artisan('queue:failed-table');
         $this->artisan('migrate', ['--force' => true]);
@@ -301,12 +307,14 @@ class QueueIntegrationTest extends TestCase
         // Should have 5 jobs
         $this->assertEquals(5, DB::table('jobs')->where('queue', 'activitypub-outbox')->count());
 
-        // Process with max-jobs=2
-        Artisan::call('queue:work', [
-            'connection' => 'database',
-            '--queue' => 'activitypub-outbox',
-            '--max-jobs' => 2,
-        ]);
+        // Process 2 jobs using --once for reliability in tests
+        for ($i = 0; $i < 2; $i++) {
+            Artisan::call('queue:work', [
+                'connection' => 'database',
+                '--queue' => 'activitypub-outbox',
+                '--once' => true,
+            ]);
+        }
 
         // Should have 3 jobs remaining
         $this->assertEquals(3, DB::table('jobs')->where('queue', 'activitypub-outbox')->count());

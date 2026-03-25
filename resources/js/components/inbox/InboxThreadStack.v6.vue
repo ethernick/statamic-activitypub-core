@@ -19,6 +19,7 @@
                     <inbox-note
                         :note="item"
                         :permissions="permissions"
+                        :actors="actors"
                         @reply="$emit('reply', item)"
                         @boost="$emit('boost', item)"
                         @like="$emit('like', item)"

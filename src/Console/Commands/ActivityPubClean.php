@@ -11,6 +11,7 @@ use Statamic\Facades\YAML;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Event;
 use Statamic\Events\EntryDeleted;
+use Ethernick\ActivityPubCore\Events\EntryCleaning;
 
 class ActivityPubClean extends Command
 {
@@ -78,6 +79,10 @@ class ActivityPubClean extends Command
             $bar->start();
 
             foreach ($entries as $entry) {
+                if ($this->shouldProtect($entry)) {
+                    $bar->advance();
+                    continue;
+                }
                 $entry->delete();
                 $bar->advance();
             }
@@ -120,6 +125,10 @@ class ActivityPubClean extends Command
                 $bar->start();
 
                 foreach ($entries as $entry) {
+                    if ($this->shouldProtect($entry)) {
+                        $bar->advance();
+                        continue;
+                    }
                     $entry->delete();
                     $bar->advance();
                 }
@@ -130,6 +139,20 @@ class ActivityPubClean extends Command
                 $this->info("No old entries in $collection.");
             }
         }
+    }
+
+    protected function shouldProtect($entry): bool
+    {
+        // Dispatch event allowing other addons to protect this entry from cleanup
+        $responses = Event::dispatch(new EntryCleaning($entry));
+        
+        foreach ($responses as $response) {
+            if ($response === true) {
+                return true; // Skip deletion
+            }
+        }
+
+        return false;
     }
 
     protected function getSettings(): array

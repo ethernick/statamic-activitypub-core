@@ -469,6 +469,12 @@ export default {
             };
         },
         editNote(note) {
+            // Check for addon-specific edit hook
+            if (note.actions && note.actions.edit && typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus.has(note.actions.edit)) {
+                Statamic.$activitypub.bus.emit(note.actions.edit, note);
+                return;
+            }
+
             this.isCreatingNote = true;
             this.editingNoteId = note.id;
             this.newNote = {
@@ -601,7 +607,6 @@ export default {
 
         // Like 
         toggleLike(note) {
-
             const wasLiked = note.liked_by_user;
             const url = wasLiked ? this.unlikeUrl : this.likeUrl;
             
@@ -617,6 +622,16 @@ export default {
                     note.counts.likes = (note.counts.likes || 0) + (wasLiked ? -1 : 1);
                 }
             });
+        },
+
+
+        // Vote
+        handleVote(payload) {
+             // Defer entirely to hooks. Addons should register a listener for 'activitypub:inbox:vote'
+             // or handle it within their own rendered components (like PollBox.vue).
+             if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus.has('activitypub:inbox:vote')) {
+                 Statamic.$activitypub.bus.emit('activitypub:inbox:vote', payload);
+             }
         },
 
 

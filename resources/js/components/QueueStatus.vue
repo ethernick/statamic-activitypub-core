@@ -202,8 +202,9 @@ export default {
         this.fetchFailed();
 
         // Fallback or explicit Axios reference across Vue versions
-        if (!this.$axios && typeof Statamic !== 'undefined' && Statamic.$axios) {
-            this.$axios = Statamic.$axios;
+        if (!this.$axios) {
+            // In Statamic 6, this.$axios is usually available on the instance.
+            // If it's missing here, it will fail in fetchStatus anyway.
         }
 
         // Poll counts every 20 seconds

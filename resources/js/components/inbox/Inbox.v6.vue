@@ -497,6 +497,12 @@ export default {
             };
         },
         editNote(note) {
+            // Check for addon-specific edit hook
+            if (note.actions && note.actions.edit && typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus.has(note.actions.edit)) {
+                Statamic.$activitypub.bus.emit(note.actions.edit, note);
+                return;
+            }
+
             this.isCreatingNote = true;
             this.editingNoteId = note.id;
             this.newNote = {
@@ -639,17 +645,11 @@ export default {
 
         // Vote
         handleVote(payload) {
-
-             const { note, option, callback } = payload;
-             this.$axios.post(this.storeNoteUrl + '/vote', {
-                 poll: note.id,
-                 choices: [option.name],
-                 actor: this.localActors[0].id
-             })
-             .then(response => {
-                 callback(true);
-             })
-             .catch(() => callback(false));
+             // Defer entirely to hooks. Addons should register a listener for 'activitypub:inbox:vote'
+             // or handle it within their own rendered components (like PollBox.vue).
+             if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus.has('activitypub:inbox:vote')) {
+                 Statamic.$activitypub.bus.emit('activitypub:inbox:vote', payload);
+             }
         },
 
         // Delete

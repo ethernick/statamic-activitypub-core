@@ -24,28 +24,19 @@ class ActivityPubJson implements Rule
             $json = $value['code'];
         }
 
+        // If it's not a string, assume it's either null or already decoded and let it pass.
+        // We only want to validate if the user is providing a JSON string.
         if (!is_string($json)) {
-            $this->errorMessage = "The :attribute must be a string or a valid code object.";
-            return false;
+            return true;
         }
 
         if (empty($json)) {
             return true;
         }
 
-        $decoded = json_decode($json, true);
+        json_decode($json);
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->errorMessage = "Invalid JSON: " . json_last_error_msg();
-            return false;
-        }
-
-        // Semantic Check
-        if (!isset($decoded['@context'])) {
-            $this->errorMessage = "ActivityPub Warning: Missing '@context' attribute.";
-            return false;
-        }
-        if (!isset($decoded['type'])) {
-            $this->errorMessage = "ActivityPub Warning: Missing 'type' attribute.";
             return false;
         }
 

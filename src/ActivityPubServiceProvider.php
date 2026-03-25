@@ -301,6 +301,9 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         // Dynamically Register Controllers (Classic Discovery - Optional if types cover it)
         $this->registerActivityControllers();
 
+        // Register Nav Items in the registry
+        $this->registerCoreNav();
+
         // Register Views
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'activitypub');
 
@@ -313,25 +316,22 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Statamic\Facades\CP\Nav::extend(function ($nav) {
             $icon = file_get_contents(__DIR__ . '/../resources/svg/asterism.svg');
 
-            $nav->create('Inbox')
-                ->section('ActivityPub')
-                ->icon($icon)
-                ->route('activitypub.inbox.index')
-                ->children([
-                    //'Inbox' => cp_route('activitypub.inbox.index'),
+            // Build navigation from the registry
+            foreach (\Ethernick\ActivityPubCore\Services\ActivityPubNav::ordered() as $key => $item) {
+                $navItem = $nav->create($item['label'])
+                    ->section($item['section'])
+                    ->icon($item['icon'] ?? $icon)
+                    ->route($item['route']);
 
-                    'Following' => cp_route('activitypub.following.index'),
-                    'Followers' => cp_route('activitypub.followers.index'),
-                ]);
-
-            $nav->create('ActivityPub')
-                ->section('Tools')
-                ->icon($icon)
-                ->route('activitypub.tools.index')
-                ->children([
-                    \Statamic\Facades\CP\Nav::item('Queue')->route('activitypub.queue.index'),
-                    \Statamic\Facades\CP\Nav::item('Actor Lookup')->route('activitypub.actor-lookup.index'),
-                ]);
+                // Add children
+                if (!empty($item['children'])) {
+                    $children = [];
+                    foreach ($item['children'] as $childKey => $child) {
+                        $children[$child['label']] = cp_route($child['route']);
+                    }
+                    $navItem->children($children);
+                }
+            }
 
             $nav->settings('ActivityPub')
                 ->route('activitypub.settings.index')
@@ -389,5 +389,60 @@ class ActivityPubServiceProvider extends AddonServiceProvider
                 }
             }
         }
+    }
+
+    protected function registerCoreNav(): void
+    {
+        $icon = file_get_contents(__DIR__ . '/../resources/svg/asterism.svg');
+
+        // Inbox (Top level)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('inbox', [
+            'label' => 'Inbox',
+            'route' => 'activitypub.inbox.index',
+            'icon' => $icon,
+            'order' => 10,
+            'section' => 'ActivityPub',
+        ]);
+
+        // Following (Child of Inbox)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('following', [
+            'label' => 'Following',
+            'route' => 'activitypub.following.index',
+            'parent' => 'inbox',
+            'order' => 1,
+        ]);
+
+        // Followers (Child of Inbox)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('followers', [
+            'label' => 'Followers',
+            'route' => 'activitypub.followers.index',
+            'parent' => 'inbox',
+            'order' => 2,
+        ]);
+
+        // ActivityPub Tools (Tools section)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('tools', [
+            'label' => 'ActivityPub',
+            'route' => 'activitypub.tools.index',
+            'icon' => $icon,
+            'order' => 100,
+            'section' => 'Tools',
+        ]);
+        
+        // Queue (Child of Tools)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('queue', [
+            'label' => 'Queue',
+            'route' => 'activitypub.queue.index',
+            'parent' => 'tools',
+            'order' => 10,
+        ]);
+        
+        // Actor Lookup (Child of Tools)
+        \Ethernick\ActivityPubCore\Services\ActivityPubNav::register('actor-lookup', [
+            'label' => 'Actor Lookup',
+            'route' => 'activitypub.actor-lookup.index',
+            'parent' => 'tools',
+            'order' => 20,
+        ]);
     }
 }

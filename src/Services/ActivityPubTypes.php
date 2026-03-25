@@ -9,6 +9,12 @@ class ActivityPubTypes
     // Default types are defined here but can be extended via register()
     protected static array $types = [];
 
+    protected static array $inboxCollections = ['notes'];
+    
+    protected static array $preloadHooks = [];
+    
+    protected static array $transformHooks = [];
+
     /**
      * Register a new ActivityPub type from an addon.
      *
@@ -41,6 +47,11 @@ class ActivityPubTypes
             'outbox_handler' => $outboxHandler,
             'inbox_handler' => $inboxHandler,
         ];
+
+        // Automatically register collections for Inbox if provided
+        foreach ($collections as $collection) {
+            self::registerInboxCollection($collection);
+        }
     }
 
     /**
@@ -54,6 +65,42 @@ class ActivityPubTypes
     {
         if (isset(self::$types[$key])) {
             self::$types[$key] = array_merge(self::$types[$key], $overrides);
+        }
+    }
+
+    public static function registerInboxCollection(string $collection): void
+    {
+        if (!in_array($collection, self::$inboxCollections)) {
+            self::$inboxCollections[] = $collection;
+        }
+    }
+
+    public static function getInboxCollections(): array
+    {
+        return self::$inboxCollections;
+    }
+
+    public static function registerPreloadHook(callable $hook): void
+    {
+        self::$preloadHooks[] = $hook;
+    }
+
+    public static function executePreloadHooks(array $items, array $userActors): void
+    {
+        foreach (self::$preloadHooks as $hook) {
+            $hook($items, $userActors);
+        }
+    }
+
+    public static function registerTransformHook(callable $hook): void
+    {
+        self::$transformHooks[] = $hook;
+    }
+
+    public static function executeTransformHooks(mixed $entry, array &$data): void
+    {
+        foreach (self::$transformHooks as $hook) {
+            $hook($entry, $data);
         }
     }
 

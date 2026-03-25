@@ -25,8 +25,19 @@ const boot = () => {
             },
             off(event, cb) {
                 this.events[event] = (this.events[event] || []).filter(h => h !== cb);
+            },
+            has(event) {
+                return (this.events[event] || []).length > 0;
             }
         };
+
+        // Normalize Vue 2 bus to have emit/on/off (without $)
+        if (typeof Vue === 'function') {
+            bus.emit = bus.$emit.bind(bus);
+            bus.on = bus.$on.bind(bus);
+            bus.off = bus.$off.bind(bus);
+            bus.has = (event) => (bus._events[event] || []).length > 0;
+        }
 
         Statamic.$activitypub = {
             hooks: hooks,
