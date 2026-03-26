@@ -35,9 +35,12 @@ class LikeController extends BaseActivityController
         if (!$user)
             return response()->json(['error' => 'Unauthorized'], 401);
 
-        $actorId = $user->get('actors')[0] ?? null;
-        if (!$actorId)
-            return response()->json(['error' => 'No actor found'], 400);
+        $userActors = $user->get('actors', []);
+        $actorId = request('actor') ?: ($userActors[0] ?? null);
+
+        if (!$actorId || !in_array($actorId, $userActors)) {
+            return response()->json(['error' => 'No authorized actor found'], 400);
+        }
 
         $objectUrl = request('object_url');
         if (!$objectUrl)
@@ -83,7 +86,12 @@ class LikeController extends BaseActivityController
         if (!$user)
             return response()->json(['error' => 'Unauthorized'], 401);
 
-        $actorId = $user->get('actors')[0] ?? null;
+        $userActors = $user->get('actors', []);
+        $actorId = request('actor') ?: ($userActors[0] ?? null);
+
+        if (!$actorId || !in_array($actorId, $userActors)) {
+            return response()->json(['error' => 'No authorized actor found'], 400);
+        }
 
         $objectUrl = request('object_url');
 

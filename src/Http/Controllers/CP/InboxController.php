@@ -292,8 +292,12 @@ class InboxController extends CpController
 
     public function index(): mixed
     {
+        $user = User::current();
+        $userActors = $user ? $user->get('actors', []) : [];
+
         $actors = Entry::query()
             ->where('collection', 'actors')
+            ->whereIn('id', $userActors)
             ->get()
             ->unique(fn($actor) => $actor->slug())
             ->values()
@@ -329,9 +333,16 @@ class InboxController extends CpController
             'tags' => 'nullable|array',
         ]);
 
+        $user = User::current();
+        $userActors = $user ? $user->get('actors', []) : [];
+
         $actor = Entry::find($request->input('actor'));
         if (!$actor) {
             return response()->json(['error' => 'Actor not found'], 404);
+        }
+
+        if (!in_array($actor->id(), $userActors)) {
+            return response()->json(['error' => 'Not authorized to post as this actor'], 403);
         }
 
         $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();

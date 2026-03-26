@@ -30,6 +30,12 @@ class NoteStoreHandler implements StoreHandlerInterface
             throw new \Exception('Actor not found');
         }
 
+        $user = \Statamic\Facades\User::current();
+        $userActors = $user ? $user->get('actors', []) : [];
+        if (!in_array($actor->id(), $userActors)) {
+            throw new \Exception('Not authorized to post as this actor');
+        }
+
         $date = \Illuminate\Support\Carbon::parse($request->input('date', now()));
         $quoteOf = $request->input('quote_of');
 
