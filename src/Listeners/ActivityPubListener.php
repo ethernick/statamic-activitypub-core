@@ -919,5 +919,46 @@ class ActivityPubListener
             // Dispatch to queue instead of running immediately
             SendActivityPubPost::dispatch($entry->id())->onQueue('activitypub-outbox');
         }
+
+        // --- Re-persist activitypub_id if missing post-save ---
+        // On first save via the Statamic CP, Statamic assigns the entry's final ID and slug
+        // AFTER the EntrySaving event fires. The listener may have computed a URL based on
+        // a temporary slug that is no longer valid. Detect this and recompute + save quietly
+        // now that the entry has its stable, final identity.
+        if ($entry->get('is_internal') !== false &&
+            empty($entry->get('activitypub_id')) &&
+            $this->isEnabled($entry->collection()->handle())
+        ) {
+            $handle = $entry->collection()->handle();
+            if ($handle !== 'activities') {
+                $url = $entry->absoluteUrl();
+                $slug = $entry->slug();
+
+                $isNonUnique = empty($url) || str_ends_with(rtrim($url, '/'), '/' . $handle);
+                if ($isNonUnique && !empty($slug)) {
+                    $url = url("/{$handle}/{$slug}");
+                }
+
+                if (!empty($url)) {
+                    \Illuminate\Support\Facades\Log::info("ActivityPubListener: Re-persisting activitypub_id post-save for {$entry->id()}: {$url}");
+                    $entry->set('activitypub_id', $url);
+
+                    // Also regenerate JSON now that the URL is stable
+                    $actorId = $entry->get('actor');
+                    if (is_array($actorId)) {
+                        $actorId = $actorId[0] ?? null;
+                    }
+                    $type = $this->getType($handle);
+                    try {
+                        $json = $this->generateActivityPubJson($entry, $actorId, $type);
+                        $entry->set('activitypub_json', $json);
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("ActivityPubListener: Failed to regenerate JSON post-save: " . $e->getMessage());
+                    }
+
+                    $entry->saveQuietly();
+                }
+            }
+        }
     }
 }
