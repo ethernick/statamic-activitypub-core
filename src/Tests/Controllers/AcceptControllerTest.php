@@ -91,7 +91,11 @@ class AcceptControllerTest extends TestCase
 
         $this->assertEquals('accepted', $quote->get('quote_authorization_status'));
         $this->assertEquals($authorizationStamp, $quote->get('quote_authorization_stamp'));
-        $this->assertTrue($quote->get('_quote_approved'));
+        
+        // Verify activity was created (Listener clears _quote_approved)
+        $activity = Entry::query()->where('collection', 'activities')->get()
+            ->first(fn($e) => in_array($quote->id(), (array)$e->get('object')));
+        $this->assertNotNull($activity);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -142,7 +146,11 @@ class AcceptControllerTest extends TestCase
         $quote = Entry::find($quote->id());
 
         $this->assertEquals('accepted', $quote->get('quote_authorization_status'));
-        $this->assertTrue($quote->get('_quote_approved'));
+        
+        // Verify activity was created
+        $activity = Entry::query()->where('collection', 'activities')->get()
+            ->first(fn($e) => in_array($quote->id(), (array)$e->get('object')));
+        $this->assertNotNull($activity);
         $this->assertNull($quote->get('quote_authorization_stamp'));
     }
 
@@ -259,11 +267,10 @@ class AcceptControllerTest extends TestCase
         $controller = new AcceptController();
         $controller->handleAccept($payload, $localActor, $remoteActor);
 
-        // Verify _quote_approved triggers AutoGenerateActivityListener
-        \Statamic\Facades\Stache::clear();
-        $quote = Entry::find($quote->id());
-
-        $this->assertTrue($quote->get('_quote_approved'));
-        // The save() call should trigger activity creation via listeners
+        // Verify activity creation via listener
+        $activity = Entry::query()->where('collection', 'activities')->get()
+            ->first(fn($e) => in_array($quote->id(), (array)$e->get('object')));
+        $this->assertNotNull($activity);
+        $this->assertEquals('Create', $activity->get('type'));
     }
 }

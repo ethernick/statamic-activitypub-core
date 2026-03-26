@@ -258,7 +258,7 @@ class ActivityPubTest extends TestCase
 
         $user = \Statamic\Facades\User::all()->first();
         if (!$user) {
-            $user = \Statamic\Facades\User::make()->email('test@test.com')->makeSuper()->save();
+            $user = \Statamic\Facades\User::make()->id('admin')->save();
         }
         $response = $this->withoutMiddleware()->actingAs($user)->getJson(cp_route('activitypub.inbox.api') . '?per_page=100');
 
@@ -543,7 +543,11 @@ class ActivityPubTest extends TestCase
             'in_reply_to' => $originalNoteId,
         ];
 
-        $user = \Statamic\Facades\User::make()->email('test@example.com')->makeSuper()->save();
+        $user = \Statamic\Facades\User::make()
+            ->email('test@example.com')
+            ->data(['actors' => [$actor->id()]])
+            ->makeSuper()
+            ->save();
 
         $response = $this->actingAs($user)
             ->postJson(cp_route('activitypub.inbox.reply'), $payload);

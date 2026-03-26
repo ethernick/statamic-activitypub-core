@@ -25,10 +25,14 @@ class ComposeNoteTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_create_note_with_content_warning()
     {
-        $this->actingAs(User::make()->id('admin')->makeSuper()->save());
-
         $actor = Entry::make()->collection('actors')->slug('me')->data(['title' => 'Me']);
         $actor->save();
+        $user = User::make()
+            ->email('test@example.com')
+            ->data(['actors' => [$actor->id()]])
+            ->makeSuper()
+            ->save();
+        $this->actingAs($user);
 
         $response = $this->postJson(cp_route('activitypub.inbox.store-note'), [
             'content' => 'Secret',
@@ -48,10 +52,14 @@ class ComposeNoteTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_can_reply_with_content_warning()
     {
-        $this->actingAs(User::make()->id('admin')->makeSuper()->save());
-
-        $actor = Entry::make()->collection('actors')->slug('me')->data(['title' => 'Me']);
+        $actor = Entry::make()->collection('actors')->slug('me-2')->data(['title' => 'Me 2']);
         $actor->save();
+        $user = User::make()
+            ->email('test2@example.com')
+            ->data(['actors' => [$actor->id()]])
+            ->makeSuper()
+            ->save();
+        $this->actingAs($user);
 
         // Original note
         $original = Entry::make()->collection('notes')->slug('orig')->data(['content' => 'Original', 'activitypub_id' => 'orig']);

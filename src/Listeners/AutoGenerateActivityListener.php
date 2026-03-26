@@ -92,7 +92,7 @@ class AutoGenerateActivityListener
                 ->filter(function ($activity) use ($entry) {
                     $object = $activity->get('object');
                     if (is_array($object)) {
-                        return in_array($entry->id(), $object);
+                        return in_array($entry->id(), $object, true);
                     }
                     return $object === $entry->id();
                 })
@@ -225,6 +225,7 @@ class AutoGenerateActivityListener
             'published' => true, // Make it public?
             'date' => now()->format('Y-m-d H:i:s'),
             'activitypub_collections' => ['outbox'],
+            'is_internal' => $objectEntry->get('is_internal') ?? true, // Inherit internal status
         ];
 
         // For Delete activities, store the object's activitypub_id before it's deleted

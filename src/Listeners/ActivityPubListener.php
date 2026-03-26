@@ -380,9 +380,15 @@ class ActivityPubListener
                         $isInternal = $actor->get('is_internal', false);
 
                         // If the actor is ours (linked to a user) but flag is missing, it should be true
+                        // This handles cases where actors were created before the flag was added,
+                        // and cases where User::current() is null (CLI/Jobs) but the actor is still local.
                         if (!$isInternal) {
                             $user = User::current();
                             if ($user && $user->get('actors') && in_array($actor->id(), $user->get('actors'))) {
+                                $isInternal = true;
+                            } elseif (empty($actor->get('activitypub_id')) || str_starts_with((string) $actor->get('activitypub_id'), url('/'))) {
+                                // Either it's a brand new local actor with no AP ID yet,
+                                // or its AP ID matches our local site URL.
                                 $isInternal = true;
                             }
                         }
