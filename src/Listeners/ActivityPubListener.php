@@ -366,10 +366,10 @@ class ActivityPubListener
             if ($user && $user->get('actors') && in_array($entry->id(), $user->get('actors'))) {
                 $entry->set('is_internal', true);
             }
-            // Otherwise respect what was passed (default true in blueprint)
         } else {
-            // For other entities, copy from actor
-            if ($actorId) {
+            // For other entities, copy from actor IF NOT ALREADY SET TRUE
+            // This prevents overwriting a true flag set by a StoreHandler
+            if ($entry->get('is_internal') !== true && $actorId) {
                 if (is_array($actorId)) {
                     $actorId = $actorId[0] ?? null;
                 }
@@ -379,9 +379,15 @@ class ActivityPubListener
                     if ($actor) {
                         $isInternal = $actor->get('is_internal', false);
 
-                        $entry->set('is_internal', $isInternal);
-                    } else {
+                        // If the actor is ours (linked to a user) but flag is missing, it should be true
+                        if (!$isInternal) {
+                            $user = User::current();
+                            if ($user && $user->get('actors') && in_array($actor->id(), $user->get('actors'))) {
+                                $isInternal = true;
+                            }
+                        }
 
+                        $entry->set('is_internal', $isInternal);
                     }
                 }
             }
