@@ -28,8 +28,8 @@ Route::get('activitypub/inbox/api', 'Ethernick\ActivityPubCore\Http\Controllers\
 Route::get('activitypub/inbox/thread/{id}', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@thread')->name('activitypub.thread');
 Route::get('activitypub/inbox/activities/{id}', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@activities')->name('activitypub.inbox.activities');
 Route::post('activitypub/inbox/reply', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@reply')->name('activitypub.inbox.reply');
-Route::post('activitypub/inbox/notes', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@storeNote')->name('activitypub.inbox.store-note');
-Route::post('activitypub/inbox/polls', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@storePoll')->name('activitypub.inbox.store-poll');
+Route::post('activitypub/inbox/notes', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@store')->defaults('type', 'Note')->name('activitypub.inbox.store-note');
+Route::post('activitypub/inbox/polls', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@store')->defaults('type', 'Question')->name('activitypub.inbox.store-poll');
 Route::put('activitypub/inbox/notes/{id}', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@updateNote')->name('activitypub.inbox.update-note');
 Route::delete('activitypub/inbox/delete', 'Ethernick\ActivityPubCore\Http\Controllers\CP\InboxController@destroy')->name('activitypub.inbox.delete');
 Route::post('activitypub/inbox/link-preview', 'Ethernick\ActivityPubCore\Http\Controllers\CP\LinkPreviewController@show')->name('activitypub.inbox.link-preview');

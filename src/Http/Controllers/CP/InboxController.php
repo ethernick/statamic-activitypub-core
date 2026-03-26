@@ -371,9 +371,9 @@ class InboxController extends CpController
     /**
      * Store a new note from the CP compose form.
      */
-    public function storeNote(Request $request): mixed
+    public function store(Request $request, string $type): mixed
     {
-        return $this->storeByType($request, 'Note');
+        return $this->storeByType($request, $type);
     }
 
     /**
@@ -522,7 +522,7 @@ class InboxController extends CpController
             $entryUrl = $entry->absoluteUrl();
             $inReplyTo = $entry->get('in_reply_to');
 
-            // Delete the note/poll
+            // Delete the entry
             $entry->delete();
 
             // Decrement reply count on parent if this was a reply
@@ -561,9 +561,12 @@ class InboxController extends CpController
     }
 
     /**
-     * Get activities related to a specific note/poll.
+     * Get activities related to a specific item.
+     * 
+     * @param string $id
+     * @return mixed
      */
-    public function activities(Request $request, string $id): mixed
+    public function activities(string $id): mixed
     {
         $entry = Entry::find($id);
         if (!$entry) {
