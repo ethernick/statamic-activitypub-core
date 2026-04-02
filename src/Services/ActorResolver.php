@@ -31,39 +31,64 @@ class ActorResolver
             return $existing;
         }
 
-        // Fetch Remote Actor
-        try {
-            $response = null;
+        // Fetch Remote Actor (with Memoization to prevent burst thrashing)
+        $cacheKey = "ap_actor_resolve_" . md5($actorUrl);
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($actorUrl) {
             try {
-                $response = Http::withHeaders([
-                    'Accept' => 'application/activity+json, application/ld+json'
-                ])->get($actorUrl);
-            } catch (\Exception $e) {
-                // Fallback for localhost dev envs
-                if (app()->environment('local', 'dev', 'testing') && str_contains($actorUrl, 'localhost') && str_contains($e->getMessage(), 'wrong version number')) {
-                    $fallbackUrl = str_replace('https://', 'http://', $actorUrl);
-                    Log::info("ActivityPub: Retrying actor resolution with fallback URL: $fallbackUrl");
+                $response = null;
+                try {
+                    $response = Http::withHeaders([
+                        'Accept' => 'application/activity+json, application/ld+json'
+                    ])->get($actorUrl);
+                } catch (\Exception $e) {
+                    // Fallback for localhost dev envs
+                    if (app()->environment('local', 'dev', 'testing') && str_contains($actorUrl, 'localhost') && str_contains($e->getMessage(), 'wrong version number')) {
+                        $fallbackUrl = str_replace('https://', 'http://', $actorUrl);
+                        Log::info("ActivityPub: Retrying actor resolution with fallback URL: $fallbackUrl");
 
-                    $response = Http::withOptions(['verify' => false])
-                        ->withHeaders(['Accept' => 'application/activity+json, application/ld+json'])
-                        ->get($fallbackUrl);
-                } else {
-                    throw $e;
+                        $response = Http::withOptions(['verify' => false])
+                            ->withHeaders(['Accept' => 'application/activity+json, application/ld+json'])
+                            ->get($fallbackUrl);
+                    } else {
+                        throw $e;
+                    }
                 }
-            }
 
-            if (!$response || !$response->successful()) {
+                if ($response && $response->status() === 410) {
+                    return 'GONE'; // Return a specific string to trigger blocking outside the closure
+                }
+
+                if (!$response || !$response->successful()) {
+                    return null;
+                }
+
+                return $response->json();
+            } catch (\Exception $e) {
+                Log::error('Failed to fetch remote actor: ' . $e->getMessage());
                 return null;
             }
+        });
 
-            $data = $response->json();
+        if ($data === 'GONE') {
+            Log::info("ActivityPub: Actor $actorUrl is GONE (410). Automatically blocking.");
+            \Ethernick\ActivityPubCore\Services\BlockList::add($actorUrl, 'HTTP 410 Gone');
+            return null;
+        }
+
+        if (!$data) {
+            return null;
+        }
+
+        try {
             Log::info("ActivityPub: Resolved external actor data", ['data' => $data]);
 
-            // Check for suspension flags
+            // Check for suspension flags (Self-Healing / Auto-Block)
             if (($data['suspended'] ?? false) === true || ($data['toot:suspended'] ?? false) === true) {
-                Log::warning("ActivityPub: Actor $actorUrl is suspended. Blocking/Ignoring.");
+                Log::warning("ActivityPub: Actor $actorUrl is suspended. Automatically blocking.");
+                \Ethernick\ActivityPubCore\Services\BlockList::add($actorUrl, 'Suspended in JSON');
                 return null;
             }
+
 
             // Match against canonical ID from JSON (if redirected or different)
             $canonicalId = $data['id'] ?? $actorUrl;
@@ -101,14 +126,17 @@ class ActorResolver
 
             if ($save) {
                 $entry->save();
+                // Clear the resolution cache once persisted to DB
+                \Illuminate\Support\Facades\Cache::forget($cacheKey);
             }
 
             return $entry;
 
         } catch (\Exception $e) {
-            Log::error('Failed to resolve actor: ' . $e->getMessage());
+            Log::error('Failed to process resolved actor: ' . $e->getMessage());
             return null;
         }
+
     }
 
     protected function downloadAvatar(mixed $iconData): ?string

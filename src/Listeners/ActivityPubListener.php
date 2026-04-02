@@ -926,9 +926,11 @@ class ActivityPubListener
         // a temporary slug that is no longer valid. Detect this and recompute + save quietly
         // now that the entry has its stable, final identity.
         if ($entry->get('is_internal') !== false &&
+            ! $entry->get('activitypub_json_manual') &&
             empty($entry->get('activitypub_id')) &&
             $this->isEnabled($entry->collection()->handle())
         ) {
+
             $handle = $entry->collection()->handle();
             if ($handle !== 'activities') {
                 $url = $entry->absoluteUrl();

@@ -24,7 +24,12 @@ class ActivityPubSettingsController extends Controller
             'taxonomies' => $taxonomies,
             'settings' => $settings,
             'types' => $types->getOptions(),
+            'logsUrl' => cp_route('activitypub.logs'),
+            'autoBlockLogsUrl' => cp_route('activitypub.auto-blocks.logs'),
+            'clearAutoBlockLogsUrl' => cp_route('activitypub.auto-blocks.clear'),
+            'resolveHandleUrl' => cp_route('activitypub.auto-blocks.resolve'),
         ]);
+
     }
 
     public function update(Request $request): mixed
@@ -41,6 +46,7 @@ class ActivityPubSettingsController extends Controller
             'outbox_batch_size' => 'nullable|integer|min:1',
             'schedule_interval' => 'nullable|integer|min:1|max:60',
             'hashtags' => 'array',
+            'retention_auto_blocks' => 'nullable|integer|min:0',
         ]);
 
         $settings = [];
@@ -50,6 +56,7 @@ class ActivityPubSettingsController extends Controller
         }
         $settings['retention_activities'] = (int) ($data['retention_activities'] ?? 2);
         $settings['retention_entries'] = (int) ($data['retention_entries'] ?? 30);
+        $settings['retention_auto_blocks'] = (int) ($data['retention_auto_blocks'] ?? 7);
         $settings['inbox_batch_size'] = (int) ($data['inbox_batch_size'] ?? 50);
         $settings['outbox_batch_size'] = (int) ($data['outbox_batch_size'] ?? 50);
         $settings['schedule_interval'] = (int) ($data['schedule_interval'] ?? 1);
@@ -78,6 +85,32 @@ class ActivityPubSettingsController extends Controller
 
         return back()->withSuccess('Settings saved.');
     }
+
+    public function autoBlockLogs(): \Illuminate\Http\JsonResponse
+    {
+        $logs = \Ethernick\ActivityPubCore\Models\AutoBlock::orderBy('created_at', 'desc')->paginate(50);
+        return response()->json($logs);
+    }
+
+    public function clearAutoBlockLogs(): \Illuminate\Http\JsonResponse
+    {
+        \Ethernick\ActivityPubCore\Models\AutoBlock::truncate();
+        return response()->json(['message' => 'Auto-block logs cleared.']);
+    }
+
+    public function resolveHandle(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $handle = $request->input('handle');
+        if (!$handle) {
+            return response()->json(['message' => 'Handle is required.'], 422);
+        }
+
+        // Add to blocklist (this also resolves it via Webfinger)
+        \Ethernick\ActivityPubCore\Services\BlockList::add($handle, 'Manual Block');
+
+        return response()->json(['message' => "Handle {$handle} and its aliases have been added to the blocklist."]);
+    }
+
 
     protected function settingsPath(): string
     {

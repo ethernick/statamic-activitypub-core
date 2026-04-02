@@ -58,8 +58,19 @@ class CleanOldActivityPubData implements ShouldQueue
         // 2. Cleanup Other Entries
         $this->cleanupEntries($entryRetention, $settings);
 
+        // 3. Cleanup Auto-Block Logs
+        $this->cleanupAutoBlockLogs();
+
         Log::info('CleanOldActivityPubData: Cleanup completed.');
     }
+
+    protected function cleanupAutoBlockLogs(): void
+    {
+        Log::info('CleanOldActivityPubData: Pruning auto-block logs...');
+        $count = \Ethernick\ActivityPubCore\Services\BlockList::prune();
+        Log::info("CleanOldActivityPubData: Pruned {$count} auto-block log entries.");
+    }
+
 
     protected function cleanupActivities(int $days): void
     {

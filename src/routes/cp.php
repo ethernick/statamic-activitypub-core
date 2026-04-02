@@ -7,6 +7,11 @@ Route::post('activitypub/settings', 'Ethernick\ActivityPubCore\Http\Controllers\
 Route::get('activitypub/logs', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@logs')->name('activitypub.logs');
 Route::post('activitypub/logs/clear', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@clearLogs')->name('activitypub.logs.clear');
 
+Route::get('activitypub/auto-blocks/logs', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@autoBlockLogs')->name('activitypub.auto-blocks.logs');
+Route::post('activitypub/auto-blocks/clear', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@clearAutoBlockLogs')->name('activitypub.auto-blocks.clear');
+Route::post('activitypub/auto-blocks/resolve', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@resolveHandle')->name('activitypub.auto-blocks.resolve');
+
+
 Route::get('activitypub/actor-lookup', 'Ethernick\ActivityPubCore\Http\Controllers\CP\ActorLookupController@index')->name('activitypub.actor-lookup.index');
 Route::post('activitypub/actor-lookup', 'Ethernick\ActivityPubCore\Http\Controllers\CP\ActorLookupController@lookup')->name('activitypub.actor-lookup.lookup');
 

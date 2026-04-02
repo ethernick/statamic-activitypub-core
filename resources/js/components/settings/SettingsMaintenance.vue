@@ -17,6 +17,11 @@
                     <p class="text-xs text-gray-500 mb-2">Keep external objects (Notes, Articles) for X days.</p>
                     <input type="number" v-model.number="form.retention_entries" class="input-text w-full" min="0">
                 </div>
+                <div>
+                    <label class="font-bold text-sm block mb-1">Clean Logs (Days)</label>
+                    <p class="text-xs text-gray-500 mb-2">Keep auto-block logs for X days.</p>
+                    <input type="number" v-model.number="form.retention_auto_blocks" class="input-text w-full" min="0">
+                </div>
             </div>
         </settings-panel>
 

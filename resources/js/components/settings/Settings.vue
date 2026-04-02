@@ -45,7 +45,12 @@
 
             <!-- TAB: Blocklist -->
             <div v-if="currentTab === 'blocklist'">
-                <settings-blocklist :form="form" />
+                <settings-blocklist 
+                    :form="form" 
+                    :auto-block-logs-url="autoBlockLogsUrl"
+                    :clear-auto-block-logs-url="clearAutoBlockLogsUrl"
+                    :resolve-handle-url="resolveHandleUrl"
+                />
             </div>
         </div>
     </div>
@@ -90,6 +95,18 @@ export default {
         logsUrl: {
             type: String,
             required: true
+        },
+        autoBlockLogsUrl: {
+            type: String,
+            required: true
+        },
+        clearAutoBlockLogsUrl: {
+            type: String,
+            required: true
+        },
+        resolveHandleUrl: {
+            type: String,
+            required: true
         }
     },
     data() {
@@ -110,6 +127,7 @@ export default {
                 maintenance_time: '02:00',
                 retention_activities: 2,
                 retention_entries: 30,
+                retention_auto_blocks: 7,
                 blocklist: '',
                 collections: {},
                 federated: {},
@@ -136,6 +154,7 @@ export default {
                 maintenance_time: this.initialSettings.maintenance_time || '02:00',
                 retention_activities: this.initialSettings.retention_activities || 2,
                 retention_entries: this.initialSettings.retention_entries || 30,
+                retention_auto_blocks: this.initialSettings.retention_auto_blocks || 7,
                 blocklist: this.initialSettings.blocklist || '',
                 collections: {},
                 federated: {},
@@ -146,6 +165,7 @@ export default {
                     field: this.initialSettings.hashtags?.field ?? 'tags',
                 }
             };
+
 
             // Populate nested objects
             this.collections.forEach(c => {
@@ -186,6 +206,7 @@ export default {
                 maintenance_time: this.form.maintenance_time,
                 retention_activities: this.form.retention_activities,
                 retention_entries: this.form.retention_entries,
+                retention_auto_blocks: this.form.retention_auto_blocks,
                 blocklist: this.form.blocklist,
                 hashtags: this.form.hashtags
             };

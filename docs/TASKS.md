@@ -48,6 +48,19 @@
 - [x] **Vue 2.7 Alignment**: Pinned Vue to 2.7 in `package.json` for build stability.
 - [x] **String-based Routing**: Transitioned `cp.php` to `'Controller@method'` syntax to bypass environmental `::class` ParseErrors.
 
+## Moderation & Safeguards
+- [x] **Granular Block List**
+    - [x] Support for individual handles (`@user@domain`) and Actor URLs.
+    - [x] Webfinger resolution for manual handle blocking.
+    - [x] Automated "self-healing" blocks on 410 Gone / Suspension detection.
+    - [x] CP interface for Auto-Block logs and manual handle blocking.
+- [x] **Traffic Guard & Identity Normalization**
+    - [x] Robust, alias-aware mention logic in `InboxHandler` and `NoteController`.
+    - [x] URL normalization (trailing slashes) for all identity comparisons.
+    - [x] Automated maintenance: Log pruning for auto-blocks (default 7 days).
+    - [x] Status: **✅ COMPLETE** (237/237 tests passing)
+
+
 ## Medium Priority
 ### Hash Tags Support
 - [x] **Robust Tag Input UX Overhaul**

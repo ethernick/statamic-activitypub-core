@@ -25,7 +25,15 @@ class InboxHandler
         $type = $payload['type'] ?? 'Unknown';
         $actorId = $payload['actor'] ?? 'Unknown';
 
-        // Block Check: Is the sender blocked by the local actor?
+        // 1. Domain Traffic Guard: Drop activities from blocked instances early
+        if (is_string($actorId) && \Ethernick\ActivityPubCore\Services\BlockList::isBlocked($actorId)) {
+            Log::info("InboxHandler: Dropping $type from blocked actor: $actorId");
+            return; // Dropped instantly
+        }
+
+
+        // 2. Block Check: Is the sender blocked by the local actor?
+
         $blocks = $localActor->get('blocks', []);
         if (is_array($blocks)) {
             if ($externalActor && in_array($externalActor->id(), $blocks)) {
@@ -50,24 +58,18 @@ class InboxHandler
             // Delete typically sends ID or object.
 
             if ($objectType !== 'Unknown') {
-                // Map Object Type to Collection
-                // Use ActivityPubTypes if available
-                $targetCollection = null;
-                if (!$targetCollection && class_exists(ActivityPubTypes::class)) {
-                    $collections = ActivityPubTypes::getCollections($objectType);
-                    $targetCollection = !empty($collections) ? $collections[0] : null;
-                }
-
+                $collections = ActivityPubTypes::getCollections($objectType);
+                $targetCollection = !empty($collections) ? $collections[0] : null;
 
                 if ($targetCollection && !ActivityPubUtils::isFederated($targetCollection)) {
                     Log::info("InboxHandler: Dropping $type:$objectType because collection $targetCollection is not federated.");
                     return;
                 }
-
             }
 
-            // 1. Try Dispatcher
             $result = \Ethernick\ActivityPubCore\Services\ActivityDispatcher::dispatch($payload, $localActor, $externalActor);
+
+
 
             if ($result !== null) {
                 // Dispatched successfully (or attempt made).
@@ -280,11 +282,10 @@ class InboxHandler
                 $cc = [$cc];
 
             $addressed = array_merge($to, $cc);
-            $myApId = $actor->get('activitypub_id');
-            if (!$myApId) {
-                $myApId = $actor->collection()->handle() === 'actors' ? url('/@' . $actor->slug()) : $actor->absoluteUrl();
-            }
-            $isMentioned = in_array($myApId, $addressed);
+            $myApId = rtrim((string) ($actor->get('activitypub_id') ?: ($actor->collection()->handle() === 'actors' ? url('/@' . $actor->slug()) : $actor->absoluteUrl())), '/');
+            $sanitizedAddressed = array_map(fn($u) => rtrim((string) $u, '/'), $addressed);
+            $isMentioned = in_array($myApId, $sanitizedAddressed);
+
 
             // Check if Reply to Local/Known content
             $inReplyTo = $object['inReplyTo'] ?? null;

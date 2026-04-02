@@ -43,14 +43,17 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
             $cc = [$cc];
         $addressed = array_merge($to, $cc);
 
-        $myApId = $localActor->get('activitypub_id');
-        if (!$myApId) {
-            $myApId = $localActor->collection()->handle() === 'actors' ? url('/@' . $localActor->slug()) : $localActor->absoluteUrl();
-        }
-        $isMentioned = in_array($myApId, $addressed);
+        $possibleIds = array_map(fn($u) => rtrim((string)$u, '/'), array_filter([
+            $localActor->get('activitypub_id'),
+            url('/@' . $localActor->slug()),
+            $localActor->absoluteUrl()
+        ]));
+        $sanitizedAddressed = array_map(fn($u) => rtrim((string)$u, '/'), $addressed);
+        $isMentioned = !empty(array_intersect($possibleIds, $sanitizedAddressed));
 
         $inReplyTo = $object['inReplyTo'] ?? null;
         $isReplyToKnown = false;
+
 
         if ($inReplyTo) {
             if (is_array($inReplyTo))
@@ -61,15 +64,13 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
                     || Entry::find($inReplyTo);
 
                 if (!$isReplyToKnown) {
-                    $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
-                    if (\Illuminate\Support\Str::startsWith($inReplyTo, $baseUrl)) {
-                        $uri = str_replace($baseUrl, '', $inReplyTo);
+                    $baseUrl = rtrim(\Statamic\Facades\Site::selected()->absoluteUrl(), '/');
+                    if (\Illuminate\Support\Str::startsWith(rtrim($inReplyTo, '/'), $baseUrl)) {
+                        $uri = str_replace($baseUrl, '', rtrim($inReplyTo, '/'));
                         $uri = '/' . ltrim($uri, '/');
                         
                         $parts = explode('/', trim($uri, '/'));
                         
-                        $allSlugs = Entry::query()->where('collection', 'polls')->get()->pluck('slug')->toArray();
-
                         if (count($parts) === 2 && in_array($parts[0], ['notes', 'polls'])) {
                             $isReplyToKnown = Entry::query()
                                 ->where('collection', $parts[0])
@@ -86,11 +87,12 @@ class NoteController extends BaseObjectController implements ActivityHandlerInte
             }
         }
 
-
         // Check if we should accept this activity
         $isFollowing = $externalActor && $externalActor->id() && in_array($externalActor->id(), $following);
 
         if ($isFollowing || $isMentioned || $isReplyToKnown) {
+
+
             // Only save the author after we've determined the activity is not stray
             if ($externalActor && !$externalActor->id()) {
                 $externalActor->save();

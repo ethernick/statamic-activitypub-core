@@ -144,18 +144,16 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         // Calculate max-time based on interval (leave 10 second buffer)
         $maxTime = max(30, ($interval * 60) - 10);
 
-        // ===== QUEUE PROCESSING =====
-        // Process ActivityPub outbox queue (replaces activitypub:process-outbox)
-        $schedule->command("queue:work database --queue=activitypub-outbox --max-jobs={$outboxBatchSize} --max-time={$maxTime} --tries={$outboxTries} --timeout={$outboxTimeout}")
+        // ===== CONSOLIDATED QUEUE PROCESSING =====
+        // Instead of spawning 3 separate PHP processes, we run ONE worker that handles all queues sequentially.
+        // This drastically reduces "Entry Processes" and "Physical Memory" usage on shared hosting.
+        $queues = 'activitypub-outbox,default,maintenance';
+        $schedule->command("queue:work --queue={$queues} --max-jobs=1000 --max-time={$maxTime} --tries={$outboxTries} --timeout={$outboxTimeout} --stop-when-empty")
+
+
             ->cron($cron)
             ->withoutOverlapping()
-            ->name('ActivityPub Outbox Queue');
-
-        // Process general background jobs
-        $schedule->command("queue:work database --queue=default --max-jobs={$defaultBatchSize} --max-time={$defaultMaxTime} --tries={$defaultTries}")
-            ->everyMinute()
-            ->withoutOverlapping()
-            ->name('Default Queue');
+            ->name('Consolidated ActivityPub Queue');
 
         // ===== FILE-BASED PROCESSING (Keep for inbox) =====
         // Process inbox - keep file-based for fast HTTP response
@@ -164,16 +162,6 @@ class ActivityPubServiceProvider extends AddonServiceProvider
             ->withoutOverlapping()
             ->name('ActivityPub Inbox Processing');
 
-        // ===== MAINTENANCE TASKS =====
-        // Queue maintenance tasks (command dispatches them to queue)
-        $schedule->command('activitypub:maintenance')
-            ->dailyAt($maintenanceTime)
-            ->name('Queue ActivityPub Maintenance');
-
-        // Process maintenance queue (runs for 10 minutes max, starting at maintenance time)
-        $schedule->command("queue:work database --queue=maintenance --max-time={$maintenanceTimeout} --tries={$maintenanceTries} --timeout=300")
-            ->dailyAt($maintenanceTime)
-            ->name('Process Maintenance Queue');
     }
 
     protected function registerEvents(): void

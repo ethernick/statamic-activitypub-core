@@ -142,36 +142,43 @@ class HttpSignature
                                         $options['verify'] = false;
                                     }
 
-                                    // 2. Fetch with JSON-LD headers
-                                    $response = \Illuminate\Support\Facades\Http::withHeaders([
-                                        'Accept' => 'application/activity+json, application/ld+json',
-                                    ])->withOptions($options)->get($fetchUrl);
+                                    // 2. Fetch with JSON-LD headers (and Memoization)
+                                    $cacheKey = "ap_key_fetch_" . md5($fetchUrl);
+                                    $pem = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($fetchUrl, $options, $keyId) {
+                                        try {
+                                            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                                                'Accept' => 'application/activity+json, application/ld+json',
+                                            ])->withOptions($options)->get($fetchUrl);
 
-                                    if ($response->status() === 410) {
-                                        Log::info("ActivityPub: Actor/Key $keyId is GONE (410).");
+                                            if ($response->status() === 410) {
+                                                Log::info("ActivityPub: Actor/Key $keyId is GONE (410).");
+                                                return 'GONE'; // Use string placeholder for 410 to cache the "gone" status
+                                            }
+
+                                            if ($response->successful()) {
+                                                $data = $response->json();
+                                                $fetchedPem = $data['publicKeyPem'] ?? null;
+                                                if (!$fetchedPem && isset($data['publicKey']) && is_array($data['publicKey'])) {
+                                                    $fetchedPem = $data['publicKey']['publicKeyPem'] ?? null;
+                                                }
+                                                return $fetchedPem;
+                                            }
+                                        } catch (\Exception $inner) {
+                                            Log::error("ActivityPub: Manual key fetch failed for $fetchUrl: " . $inner->getMessage());
+                                        }
+                                        return null;
+                                    });
+
+                                    if ($pem === 'GONE') {
                                         return false;
                                     }
 
-                                    if ($response->successful()) {
-                                        $data = $response->json();
-
-                                        // 3. Extract PEM
-                                        // Case A: The fetched object IS the key (has publicKeyPem directly)
-                                        $pem = $data['publicKeyPem'] ?? null;
-
-                                        // Case B: The fetched object is an Actor (has publicKey object)
-                                        if (!$pem && isset($data['publicKey']) && is_array($data['publicKey'])) {
-                                            $pem = $data['publicKey']['publicKeyPem'] ?? null;
-                                        }
-
-                                        if ($pem) {
-                                            Log::info("ActivityPub: Successfully manually fetched key for $keyId");
-                                        } else {
-                                            Log::warning("ActivityPub: Manual fetch successful but no PEM found in response from $fetchUrl");
-                                        }
+                                    if ($pem) {
+                                        Log::info("ActivityPub: Successfully manually fetched key for $keyId (or retrieved from cache)");
                                     } else {
-                                        Log::warning("ActivityPub: Manual fetch failed for $fetchUrl with status " . $response->status());
+                                        Log::warning("ActivityPub: Manual fetch failed (or No PEM found) for $fetchUrl");
                                     }
+
 
                                 } catch (\Exception $inner) {
                                     Log::error("ActivityPub: Manual key fetch failed: " . $inner->getMessage());
