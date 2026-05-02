@@ -18,11 +18,14 @@ class BlockListTest extends TestCase
         // Run migrations for the new tables
         $this->artisan('migrate');
 
-        // Reset blocklist in settings
+        // Clear BlockListEntry table
+        \Ethernick\ActivityPubCore\Models\BlockListEntry::query()->delete();
+        
+        // Reset blocklist in settings (legacy, should be empty)
         $path = ActivityPubUtils::settingsPath();
         if (File::exists($path)) {
             $settings = YAML::parse(File::get($path));
-            $settings['blocklist'] = "";
+            unset($settings['blocklist']);
             File::put($path, YAML::dump($settings));
         }
         

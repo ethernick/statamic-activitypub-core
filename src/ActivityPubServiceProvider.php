@@ -47,6 +47,9 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \ActivityPhp\Type::add('Application', \Ethernick\ActivityPubCore\Types\Application::class);
         \ActivityPhp\Type::add('PropertyValue', \Ethernick\ActivityPubCore\Types\PropertyValue::class);
 
+        // Load Addon Migrations
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
         // CRITICAL: Register event listeners BEFORE parent::boot()
         // The parent class defers bootEvents() inside Statamic::booted(), which runs
         // AFTER the Event facade is sealed in tests, preventing listeners from registering.

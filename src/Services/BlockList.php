@@ -7,6 +7,7 @@ namespace Ethernick\ActivityPubCore\Services;
 use Statamic\Facades\File;
 use Statamic\Facades\YAML;
 use Illuminate\Support\Facades\Log;
+use Ethernick\ActivityPubCore\Models\BlockListEntry;
 
 class BlockList
 {
@@ -68,7 +69,6 @@ class BlockList
     public static function add(string $identifier, ?string $reason = null): void
     {
         $identifier = strtolower(trim($identifier));
-        $list = static::getList();
         $toAdd = [$identifier];
         $urls = [];
 
@@ -82,25 +82,24 @@ class BlockList
             }
         }
 
-        $newList = array_unique(array_merge($list, $toAdd));
+        $addedAny = false;
+        $addedUrls = [];
 
-        // If something changed, save it
-        if (count($newList) > count($list)) {
-            $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
-            $settings = [];
-            if (File::exists($path)) {
-                $settings = YAML::parse(File::get($path));
+        foreach ($toAdd as $entry) {
+            $model = BlockListEntry::firstOrCreate(['identifier' => $entry]);
+            if ($model->wasRecentlyCreated) {
+                $addedAny = true;
+                $addedUrls[] = $entry;
             }
+        }
 
-            $settings['blocklist'] = implode("\n", $newList);
-            File::put($path, YAML::dump($settings));
-
+        if ($addedAny) {
             // Refresh static cache
-            static::$blocklist = $newList;
+            static::$blocklist = null;
 
             // Log the block
             if ($reason) {
-                static::log($identifier, $reason, array_diff($newList, $list));
+                static::log($identifier, $reason, $addedUrls);
             }
         }
     }
@@ -150,13 +149,9 @@ class BlockList
             return static::$blocklist;
         }
 
-        $settings = static::getSettings();
-        $rawList = $settings['blocklist'] ?? '';
-
-        static::$blocklist = collect(explode("\n", $rawList))
-            ->map(fn($line) => strtolower(trim((string) $line)))
-            ->filter()
-            ->values()
+        // Fetch from database
+        static::$blocklist = BlockListEntry::pluck('identifier')
+            ->map(fn($id) => strtolower(trim((string) $id)))
             ->all();
 
         return static::$blocklist;

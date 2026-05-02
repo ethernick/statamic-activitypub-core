@@ -19,6 +19,9 @@ class ActivityPubSettingsController extends Controller
         $taxonomies = \Statamic\Facades\Taxonomy::all();
         $settings = $this->getSettings();
 
+        // Inject blocklist from database into settings for the UI
+        $settings['blocklist'] = implode("\n", \Ethernick\ActivityPubCore\Services\BlockList::getList());
+
         return view('activitypub::settings', [
             'collections' => $collections,
             'taxonomies' => $taxonomies,
@@ -51,9 +54,12 @@ class ActivityPubSettingsController extends Controller
 
         $settings = [];
         $settings['allow_quotes'] = (bool) ($data['allow_quotes'] ?? false);
+
+        // Sync blocklist to database instead of YAML
         if (isset($data['blocklist'])) {
-            $settings['blocklist'] = $data['blocklist'];
+            $this->syncBlockList($data['blocklist']);
         }
+
         $settings['retention_activities'] = (int) ($data['retention_activities'] ?? 2);
         $settings['retention_entries'] = (int) ($data['retention_entries'] ?? 30);
         $settings['retention_auto_blocks'] = (int) ($data['retention_auto_blocks'] ?? 7);
@@ -106,9 +112,29 @@ class ActivityPubSettingsController extends Controller
         }
 
         // Add to blocklist (this also resolves it via Webfinger)
-        \Ethernick\ActivityPubCore\Services\BlockList::add($handle, 'Manual Block');
-
         return response()->json(['message' => "Handle {$handle} and its aliases have been added to the blocklist."]);
+    }
+
+    protected function syncBlockList(string $rawList): void
+    {
+        $newIdentifiers = collect(explode("\n", $rawList))
+            ->map(fn($line) => strtolower(trim((string) $line)))
+            ->filter()
+            ->unique();
+
+        $existing = \Ethernick\ActivityPubCore\Models\BlockListEntry::pluck('identifier');
+
+        $toDelete = $existing->diff($newIdentifiers);
+        $toInsert = $newIdentifiers->diff($existing);
+
+        if ($toDelete->isNotEmpty()) {
+            \Ethernick\ActivityPubCore\Models\BlockListEntry::whereIn('identifier', $toDelete->all())->delete();
+        }
+
+        if ($toInsert->isNotEmpty()) {
+            $insertData = $toInsert->map(fn($id) => ['identifier' => $id, 'created_at' => now(), 'updated_at' => now()])->all();
+            \Ethernick\ActivityPubCore\Models\BlockListEntry::insert($insertData);
+        }
     }
 
 

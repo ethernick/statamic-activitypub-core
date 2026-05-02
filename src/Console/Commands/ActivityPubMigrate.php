@@ -102,10 +102,10 @@ class ActivityPubMigrate extends Command
             $command = app($className);
             $command->setLaravel($this->laravel);
             $command->setApplication($this->getApplication());
-            $this->getOutput()->write($command->run(
+            $command->run(
                 new \Symfony\Component\Console\Input\ArrayInput([]),
                 $this->getOutput()
-            ));
+            );
         } catch (\Exception $e) {
             $this->error("Failed to run $className: " . $e->getMessage());
             throw $e;
