@@ -8,6 +8,8 @@ import ActivityPubFollowers from './components/follow/Followers.vue';
 import QueueStatus from './components/QueueStatus.vue';
 import ActorLookup from './components/tools/ActorLookup.vue';
 import InboxStack from './components/inbox/InboxStack.vue';
+import InboxNote from './components/inbox/InboxNote.vue';
+import InboxActivity from './components/inbox/InboxActivity.vue';
 import HookLoader from './components/HookLoader.vue';
 import hooks from './hooks';
 
@@ -54,6 +56,8 @@ const boot = () => {
             Statamic.$components.register('activity-pub-following', ActivityPubFollowing);
             Statamic.$components.register('activity-pub-followers', ActivityPubFollowers);
             Statamic.$components.register('queue-status', QueueStatus);
+            Statamic.$components.register('activity-pub-inbox-note', InboxNote);
+            Statamic.$components.register('activity-pub-inbox-activity', InboxActivity);
             Statamic.$components.register('activity-pub-actor-lookup', ActorLookup);
         });
     } else {

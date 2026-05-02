@@ -66,4 +66,41 @@ class ActivityPubUtils
         }
         return $entry;
     }
+
+    /**
+     * Transform an actor entry for use in CP UI stacks (Inbox, Check-in, etc.)
+     */
+    public static function transformActorForCp(mixed $actorEntry): array
+    {
+        $name = $actorEntry->get('title');
+        $slug = $actorEntry->slug();
+        $handle = $slug;
+
+        if ($actorEntry->get('is_internal')) {
+            $handle = $slug . '@' . request()->getHost();
+        } else {
+            $handle = str_replace(['-at-', '-dot-'], ['@', '.'], $slug);
+        }
+
+        $avatarId = $actorEntry->get('avatar');
+        $avatar = null;
+        if ($avatarId) {
+            if (is_string($avatarId) && str_starts_with($avatarId, 'http')) {
+                $avatar = $avatarId;
+            } else {
+                $asset = \Statamic\Facades\Asset::find($avatarId);
+                if ($asset) {
+                    $avatar = $asset->url();
+                }
+            }
+        }
+
+        return [
+            'id' => $actorEntry->id(),
+            'name' => $name,
+            'handle' => str_starts_with($handle, '@') ? $handle : '@' . $handle,
+            'avatar' => $avatar ?? 'https://www.gravatar.com/avatar/' . md5($handle) . '?d=mp',
+            'url' => $actorEntry->get('url') ?? $actorEntry->absoluteUrl(),
+        ];
+    }
 }

@@ -7,7 +7,7 @@
             class="px-3 py-1 rounded-md text-sm font-medium transition-colors capitalize ap-filter-btn"
             :class="currentFilter === f ? 'active' : 'inactive'"
         >
-            {{ f }}
+            {{ f === 'all' ? 'Entries' : f }}
         </button>
         <div class="btn-group relative flex items-center ml-2" v-if="canCreateNote">
             <button type="button" @click="$emit('create-note')" class="btn-primary !rounded-r-none pr-3 focus:z-10">
@@ -18,7 +18,7 @@
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
             </button>
-            <div v-if="showNewDropdown" class="absolute right-0 bg-white dark:bg-dark-550 border border-gray-100 dark:border-dark-900 shadow-popover rounded-md z-50 py-1" style="top: 2.75em; min-width: 140px; text-align: left;">
+            <div v-if="showNewDropdown" class="absolute right-0 bg-white border border-gray-100 shadow-popover rounded-md z-50 py-1 ap-dropdown-menu" style="top: 2.75em; min-width: 140px; text-align: left;">
                 <activity-pub-hook-loader 
                     name="inbox-new-dropdown" 
                     @create-note="$emit('create-note')"
@@ -90,5 +90,52 @@ html.dark .ap-filter-btn.inactive:hover,
 html.is-dark .ap-filter-btn.inactive:hover,
 html.isdark .ap-filter-btn.inactive:hover {
     color: #e5e5e5; /* neutral-200 */
+}
+
+/* Dropdown styling */
+.ap-dropdown-menu a, 
+.ap-dropdown-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    text-align: left;
+    font-size: 0.875rem;
+    color: #374151; /* gray-700 */
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.ap-dropdown-menu a:hover, 
+.ap-dropdown-menu button:hover {
+    background-color: #f3f4f6; /* gray-100 */
+}
+
+/* Dark Mode Overrides */
+html.dark .ap-dropdown-menu,
+html.is-dark .ap-dropdown-menu,
+html.isdark .ap-dropdown-menu {
+    background-color: #171717; /* neutral-900 */
+    border-color: #262626; /* neutral-800 */
+    color: #e5e5e5; /* neutral-200 */
+}
+
+html.dark .ap-dropdown-menu a,
+html.dark .ap-dropdown-menu button,
+html.is-dark .ap-dropdown-menu a,
+html.is-dark .ap-dropdown-menu button,
+html.isdark .ap-dropdown-menu a,
+html.isdark .ap-dropdown-menu button {
+    color: #e5e5e5; /* neutral-200 */
+}
+
+html.dark .ap-dropdown-menu a:hover,
+html.dark .ap-dropdown-menu button:hover,
+html.is-dark .ap-dropdown-menu a:hover,
+html.is-dark .ap-dropdown-menu button:hover,
+html.isdark .ap-dropdown-menu a:hover,
+html.isdark .ap-dropdown-menu button:hover {
+    background-color: #262626 !important; /* neutral-800 */
 }
 </style>

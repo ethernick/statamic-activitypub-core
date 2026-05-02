@@ -40,7 +40,7 @@ class NegotiateActivityPubResponse
 
             // Handle Actor Profile
             if ($content->name() === 'activitypub::actor' && isset($data['actor'])) {
-                $transformer = new \Ethernick\ActivityPubCore\Transformers\ActorTransformer();
+                $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
                 $json = $transformer->transform($data['actor']);
 
                 return response()->json($json)

@@ -52,6 +52,13 @@
                     :resolve-handle-url="resolveHandleUrl"
                 />
             </div>
+
+            <!-- Extra Dynamic Tabs -->
+            <template v-for="tab in extraTabs">
+                <div v-if="currentTab === tab.id" :key="tab.id">
+                    <component :is="tab.component" :form="form.extra" />
+                </div>
+            </template>
         </div>
     </div>
 </template>
@@ -107,6 +114,10 @@ export default {
         resolveHandleUrl: {
             type: String,
             required: true
+        },
+        extraTabs: {
+            type: Array,
+            default: () => []
         }
     },
     data() {
@@ -136,7 +147,8 @@ export default {
                     enabled: true,
                     taxonomy: 'tags',
                     field: 'tags'
-                }
+                },
+                extra: {}
             },
             saving: false,
             success: false,
@@ -163,7 +175,8 @@ export default {
                     enabled: this.initialSettings.hashtags?.enabled ?? false,
                     taxonomy: this.initialSettings.hashtags?.taxonomy ?? 'tags',
                     field: this.initialSettings.hashtags?.field ?? 'tags',
-                }
+                },
+                extra: {}
             };
 
 
@@ -181,8 +194,19 @@ export default {
                 newForm.types[t.handle] = config.type || 'Object';
             });
 
+            this.extraTabs.forEach(tab => {
+                if (tab.default_settings) {
+                    Object.keys(tab.default_settings).forEach(key => {
+                        newForm.extra[key] = typeof this.initialSettings[key] !== 'undefined'
+                            ? this.initialSettings[key]
+                            : tab.default_settings[key];
+                    });
+                }
+            });
+
             // Assign to data property (Vue 2 will walk this and make it reactive)
             this.form = newForm;
+            this.tabs = [...this.tabs, ...this.extraTabs];
 
         } catch (e) {
             console.error('Error initializing Settings component:', e);
@@ -208,7 +232,8 @@ export default {
                 retention_entries: this.form.retention_entries,
                 retention_auto_blocks: this.form.retention_auto_blocks,
                 blocklist: this.form.blocklist,
-                hashtags: this.form.hashtags
+                hashtags: this.form.hashtags,
+                extra: this.form.extra
             };
 
             this.$axios.post(this.saveUrl, payload)

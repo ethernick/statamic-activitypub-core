@@ -276,6 +276,8 @@ trait ProvidesSandbox
                 $collection->routes('/polls/{slug}');
             } elseif ($handle === 'articles') {
                 $collection->routes('/articles/{slug}');
+            } elseif ($handle === 'places') {
+                $collection->routes('/places/{osm_type}/{osm_id}');
             }
 
             $collection->save();

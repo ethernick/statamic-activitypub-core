@@ -9,9 +9,9 @@
             @toggle-dropdown="toggleNewDropdown"
         />
 
-        <div class="@container/panel relative bg-gray-150 dark:bg-gray-950/35 dark:inset-shadow-2xs dark:inset-shadow-black w-full rounded-2xl mb-8 max-[600px]:p-1.25 p-1.75 focus-none starting-style-transition mb-6">
+        <div class="ap-panel-outer relative w-full rounded-2xl mb-8 max-[600px]:p-1.25 p-1.75 focus-none starting-style-transition mb-6">
         <div class="h-auto visible transition-[height,visibility] duration-[250ms,2s]">
-        <div class="bg-white dark:bg-gray-850 rounded-xl ring ring-gray-200 dark:ring-x-0 dark:ring-b-0 dark:ring-gray-700/80 shadow-ui-md px-4 sm:px-4.5 py-5 space-y-2">
+        <div class="ap-feed-container bg-white rounded-xl shadow-ui-md px-4 sm:px-4.5 py-5 space-y-2">
         <inbox-feed
             :notes="notes"
             :loading="loading"
@@ -212,6 +212,30 @@ html.dark .btn-primary:hover:not(:disabled),
 html.is-dark .btn-primary:hover:not(:disabled),
 html.isdark .btn-primary:hover:not(:disabled) {
     background: linear-gradient(to bottom, #1d4ed8, #1e40af);
+}
+/* Panel and Feed Containers */
+.ap-panel-outer {
+    background-color: #f3f4f6; /* gray-150 equivalent */
+}
+html.dark .ap-panel-outer,
+html.is-dark .ap-panel-outer,
+html.isdark .ap-panel-outer {
+    background-color: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.ap-feed-container {
+    ring-color: #e5e7eb; /* gray-200 */
+    border: 1px solid #e5e7eb;
+}
+
+html.dark .ap-feed-container,
+html.is-dark .ap-feed-container,
+html.isdark .ap-feed-container {
+    background-color: #171717; /* neutral-900 */
+    border: 1px solid #262626; /* neutral-800 */
+    ring-width: 0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 </style>
 

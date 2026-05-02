@@ -7,26 +7,26 @@
             class="px-3 py-1 rounded-md text-sm font-medium transition-colors capitalize ap-filter-btn"
             :class="currentFilter === f ? 'active' : 'inactive'"
         >
-            {{ f }}
+            {{ f === 'all' ? 'Entries' : f }}
         </button>
         <div class="btn-group relative flex items-center ml-2" v-if="canCreateNote">
             <button 
                 type="button" 
                 @click="$emit('create-note')" 
-                class="relative inline-flex items-center justify-center whitespace-nowrap shrink-0 font-medium antialiased cursor-pointer no-underline disabled:[&_svg]:opacity-30 disabled:cursor-not-allowed [&_svg]:shrink-0 dark:[&_svg]:text-white bg-linear-to-b from-primary/90 to-primary hover:bg-primary-hover text-white disabled:opacity-60 disabled:text-white dark:disabled:text-white border border-primary-border shadow-ui-md inset-shadow-2xs inset-shadow-white/25 disabled:inset-shadow-none dark:disabled:inset-shadow-none [&_svg]:text-white [&_svg]:opacity-60 h-10 text-sm gap-2 rounded-r-none pr-3 pl-4 focus:z-10 ap-new-note-btn"
+                class="ap-new-note-btn focus:z-10"
             >
                 New Note
             </button>
             <button 
                 type="button" 
                 @click="$emit('toggle-dropdown')" 
-                class="relative inline-flex items-center justify-center whitespace-nowrap shrink-0 font-medium antialiased cursor-pointer no-underline disabled:[&_svg]:opacity-30 disabled:cursor-not-allowed [&_svg]:shrink-0 dark:[&_svg]:text-white bg-linear-to-b from-primary/90 to-primary hover:bg-primary-hover text-white disabled:opacity-60 disabled:text-white dark:disabled:text-white border border-primary-border shadow-ui-md inset-shadow-2xs inset-shadow-white/25 disabled:inset-shadow-none dark:disabled:inset-shadow-none [&_svg]:text-white [&_svg]:opacity-60 h-10 text-sm gap-2 rounded-r-lg rounded-l-none px-2 border-l border-primary-border/20 -ml-px flex items-center focus:z-10"
+                class="ap-dropdown-toggle focus:z-10"
             >
                 <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
             </button>
-            <div v-if="showNewDropdown" class="absolute right-0 w-48 mt-2 origin-top-right border divide-y rounded-md shadow-lg outline-none z-50 py-1 ap-dropdown-menu" style="top: 2.75em; text-align: left;">
+            <div v-if="showNewDropdown" class="absolute right-0 w-48 mt-2 origin-top-right border rounded-md shadow-lg outline-none z-50 py-1 ap-dropdown-menu" style="top: 2.75em; text-align: left;">
                 <activity-pub-hook-loader name="inbox-new-dropdown" />
             </div>
         </div>
@@ -97,41 +97,128 @@ html.isdark .ap-filter-btn.inactive:hover {
 }
 
 /* Explicit overrides for button and dropdown to bypass potential missing utility classes */
+.ap-new-note-btn,
+.ap-dropdown-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.5rem; /* h-10 */
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    /* Use Statamic's core theme variables directly for native look */
+    background-image: linear-gradient(to bottom, color-mix(in oklch, var(--theme-color-primary, var(--color-primary)) 90%, white), var(--theme-color-primary, var(--color-primary)));
+    background-color: var(--theme-color-primary, var(--color-primary));
+    border: 1px solid color-mix(in oklch, var(--theme-color-primary, var(--color-primary)) 100%, black 20%);
+    box-shadow: var(--shadow-ui-md), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+}
+
 .ap-new-note-btn {
-    padding-left: 0.75rem;
-    border-top-left-radius: 0.5rem !important;
-    border-bottom-left-radius: 0.5rem !important;
+    border-top-left-radius: 0.5rem;
+    border-bottom-left-radius: 0.5rem;
+    padding-right: 0.75rem;
+}
+
+.ap-dropdown-toggle {
+    border-top-right-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    padding: 0 0.5rem;
+    border-left-color: rgba(255, 255, 255, 0.2);
+    margin-left: -1px;
+}
+
+.ap-new-note-btn:hover,
+.ap-dropdown-toggle:hover {
+    background-image: none !important;
+    background-color: color-mix(in oklch, var(--theme-color-primary, var(--color-primary)) 100%, black 30%) !important;
+}
+
+html.dark .ap-new-note-btn,
+html.dark .ap-dropdown-toggle,
+html.is-dark .ap-new-note-btn,
+html.is-dark .ap-dropdown-toggle,
+html.isdark .ap-new-note-btn,
+html.isdark .ap-dropdown-toggle {
+    border-color: color-mix(in oklch, var(--theme-color-primary, var(--color-primary)) 100%, black 20%);
+}
+
+html.dark .ap-new-note-btn:hover,
+html.dark .ap-dropdown-toggle:hover,
+html.is-dark .ap-new-note-btn:hover,
+html.is-dark .ap-dropdown-toggle:hover,
+html.isdark .ap-new-note-btn:hover,
+html.isdark .ap-dropdown-toggle:hover {
+    background-color: color-mix(in oklch, var(--theme-color-primary, var(--color-primary)) 100%, white 30%) !important;
 }
 
 .ap-dropdown-menu {
-    background-color: white;
-    border-color: #f3f4f6; /* gray-100 */
+    background-color: var(--theme-color-content-bg, white);
+    border: 1px solid var(--theme-color-content-border, #e5e7eb);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
-.ap-dropdown-item {
-    color: #374151; /* gray-700 */
+
+.ap-dropdown-menu a, 
+.ap-dropdown-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--theme-color-gray-900, #1f2937);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: 400;
+    letter-spacing: 0.01em;
 }
-.ap-dropdown-item:hover {
-    background-color: #f3f4f6; /* gray-100 */
+
+.ap-dropdown-menu a:hover, 
+.ap-dropdown-menu button:hover {
+    background-color: var(--theme-color-gray-100, #f3f4f6);
 }
 
 /* Dark Mode Overrides */
 html.dark .ap-dropdown-menu,
 html.is-dark .ap-dropdown-menu,
 html.isdark .ap-dropdown-menu {
-    background-color: #1f2937; /* gray-800 */
-    border-color: #374151; /* gray-700 */
-    color: #e5e7eb; /* gray-200 */
+    background-color: var(--theme-color-gray-850, #1c2e36);
+    border: 1px solid var(--theme-color-gray-950, #141a1f);
+    color: var(--theme-color-gray-300, #eef2f6);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
 }
 
-html.dark .ap-dropdown-item,
-html.is-dark .ap-dropdown-item,
-html.isdark .ap-dropdown-item {
-    color: #e5e7eb; /* gray-200 */
+html.dark .ap-dropdown-menu a,
+html.dark .ap-dropdown-menu button,
+html.is-dark .ap-dropdown-menu a,
+html.is-dark .ap-dropdown-menu button,
+html.isdark .ap-dropdown-menu a,
+html.isdark .ap-dropdown-menu button {
+    color: var(--theme-color-gray-300, #eef2f6);
 }
 
-html.dark .ap-dropdown-item:hover,
-html.is-dark .ap-dropdown-item:hover,
-html.isdark .ap-dropdown-item:hover {
-    background-color: #374151; /* gray-700 */
+.ap-dropdown-header {
+    border-bottom: 1px solid var(--theme-color-gray-100, #f3f4f6);
+    margin-bottom: 4px;
+}
+
+html.dark .ap-dropdown-header,
+html.is-dark .ap-dropdown-header,
+html.isdark .ap-dropdown-header {
+    border-bottom-color: var(--theme-color-gray-800, #262626);
+    color: var(--theme-color-gray-500, #737373);
+}
+
+html.dark .ap-dropdown-menu a:hover,
+html.dark .ap-dropdown-menu button:hover,
+html.is-dark .ap-dropdown-menu a:hover,
+html.is-dark .ap-dropdown-menu button:hover,
+html.isdark .ap-dropdown-menu a:hover,
+html.isdark .ap-dropdown-menu button:hover {
+    background-color: var(--theme-color-gray-800, #2e393d) !important;
+    color: white !important;
 }
 </style>

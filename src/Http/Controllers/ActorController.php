@@ -27,7 +27,7 @@ class ActorController extends BaseObjectController
 
         // Check for JSON request
         if (request()->wantsJson() || str_contains(request()->header('Accept'), 'application/ld+json') || str_contains(request()->header('Accept'), 'application/activity+json')) {
-            $transformer = new \Ethernick\ActivityPubCore\Transformers\ActorTransformer();
+            $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
             return response()->json($transformer->transform($actor))
                 ->header('Content-Type', 'application/activity+json');
         }
@@ -168,13 +168,14 @@ class ActorController extends BaseObjectController
             ['path' => request()->url(), 'query' => request()->query()]
         );
 
-        return response()->json([
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'type' => 'OrderedCollection',
-            'id' => $this->sanitizeUrl(url('@' . $actor->slug() . '/' . $type)),
-            'totalItems' => $paginated->total(),
-            'orderedItems' => $paginated->items(),
-        ])->header('Content-Type', 'application/ld+json');
+        $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
+        $json = $transformer->transformCollection(
+            url('@' . $actor->slug() . '/' . $type),
+            collect($paginated->items()),
+            $paginated->total()
+        );
+
+        return response()->json($json)->header('Content-Type', 'application/ld+json');
     }
 
     protected function getEnabledCollections(): array
@@ -210,19 +211,9 @@ class ActorController extends BaseObjectController
 
     protected function returnActorJson(\Statamic\Contracts\Entries\Entry $actor): mixed
     {
-        // Basic Actor JSON
-        return response()->json([
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'type' => 'Person',
-            'id' => $this->sanitizeUrl(url('@' . $actor->slug())), // Should be full URL
-            'name' => $actor->get('title'),
-            'preferredUsername' => $actor->slug(),
-            'summary' => $actor->get('content'),
-            'inbox' => $this->sanitizeUrl(url('@' . $actor->slug() . '/inbox')),
-            'outbox' => $this->sanitizeUrl(url('@' . $actor->slug() . '/outbox')),
-            'followers' => $this->sanitizeUrl(url('@' . $actor->slug() . '/followers')),
-            'following' => $this->sanitizeUrl(url('@' . $actor->slug() . '/following')),
-        ])->header('Content-Type', 'application/ld+json');
+        $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
+        return response()->json($transformer->transform($actor))
+            ->header('Content-Type', 'application/ld+json');
     }
 
     protected function sanitizeUrl(string $url): string
@@ -261,13 +252,14 @@ class ActorController extends BaseObjectController
             }
         }
 
-        return response()->json([
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'type' => 'OrderedCollection',
-            'id' => $this->sanitizeUrl(url('@' . $handle . '/' . $term->slug())),
-            'totalItems' => $entries->total(),
-            'orderedItems' => $items,
-        ])->header('Content-Type', 'application/ld+json');
+        $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
+        $json = $transformer->transformCollection(
+            url('@' . $handle . '/' . $term->slug()),
+            collect($items),
+            $entries->total()
+        );
+
+        return response()->json($json)->header('Content-Type', 'application/ld+json');
     }
 
     public function inbox(Request $request, string $handle): mixed

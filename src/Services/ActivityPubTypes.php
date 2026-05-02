@@ -15,6 +15,10 @@ class ActivityPubTypes
     
     protected static array $transformHooks = [];
 
+    protected static array $storeHooks = [];
+
+    protected static array $outboxHooks = [];
+
     /**
      * Register a new ActivityPub type from an addon.
      *
@@ -100,6 +104,38 @@ class ActivityPubTypes
     public static function executeTransformHooks(mixed $entry, array &$data): void
     {
         foreach (self::$transformHooks as $hook) {
+            $hook($entry, $data);
+        }
+    }
+
+    public static function registerStoreHook(callable $hook): void
+    {
+        self::$storeHooks[] = $hook;
+    }
+
+    public static function executeStoreHooks(\Statamic\Entries\Entry $entry): void
+    {
+        foreach (self::$storeHooks as $hook) {
+            $hook($entry);
+        }
+    }
+
+    public static function registerOutboxHook(callable $hook, int $priority = 10): void
+    {
+        self::$outboxHooks[] = [
+            'hook' => $hook,
+            'priority' => $priority
+        ];
+    }
+
+    public static function executeOutboxHooks(mixed $entry, array &$data): void
+    {
+        usort(self::$outboxHooks, function ($a, $b) {
+            return $b['priority'] <=> $a['priority'];
+        });
+
+        foreach (self::$outboxHooks as $item) {
+            $hook = $item['hook'];
             $hook($entry, $data);
         }
     }

@@ -100,7 +100,7 @@ class InboxController extends CpController
                 ->get();
 
             foreach ($actors as $actor) {
-                $this->actorCache[$actor->id()] = $this->buildActorData($actor);
+                $this->actorCache[$actor->id()] = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::transformActorForCp($actor);
             }
         }
 
@@ -132,7 +132,7 @@ class InboxController extends CpController
                     ->get();
 
                 foreach ($quoteActors as $actor) {
-                    $this->actorCache[$actor->id()] = $this->buildActorData($actor);
+                    $this->actorCache[$actor->id()] = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::transformActorForCp($actor);
                 }
             }
 
@@ -146,42 +146,7 @@ class InboxController extends CpController
         \Ethernick\ActivityPubCore\Services\ActivityPubTypes::executePreloadHooks($items, $userActors);
     }
 
-    /**
-     * Build actor data array from an actor entry.
-     */
-    protected function buildActorData(mixed $actorEntry): array
-    {
-        $name = $actorEntry->get('title');
-        $slug = $actorEntry->slug();
-        $handle = $slug;
 
-        if ($actorEntry->get('is_internal')) {
-            $handle = $slug . '@' . request()->getHost();
-        } else {
-            $handle = str_replace(['-at-', '-dot-'], ['@', '.'], $slug);
-        }
-
-        $avatarId = $actorEntry->get('avatar');
-        $avatar = null;
-        if ($avatarId) {
-            if (is_string($avatarId) && str_starts_with($avatarId, 'http')) {
-                $avatar = $avatarId;
-            } else {
-                $asset = Asset::find($avatarId);
-                if ($asset) {
-                    $avatar = $asset->url();
-                }
-            }
-        }
-
-        return [
-            'id' => $actorEntry->id(),
-            'name' => $name,
-            'handle' => str_starts_with($handle, '@') ? $handle : '@' . $handle,
-            'avatar' => $avatar ?? 'https://www.gravatar.com/avatar/' . md5($handle) . '?d=mp',
-            'url' => $actorEntry->get('url') ?? $actorEntry->absoluteUrl(),
-        ];
-    }
 
     /**
      * Batch enrich notes with link previews and oembed data.
@@ -301,7 +266,7 @@ class InboxController extends CpController
             ->get()
             ->unique(fn($actor) => $actor->slug())
             ->values()
-            ->map(fn($actor) => $this->buildActorData($actor));
+            ->map(fn($actor) => \Ethernick\ActivityPubCore\Services\ActivityPubUtils::transformActorForCp($actor));
 
         $settings = Blink::once('activitypub-settings', function () {
             $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
@@ -634,6 +599,13 @@ class InboxController extends CpController
         } elseif ($filter === 'mentions') {
             // For mentions, we need to search inbox collections
             $query->whereIn('collection', $inboxCollections);
+        } elseif ($filter === 'all') {
+            // Include all standard content collections + filtered activities
+            $query->whereIn('collection', array_merge(['activities'], $inboxCollections));
+            $query->where(function ($q) {
+                $q->whereNotIn('collection', ['activities'])
+                  ->orWhereIn('type', ['Arrive', 'Travel', 'Offer', 'Listen', 'Question']);
+            });
         } else {
             // Default: include all relevant collections
             $query->whereIn('collection', array_merge(['activities'], $inboxCollections));
@@ -659,17 +631,6 @@ class InboxController extends CpController
             }
         }
 
-        if ($filter === 'all') {
-            // For 'all' filter, exclude Announce, Create, and Delete activities
-            // These are metadata activities that wrap or reference other objects
-            $query->where(function ($q) use ($inboxCollections) {
-                $q->whereIn('collection', $inboxCollections)
-                    ->orWhere(function ($q2) {
-                        $q2->where('collection', 'activities')
-                            ->whereNotIn('type', ['Announce', 'Create', 'Delete']);
-                    });
-            });
-        }
 
         $query->orderBy('date', 'desc')->orderBy('id', 'desc');
 
@@ -979,7 +940,8 @@ class InboxController extends CpController
 
             if (isset($payload['attachment']) && is_array($payload['attachment'])) {
                 foreach ($payload['attachment'] as $att) {
-                    if (($att['type'] ?? '') === 'Document' && str_starts_with($att['mediaType'] ?? '', 'image/')) {
+                    $type = $att['type'] ?? '';
+                    if (in_array($type, ['Document', 'Image']) && str_starts_with($att['mediaType'] ?? '', 'image/')) {
                         $attachments[] = [
                             'type' => 'image',
                             'url' => $att['url'] ?? '',
@@ -1074,6 +1036,11 @@ class InboxController extends CpController
             $object = $activity->get('object');
             $type = $activity->get('type');
 
+            // Handle Statamic relationship arrays (e.g. ['uuid'])
+            if (is_array($object) && !isset($object['type']) && isset($object[0])) {
+                $object = $object[0];
+            }
+
             // Re-implement the nesting check if $includeParent is true (meaning main stream context)
             if ($includeParent) {
                 $objId = null;
@@ -1127,17 +1094,67 @@ class InboxController extends CpController
                 $objectUrl = $activity->get('activitypub_id');
 
             $objectType = is_array($object) ? ($object['type'] ?? 'Object') : 'Object';
-            if ($type === 'Follow')
-                $objectType = 'Actor';
+            $objectSummary = is_array($object) ? ($object['name'] ?? $object['summary'] ?? null) : null;
+            
+            // If object is just a string URL, try to resolve its type/summary from local system
+            if (is_string($object)) {
+                $localEntry = Entry::find($object);
+                if (!$localEntry) {
+                    $baseUrl = \Statamic\Facades\Site::selected()->absoluteUrl();
+                    if (\Illuminate\Support\Str::startsWith($object, $baseUrl)) {
+                        $uri = '/' . ltrim(str_replace($baseUrl, '', $object), '/');
+                        $localEntry = Entry::findByUri($uri);
+                    }
+                }
+                
+                if ($localEntry) {
+                    $handle = $localEntry->collection()->handle();
+                    $objectType = ($handle === 'notes') ? 'Note' : (($handle === 'places') ? 'Place' : ucfirst(\Illuminate\Support\Str::singular($handle)));
+                    $objectSummary = $localEntry->get('title') ?? $localEntry->get('name');
+
+                    // If summary is a UUID or empty, try content field
+                    if (!$objectSummary || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string)$objectSummary)) {
+                        $entryContent = $localEntry->get('content');
+                        if ($entryContent) {
+                            $objectSummary = \Illuminate\Support\Str::limit(strip_tags($entryContent), 100);
+                        }
+                    }
+                }
+            }
+
+            if ($type === 'Follow') $objectType = 'Actor';
+
+            // Fallback: If we still have a generic 'Object' OR a UUID summary, try to peek into the activitypub_json
+            $isUuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string)$objectSummary);
+            if ($apJson && ($objectType === 'Object' || $isUuid)) {
+                $payload = is_string($apJson) ? json_decode($apJson, true) : $apJson;
+                $nestedObj = $payload['object'] ?? null;
+                if (is_array($nestedObj) && isset($nestedObj['type'])) {
+                    $objectType = $nestedObj['type'];
+                    
+                    // If we had a UUID or nothing, try to get a better name/summary/content
+                    if (!$objectSummary || $isUuid) {
+                        $newSummary = $nestedObj['name'] ?? $nestedObj['summary'] ?? null;
+                        if (!$newSummary && in_array($nestedObj['type'], ['Question', 'Note', 'Place'])) {
+                            $summaryText = strip_tags($nestedObj['content'] ?? '');
+                            $newSummary = \Illuminate\Support\Str::limit($summaryText, 100);
+                        }
+                        if ($newSummary) {
+                            $objectSummary = $newSummary;
+                        }
+                    }
+                }
+            }
 
             $actContent = $activity->get('content');
             if ($actContent) {
                 $summary = $actContent . ' <br><a href="' . $objectUrl . '" target="_blank">' . $objectUrl . '</a>';
             } else {
                 $summary = sprintf(
-                    '%s %s <a href="%s" target="_blank">%s</a>',
+                    '%s %s %s <a href="%s" target="_blank">%s</a>',
                     $type,
                     $objectType,
+                    $objectSummary ? "({$objectSummary})" : "",
                     $objectUrl,
                     $objectUrl
                 );
@@ -1146,8 +1163,9 @@ class InboxController extends CpController
             // Fix apJson variable scope if needed, assume it comes from entry
             $apJson = $activity->get('activitypub_json');
 
-            return [
+            $data = [
                 'type' => 'activity',
+                'activity_type' => $type,
                 'id' => $activity->id(),
                 'content' => $summary,
                 'attachments' => [],
@@ -1159,7 +1177,15 @@ class InboxController extends CpController
                 ],
                 'activitypub_json' => $apJson,
                 'activitypub_id' => $activity->get('activitypub_id'),
+                'object_type' => $objectType,
+                'object_summary' => $objectSummary,
+                'object_url' => $objectUrl,
             ];
+
+            // Execute addon transform hooks (e.g. for Arrive activities)
+            \Ethernick\ActivityPubCore\Services\ActivityPubTypes::executeTransformHooks($entry, $data);
+
+            return $data;
         }
 
         return null;

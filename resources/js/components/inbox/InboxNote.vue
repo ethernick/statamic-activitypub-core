@@ -1,5 +1,5 @@
 <template>
-    <div class="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+    <div class="ap-note-container transition-colors">
          <!-- Boost Header -->
         <div v-if="note.is_boost && note.boosted_by" class="px-4 pt-3 flex items-center gap-2 text-gray-500 text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,7 +44,7 @@
                     <span>{{ note.summary || 'Sensitive Content' }}</span>
                 </div>
 
-                <div v-if="!note.sensitive || note.showContent" class="mt-2 prose dark:prose-invert text-sm max-w-none break-words" v-html="note.content"></div>
+                <div v-if="!note.sensitive || note.showContent" class="mt-2 mb-3 prose dark:prose-invert text-sm max-w-none break-words" v-html="note.content"></div>
 
                 <!-- Dynamic Content Hook (e.g., Poll UI, Article Preview) -->
                 <activity-pub-hook-loader 
@@ -63,14 +63,13 @@
                     </div>
                 </div>
 
-
                 <!-- OEmbed -->
                 <div v-if="note.oembed && note.oembed.html" class="mt-3" v-html="note.oembed.html"></div>
 
                 <!-- Link Preview -->
-                <a v-if="note.link_preview && !note.oembed" :href="note.link_preview.url" target="_blank" class="block mt-3 border rounded-lg overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group no-underline">
+                <a v-if="note.link_preview && !note.oembed" :href="note.link_preview.url" target="_blank" class="block mt-3 rounded-lg overflow-hidden transition-colors group no-underline ap-link-preview">
                     <div class="flex flex-col sm:flex-row h-full">
-                        <div v-if="note.link_preview.image" class="sm:w-1/3 h-48 sm:h-auto relative overflow-hidden bg-gray-100 dark:bg-gray-900">
+                        <div v-if="note.link_preview.image" class="sm:w-1/3 h-48 sm:h-auto relative overflow-hidden ap-link-preview-image">
                             <img :src="note.link_preview.image" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
                         </div>
                         <div class="p-4 flex flex-col justify-center flex-1 min-w-0">
@@ -85,7 +84,7 @@
                 </a>
                 <!-- Tags Display -->
                 <div v-if="note.tags && note.tags.length > 0" class="mt-3 flex flex-wrap gap-1">
-                    <span v-for="(tag, idx) in note.tags" :key="idx" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full inline-flex items-center">
+                    <span v-for="(tag, idx) in note.tags" :key="idx" class="bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full inline-flex items-center">
                         {{ typeof tag === 'object' ? (tag.title || tag.name || Object.values(tag)[0]) : tag }}
                     </span>
                 </div>
@@ -176,7 +175,7 @@
                 </div>
 
                 <!-- INDENTED PARENT NOTE -->
-                <div v-if="note.parent" class="mt-4 pt-4 border-l-4 border-gray-300 dark:border-gray-600 pl-4 ml-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-lg">
+                <div v-if="note.parent" class="mt-4 pt-4 pl-4 ml-2 rounded-r-lg ap-parent-note">
                      <div class="text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -201,7 +200,7 @@
                 </div>
 
                 <!-- QUOTED NOTE DISPLAY -->
-                <div v-if="note.quote" class="mt-4 pt-4 border-l-4 border-purple-300 dark:border-purple-600 pl-4 ml-2 bg-purple-50/50 dark:bg-purple-900/10 rounded-r-lg">
+                <div v-if="note.quote" class="mt-4 pt-4 pl-4 ml-2 rounded-r-lg ap-quoted-note">
                     <div class="text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -310,5 +309,66 @@ button.delete-btn:hover {
 /* Hide quote citation line (RE: link) since the actual quoted note is displayed below */
 .prose .quote-inline {
     display: none;
+}
+/* Note Container */
+.ap-note-container:hover {
+    background-color: #f9fafb; /* gray-50 */
+}
+
+html.dark .ap-note-container:hover,
+html.is-dark .ap-note-container:hover,
+html.isdark .ap-note-container:hover {
+    background-color: #1a1a1a; /* slightly lighter than neutral-900 */
+}
+
+/* Parent/Quoted Note backgrounds */
+.ap-parent-note {
+    background-color: rgba(249, 250, 251, 0.5); /* gray-50/50 */
+    border-left: 4px solid #d1d5db; /* gray-300 */
+}
+html.dark .ap-parent-note,
+html.is-dark .ap-parent-note,
+html.isdark .ap-parent-note {
+    background-color: rgba(23, 23, 23, 0.3); /* neutral-900/30 */
+    border-left-color: #262626; /* neutral-800 */
+}
+
+.ap-quoted-note {
+    background-color: rgba(250, 245, 255, 0.5); /* purple-50/50 */
+    border-left: 4px solid #d8b4fe; /* purple-300 */
+}
+html.dark .ap-quoted-note,
+html.is-dark .ap-quoted-note,
+html.isdark .ap-quoted-note {
+    background-color: rgba(88, 28, 135, 0.1); /* purple-900/10 */
+    border-left-color: #9333ea; /* purple-600 */
+}
+
+/* Link Preview */
+.ap-link-preview {
+    border: 1px solid var(--theme-color-content-border, #e5e7eb);
+    background-color: transparent;
+}
+.ap-link-preview:hover {
+    background-color: var(--theme-color-gray-100, #f3f4f6);
+}
+html.dark .ap-link-preview,
+html.is-dark .ap-link-preview,
+html.isdark .ap-link-preview {
+    border-color: var(--theme-color-gray-900, #19292f);
+}
+html.dark .ap-link-preview:hover,
+html.is-dark .ap-link-preview:hover,
+html.isdark .ap-link-preview:hover {
+    background-color: var(--theme-color-gray-850, #1c2e36) !important;
+}
+
+.ap-link-preview-image {
+    background-color: var(--theme-color-gray-100, #f3f4f6);
+}
+html.dark .ap-link-preview-image,
+html.is-dark .ap-link-preview-image,
+html.isdark .ap-link-preview-image {
+    background-color: var(--theme-color-gray-950, #141a1f);
 }
 </style>

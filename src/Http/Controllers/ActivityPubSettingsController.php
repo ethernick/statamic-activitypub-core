@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Statamic\Facades\File;
 use Statamic\Facades\YAML;
 use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
+use Ethernick\ActivityPubCore\Services\ActivityPubSettings;
 
 class ActivityPubSettingsController extends Controller
 {
@@ -31,6 +32,7 @@ class ActivityPubSettingsController extends Controller
             'autoBlockLogsUrl' => cp_route('activitypub.auto-blocks.logs'),
             'clearAutoBlockLogsUrl' => cp_route('activitypub.auto-blocks.clear'),
             'resolveHandleUrl' => cp_route('activitypub.auto-blocks.resolve'),
+            'extraTabs' => ActivityPubSettings::getTabs(),
         ]);
 
     }
@@ -50,6 +52,7 @@ class ActivityPubSettingsController extends Controller
             'schedule_interval' => 'nullable|integer|min:1|max:60',
             'hashtags' => 'array',
             'retention_auto_blocks' => 'nullable|integer|min:0',
+            'extra' => 'array',
         ]);
 
         $settings = [];
@@ -81,6 +84,12 @@ class ActivityPubSettingsController extends Controller
                 'type' => $data['types'][$handle] ?? 'Object',
                 'federated' => (bool) ($data['federated'][$handle] ?? false),
             ];
+        }
+
+        if (isset($data['extra']) && is_array($data['extra'])) {
+            foreach ($data['extra'] as $key => $value) {
+                $settings[$key] = $value;
+            }
         }
 
         $this->saveSettings($settings);

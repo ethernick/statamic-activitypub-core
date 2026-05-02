@@ -47,6 +47,10 @@
 - [x] **Vite 6 Downgrade**: Downgraded from Vite 7 to Vite 6 to resolve Vue 2 compiler crashes (`currentInput.slice`).
 - [x] **Vue 2.7 Alignment**: Pinned Vue to 2.7 in `package.json` for build stability.
 - [x] **String-based Routing**: Transitioned `cp.php` to `'Controller@method'` syntax to bypass environmental `::class` ParseErrors.
+- [x] **Decoupling & Addon Extensibility**
+    - [x] Introduced `SavingHook` system in `ActivityPubTypes`
+    - [x] Refactored `ActivityPubListener` to remove hardcoded 'places' logic
+    - [x] Status: **✅ COMPLETE**
 
 ## Moderation & Safeguards
 - [x] **Granular Block List**

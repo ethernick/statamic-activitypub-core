@@ -26,6 +26,13 @@ export default {
     },
     methods: {
         highlightJson(json) {
+            if (typeof json === 'string') {
+                try {
+                    json = JSON.parse(json);
+                } catch (e) {
+                    // Not valid JSON, keep as string
+                }
+            }
             if (typeof json !== 'string') {
                 json = JSON.stringify(json, undefined, 2);
             }

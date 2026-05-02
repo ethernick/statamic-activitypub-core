@@ -7,45 +7,60 @@
             </div>
 
             <!-- Feed -->
-            <div class="flex flex-col divide-y">
-                <inbox-note
-                    v-for="note in notes" 
-                    :key="note.id"
-                    :note="note"
-                    :permissions="permissions"
-                    :actors="actors"
-                    @reply="$emit('reply', $event)"
-                    @boost="$emit('boost', $event)"
-                    @quote="$emit('quote', $event)"
-                    @like="$emit('like', $event)"
-                    @history="$emit('history', $event)"
-                    @thread="$emit('thread', $event)"
-                    @json="$emit('json', $event)"
-                    @lightbox="$emit('lightbox', $event)"
-                    @delete="$emit('delete', $event)"
-                    @edit="$emit('edit', $event)"
-                    @vote="$emit('vote', $event)"
-                >
-                    <template #reply-editor>
-                        <inbox-reply-form
-                            v-if="activeReplyId === note.id"
-                            :actors="actors"
-                            :actor-id="replyForm.actor_id"
-                            :content="replyForm.content"
-                            :content-warning="replyForm.content_warning"
-                            :loading="sendingReply"
-                            :hashtag-enabled="hashtagEnabled"
-                            :hashtag-taxonomy="hashtagTaxonomy"
-                            :search-terms-url="searchTermsUrl"
-                            @update:actorId="$emit('update:replyForm', { ...replyForm, actor_id: $event })"
-                            @update:content="$emit('update:replyForm', { ...replyForm, content: $event })"
-                            @update:contentWarning="$emit('update:replyForm', { ...replyForm, content_warning: $event })"
-                            @update:tags="$emit('update:replyForm', { ...replyForm, tags: $event })"
-                            @cancel="$emit('update:activeReplyId', null)"
-                            @submit="$emit('submit-reply', note)"
-                        />
-                    </template>
-                </inbox-note>
+            <div class="flex flex-col ap-feed-list">
+                <template v-for="item in notes">
+                    <!-- Activity Presentation (including Questions/Polls) -->
+                    <inbox-activity
+                        v-if="item.type === 'activity' || item.type === 'question' || item.type === 'polls' || item.type === 'activities'"
+                        :key="item.id"
+                        :activity="item"
+                        :permissions="permissions"
+                        :actors="actors"
+                        @json="$emit('json', $event)"
+                        @delete="$emit('delete', $event)"
+                        @vote="$emit('vote', $event)"
+                    />
+
+                    <!-- Content (Note, Article, Poll) Presentation -->
+                    <inbox-note
+                        v-else
+                        :key="item.id"
+                        :note="item"
+                        :permissions="permissions"
+                        :actors="actors"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @quote="$emit('quote', $event)"
+                        @like="$emit('like', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
+                        @json="$emit('json', $event)"
+                        @lightbox="$emit('lightbox', $event)"
+                        @delete="$emit('delete', $event)"
+                        @edit="$emit('edit', $event)"
+                        @vote="$emit('vote', $event)"
+                    >
+                        <template #reply-editor>
+                            <inbox-reply-form
+                                v-if="activeReplyId === item.id"
+                                :actors="actors"
+                                :actor-id="replyForm.actor_id"
+                                :content="replyForm.content"
+                                :content-warning="replyForm.content_warning"
+                                :loading="sendingReply"
+                                :hashtag-enabled="hashtagEnabled"
+                                :hashtag-taxonomy="hashtagTaxonomy"
+                                :search-terms-url="searchTermsUrl"
+                                @update:actorId="$emit('update:replyForm', { ...replyForm, actor_id: $event })"
+                                @update:content="$emit('update:replyForm', { ...replyForm, content: $event })"
+                                @update:contentWarning="$emit('update:replyForm', { ...replyForm, content_warning: $event })"
+                                @update:tags="$emit('update:replyForm', { ...replyForm, tags: $event })"
+                                @cancel="$emit('update:activeReplyId', null)"
+                                @submit="$emit('submit-reply', item)"
+                            />
+                        </template>
+                    </inbox-note>
+                </template>
             </div>
 
             <!-- Pagination Controls -->
@@ -96,11 +111,13 @@
 
 <script>
 import InboxNote from './InboxNote.vue';
+import InboxActivity from './InboxActivity.v6.vue';
 import InboxReplyForm from './InboxReplyForm.v6.vue';
 
 export default {
     components: {
         InboxNote,
+        InboxActivity,
         InboxReplyForm
     },
     props: {

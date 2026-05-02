@@ -77,9 +77,19 @@ Currently, Statamic creators operate on isolated websites. They spend time craft
 - Support for advanced Fediverse features (e.g., private posts, lists).
 - Integration with external community tools (Webhooks).
 
-## Appendix
+### 1. Activity vs Content Distinction (Inbox)
+The Inbox will distinguish between "Content" (Notes, Articles, Polls) and "Activities" (Arrive, Like, Follow, etc.).
+- **Content:** Remains the primary, dominant presentation.
+- **Activities:** Handled by a foundational `InboxActivity` component with two modes:
+  - **Major Mode:** For significant activities like Arrive, Travel, Offer, Listen.
+  - **Minor Mode:** For utility activities like Follow, Like, Boost, Undo, Delete (minimized presentation).
 
-- `addons/ethernick/ActivityPubQuestions/docs/PRD.md` - Poll addon docs.
+### 2. Component Naming Standards
+To ensure clarity between different presentation types, the following suffixes are used:
+- `*Form.vue`: Creation/Update forms.
+- `*Stack.vue`: Drawers, slide-overs, or modal stacks.
+- `*Activity*.vue`: ActivityPub Activity specialized presentations.
+- No suffix: Stream/Feed presentation components.
 
 ### 2. Technical Decisions
 #### Reference Resolution (Internal vs External)

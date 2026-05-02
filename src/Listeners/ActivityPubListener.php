@@ -16,6 +16,8 @@ use Statamic\Facades\Blink;
 use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
 use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 use Ethernick\ActivityPubCore\Contracts\OutboxHandlerInterface;
+use Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer;
+use Statamic\Entries\Entry;
 
 class ActivityPubListener
 {
@@ -310,6 +312,9 @@ class ActivityPubListener
         $entry = $event->entry;
         $handle = $entry->collection()->handle();
 
+        // Allow plugins to extend saving logic
+        ActivityPubTypes::executeStoreHooks($entry);
+
         // \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaving START for {$entry->id()} in {$handle}");
 
         if (!$this->isEnabled($handle)) {
@@ -405,6 +410,7 @@ class ActivityPubListener
         $shouldGen = $entry->get('is_internal');
 
         if ($shouldGen !== false) {
+            \Illuminate\Support\Facades\Log::info("ActivityPubListener: Entering Generation Block for {$entry->id()}");
             try {
                 // 1.7.a Process manual tags first to ensure they are persisted as terms
                 $settings = $this->getSettings();
@@ -436,366 +442,17 @@ class ActivityPubListener
         }
     }
 
-    protected function generateActivityPubJson(mixed $entry, mixed $actorId, string $type): string
+    public function generateActivityPubJson(Entry $entry, $actorId = null, $type = null): string
     {
-        \Illuminate\Support\Facades\Log::info("ActivityPubListener: Generating JSON for {$entry->id()}", [
-            'type' => $type,
-            'collection' => $entry->collection()->handle()
-        ]);
-
-        // Resolve Actor URL
         if (is_array($actorId)) {
             $actorId = $actorId[0] ?? null;
         }
 
-        $actorUrl = $actorId;
-        $actorHandle = null;
-        if ($actorId) {
-            $actor = $this->getActor($actorId);
-            if ($actor) {
-                $actorHandle = $actor->slug();
-                $actorUrl = url("/@{$actorHandle}");
-            }
-        }
+        /** @var ActivityPubObjectTransformer $transformer */
+        $transformer = app(ActivityPubObjectTransformer::class);
+        $data = $transformer->transform($entry, (string) $actorId, $type);
 
-        $url = $entry->absoluteUrl();
-        $handle = $entry->collection()->handle();
-        $slug = $entry->slug();
-        
-        $isNonUnique = empty($url) || ($handle !== 'actors' && str_ends_with(rtrim($url, '/'), '/' . $handle));
-
-        if ($isNonUnique) {
-            // If slug is also empty (brand new entry not yet saved), generate and SET one now
-            if (empty($slug)) {
-                $slug = (string) \Illuminate\Support\Str::uuid();
-                $entry->slug($slug);
-            }
-            
-            // Force construction of a unique path
-            $url = url("/{$handle}/{$slug}");
-            
-            \Illuminate\Support\Facades\Log::info("ActivityPubListener: Forced unique URL for {$entry->id()}: $url (slug: $slug)");
-        }
-
-        $published = now();
-        if (method_exists($entry, 'date') && $entry->date()) {
-            $published = $entry->date();
-        }
-
-        $data = [
-            '@context' => [
-                'https://www.w3.org/ns/activitystreams',
-                [
-                    'quote' => 'https://w3id.org/fep/044f#quote',
-                    'quoteUri' => 'http://fedibird.com/ns#quoteUri',
-                    '_misskey_quote' => 'https://misskey-hub.net/ns#_misskey_quote',
-                    'quoteUrl' => 'https://w3id.org/fep/044f#quoteUrl', // Wait, quoteUrl is property? Yes.
-                    'quoteAuthorization' => [
-                        '@id' => 'https://w3id.org/fep/044f#quoteAuthorization',
-                        '@type' => '@id',
-                    ],
-                    'interactionPolicy' => [
-                        '@id' => 'gts:interactionPolicy',
-                        '@type' => '@id',
-                    ],
-                    'gts' => 'https://gotosocial.org/ns#',
-                ]
-            ],
-            'id' => $this->sanitizeUrl($url),
-            'type' => $type,
-            'actor' => $this->sanitizeUrl($actorUrl),
-            'actor_url' => $this->sanitizeUrl($actorUrl), // Used by Antlers template for attributedTo
-            'published' => $published->toIso8601String(),
-            'updated' => now()->toIso8601String(),
-            'url' => $this->sanitizeUrl($url),
-            'attributedTo' => $this->sanitizeUrl($actorUrl),
-            'to' => ['https://www.w3.org/ns/activitystreams#Public'],
-            'cc' => [$actorUrl . '/followers'],
-        ];
-
-        // Content
-        $rawContent = $entry->get('content') ?? $entry->get('title') ?? '';
-        $htmlContent = \Statamic\Facades\Markdown::parse((string) $rawContent);
-
-        // Hashtags logic
-        $settings = $this->getSettings();
-        $hashtagSettings = $settings['hashtags'] ?? [];
-        $apHashtags = [];
-        if ($hashtagSettings['enabled'] ?? false) {
-            $field = $hashtagSettings['field'] ?? 'tags';
-            $taxonomy = $hashtagSettings['taxonomy'] ?? 'tags';
-            $termHandles = $entry->get($field, []);
-            if (!is_array($termHandles)) {
-                $termHandles = $termHandles ? [$termHandles] : [];
-            }
-
-            foreach ($termHandles as $termHandle) {
-                // If it's a Term object already (unlikely for manual string tags, but safe)
-                if ($termHandle instanceof \Statamic\Contracts\Taxonomies\Term) {
-                    $term = $termHandle;
-                } else {
-                    $term = \Statamic\Facades\Term::find($taxonomy . '::' . $termHandle);
-                    if (!$term) {
-                        $term = \Statamic\Facades\Term::find($termHandle);
-                    }
-                }
-
-                if ($term) {
-                    $apHashtags[] = [
-                        'type' => 'Hashtag',
-                        'href' => $term->absoluteUrl(),
-                        'name' => '#' . $term->slug(),
-                    ];
-                } else {
-                    // Fallback for tags that aren't yet formal terms
-                    $apHashtags[] = [
-                        'type' => 'Hashtag',
-                        'href' => url("/tags/" . \Statamic\Support\Str::slug((string) $termHandle)),
-                        'name' => '#' . ltrim((string) $termHandle, '#'),
-                    ];
-                }
-            }
-        }
-
-        // Linkify hashtags in HTML
-        $data['content'] = $this->linkifyHashtags((string) $htmlContent, $apHashtags);
-
-        // Summary / CW
-        if ($entry->has('summary')) {
-            $data['summary'] = $entry->get('summary');
-        } elseif ($entry->has('cw')) {
-            $data['summary'] = $entry->get('cw');
-        }
-
-        // Sensitive
-        $data['sensitive'] = (bool) $entry->get('sensitive', false);
-
-        // Tags & Mentions & Addressing
-        $tags = $apHashtags;
-        $mentions = $this->extractMentions($data['content'] ?? '');
-        $cc = [$actorUrl . '/followers'];
-        $to = ['https://www.w3.org/ns/activitystreams#Public'];
-
-        foreach ($mentions as $mention) {
-            $tags[] = [
-                'type' => 'Mention',
-                'href' => $mention['href'],
-                'name' => $mention['name'],
-            ];
-            $cc[] = $mention['href'];
-        }
-
-        // Add quote authorization stamp to tags if present (FEP-044f)
-        $authStamp = $entry->get('quote_authorization_stamp');
-        if ($authStamp) {
-            $tags[] = [
-                'type' => 'Link',
-                'mediaType' => 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
-                'href' => $authStamp,
-                'rel' => 'https://w3id.org/fep/044f#quoteAuthorization',
-                'name' => 'Quote authorization',
-            ];
-        }
-
-        $data['tag'] = $tags;
-        $data['to'] = array_values(array_unique(array_merge($data['to'] ?? [], $to)));
-        $data['cc'] = array_values(array_unique(array_merge($data['cc'] ?? [], $cc)));
-
-        // Attachments
-        if ($assetId = $entry->get('attachment')) { // Single attachment for now
-            // Simplified attachment handling
-            // In a real implementation we'd resolve the asset
-        }
-
-        // Replies collection
-        $data['replies'] = [
-            'id' => $url . '/replies',
-            'type' => 'Collection',
-            'first' => [
-                'type' => 'CollectionPage',
-                'next' => $url . '/replies?page=1',
-                'partOf' => $url . '/replies',
-                'items' => []
-            ]
-        ];
-
-        // interactionPolicy (GTS)
-        $settings = $this->getSettings();
-        $allowQuotes = $settings['allow_quotes'] ?? false;
-        $data['interaction_policy'] = [
-            'type' => 'gts:interactionPolicy',
-            'canQuote' => [
-                'type' => 'gts:interactionPolicyRule',
-                'automaticApproval' => $allowQuotes ? ['https://www.w3.org/ns/activitystreams#Public'] : []
-            ]
-        ];
-
-        // --- QUOTE LOGIC (Standard fields) ---
-        $quoteOf = $entry->get('quote_of');
-        if ($quoteOf && is_string($quoteOf)) {
-            $quoteOf = [$quoteOf];
-            $entry->set('quote_of', $quoteOf);
-        }
-
-        if ($quoteOf && is_array($quoteOf) && count($quoteOf) > 0) {
-            $quotedId = $quoteOf[0];
-            $quotedEntry = \Statamic\Facades\Entry::find($quotedId);
-            if ($quotedEntry) {
-                $quotedUrl = $quotedEntry->get('activitypub_id') ?: $quotedEntry->absoluteUrl();
-
-                $data['quote_url'] = $quotedUrl;
-
-                if ($authStamp) {
-                    $data['quote_authorization_stamp'] = $authStamp;
-                }
-
-                // Append RE: link to content for Mastodon compatibility
-                if (!empty($data['content'])) {
-                    $data['content'] = rtrim((string) $data['content']) . '<br><br>RE: <a href="' . htmlspecialchars($quotedUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($quotedUrl, ENT_QUOTES, 'UTF-8') . '</a>';
-                }
-            }
-        }
-
-
-        // Special handling for Activities collection (overwrite type, object, summary)
-        // Special handling for Activities collection (overwrite type, object, summary)
-        $handle = $entry->collection()->handle();
-        if ($handle === 'activities') {
-            $activityType = $entry->get('type') ?? 'Create';
-            if (is_array($activityType)) {
-                $activityType = $activityType[0] ?? 'Create';
-            }
-            $data['type'] = $activityType;
-
-            // Remove Note specific fields when wrapping in activity
-            unset($data['content']);
-            unset($data['sensitive']);
-            unset($data['attachment']);
-            unset($data['tag']);
-            unset($data['quoteUrl']);
-            unset($data['quote']);
-            unset($data['_misskey_quote']);
-
-            $objectId = $entry->get('object');
-            if (is_array($objectId)) {
-                $objectId = $objectId[0] ?? null;
-            }
-
-            $objectData = null;
-            if ($activityType === 'Delete' && $entry->get('deleted_object_url')) {
-                $objectData = $entry->get('deleted_object_url');
-            } elseif ($objectId) {
-                $objectEntry = \Statamic\Facades\Entry::find($objectId);
-                if ($objectEntry) {
-                    // Prioritize existing JSON from the child object (manual or pre-generated)
-                    $objectJson = $objectEntry->get('activitypub_json');
-
-                    if (!$objectJson) {
-                        $objectCollectionHandle = $objectEntry->collection()->handle();
-                        $objectType = $this->getType($objectCollectionHandle);
-                        $objectJson = $this->generateActivityPubJson($objectEntry, $objectEntry->get('actor'), $objectType);
-                    }
-
-                    // Flatten if it somehow comes as an array (from code field not yet persisted)
-                    if (is_array($objectJson) && isset($objectJson['code'])) {
-                        $objectJson = $objectJson['code'];
-                    }
-
-                    $objectData = json_decode((string) $objectJson, true);
-
-                    // Remove redundant context from nested child object
-                    if ($objectData && isset($objectData['@context'])) {
-                        unset($objectData['@context']);
-                    }
-                }
-            }
-
-            if (!$objectData && $entry->get('object_url')) {
-                $objectData = $entry->get('object_url');
-            }
-
-            if ($objectData) {
-                $data['object'] = $objectData;
-                if (is_array($objectData)) {
-                    if (isset($objectData['to'])) {
-                        $data['to'] = array_values(array_unique(array_merge($data['to'], (array) $objectData['to'])));
-                    }
-                    if (isset($objectData['cc'])) {
-                        $data['cc'] = array_values(array_unique(array_merge($data['cc'], (array) $objectData['cc'])));
-                    }
-                }
-            }
-        }
-
-        // Type-specific formatting via registered outbox handlers (JSON formatting)
-        if ($handlerClass = ActivityPubTypes::getOutboxHandler($type)) {
-            if (class_exists($handlerClass)) {
-                $handler = app($handlerClass);
-                if ($handler instanceof OutboxHandlerInterface) {
-                    $data = $handler->format($data, $entry);
-                }
-            }
-        }
-
-        // Count Interactions
-        $sanitizedUrl = $data['id'];
-        $absoluteUrl = $entry->absoluteUrl();
-
-        $likesCount = \Statamic\Facades\Entry::query()
-            ->where('collection', 'activities')
-            ->where('type', '=', 'Like')
-            ->get()
-            ->filter(function ($act) use ($sanitizedUrl, $absoluteUrl) {
-                $obj = $act->get('object');
-                return $obj === $sanitizedUrl || $obj === $absoluteUrl;
-            })->count();
-
-        $sharesCount = \Statamic\Facades\Entry::query()
-            ->where('collection', 'activities')
-            ->where('type', '=', 'Announce')
-            ->get()
-            ->filter(function ($act) use ($sanitizedUrl, $absoluteUrl) {
-                $obj = $act->get('object');
-                return $obj === $sanitizedUrl || $obj === $absoluteUrl;
-            })->count();
-
-        $interactionBase = url('@' . ($actorHandle ?? 'unknown') . '/' . $handle . '/' . $entry->slug());
-        $data['likes_count'] = $likesCount;
-        $data['likes_url'] = $interactionBase . '/likes';
-        $data['shares_count'] = $sharesCount;
-        $data['shares_url'] = $interactionBase . '/shares';
-
-        return view('activitypub::json.default', $data)->render();
-    }
-
-    protected function extractMentions(?string $html): array
-    {
-        if ($html === null || $html === '') {
-            return [];
-        }
-
-        $mentions = [];
-        if (preg_match_all('/<a[^>]+href="([^"]+)"[^>]*>(@.*?)<\/a>/i', $html, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                // $match[1] is href, $match[2] is text content (handle)
-                // Filter out obviously non-actor URLs if needed, but for now rely on @ prefix
-                $mentions[] = [
-                    'href' => $match[1],
-                    'name' => strip_tags($match[2]), // Ensure clean text
-                ];
-            }
-        }
-        return $mentions;
-    }
-
-    protected function sanitizeUrl(?string $url): string
-    {
-        if ($url === null) {
-            return '';
-        }
-
-        // Remove trailing slashes
-        return rtrim($url, '/');
+        return json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
     protected function parseHashtags(string $content, \Statamic\Entries\Entry $entry): void
@@ -858,23 +515,7 @@ class ActivityPubListener
         $entry->set($field, array_values(array_filter(array_unique($currentTags))));
     }
 
-    protected function linkifyHashtags(string $html, array $hashtags): string
-    {
-        foreach ($hashtags as $tag) {
-            $name = $tag['name']; // #tag
-            $href = $tag['href'];
-            $tagName = ltrim($name, '#');
 
-            // Simplified linkification regex: match #tag not followed by alphanumeric, not inside tags
-            // Negative lookahead for things inside < > to avoid replacing inside tags
-            $pattern = '/(?<!\S)#' . preg_quote($tagName, '/') . '(?![A-Za-z0-9_])(?![^<]*>)/u';
-            $replacement = '<a href="' . $href . '" class="mention hashtag" rel="tag">#<span>' . $tagName . '</span></a>';
-
-            $html = preg_replace($pattern, $replacement, $html);
-        }
-
-        return $html;
-    }
 
     protected function handleEntrySaved(mixed $event): void
     {

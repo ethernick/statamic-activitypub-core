@@ -74,12 +74,12 @@ class ReplyController extends BaseObjectController
             return url('@' . $actorSlug . '/notes/' . $reply->slug());
         })->toArray();
 
-        return response()->json([
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'type' => 'Collection',
-            'id' => url()->current(),
-            'totalItems' => count($items),
-            'items' => $items,
-        ])->header('Content-Type', 'application/activity+json');
+        $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
+        $json = $transformer->transformCollection(
+            url()->current(),
+            collect($items)
+        );
+
+        return response()->json($json)->header('Content-Type', 'application/activity+json');
     }
 }

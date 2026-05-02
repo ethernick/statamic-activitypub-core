@@ -108,12 +108,12 @@ class InteractionController extends Controller
             return $activity->get('activitypub_id'); // Return the external ID of the Like/Announce
         })->values()->toArray();
 
-        return response()->json([
-            '@context' => 'https://www.w3.org/ns/activitystreams',
-            'type' => 'OrderedCollection',
-            'id' => url()->current(),
-            'totalItems' => count($collectionItems),
-            'orderedItems' => $collectionItems,
-        ])->header('Content-Type', 'application/activity+json');
+        $transformer = app(\Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer::class);
+        $json = $transformer->transformCollection(
+            url()->current(),
+            collect($collectionItems)
+        );
+
+        return response()->json($json)->header('Content-Type', 'application/activity+json');
     }
 }
