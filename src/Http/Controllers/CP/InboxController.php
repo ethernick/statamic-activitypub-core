@@ -19,6 +19,7 @@ use Statamic\Facades\YAML;
 use Statamic\Facades\File;
 use Statamic\Facades\Blink;
 use Illuminate\Support\Facades\Log;
+use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 
 class InboxController extends CpController
 {
@@ -853,7 +854,7 @@ class InboxController extends CpController
             return null;
         }
 
-        $result = $this->buildActorData($actorEntry);
+        $result = ActivityPubUtils::transformActorForCp($actorEntry);
 
         // Store in Cache for future lookups in this request
         $this->actorCache[$actorId] = $result;
