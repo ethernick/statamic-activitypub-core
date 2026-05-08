@@ -112,7 +112,7 @@ class ActivityPubObjectTransformer
             'type' => 'Person',
             'preferredUsername' => $handle,
             'name' => $entry->get('title'),
-            'summary' => $entry->get('content') ?? '',
+            'summary' => (string) \Statamic\Facades\Markdown::parse((string) ($entry->get('content') ?? '')),
             'inbox' => $url . '/inbox',
             'outbox' => $url . '/outbox',
             'followers' => $url . '/followers',
@@ -590,7 +590,11 @@ class ActivityPubObjectTransformer
 
         $avatar = $entry->get('avatar');
         if ($avatar) {
-            if ($avatar instanceof \Statamic\Assets\Asset) {
+            if (! $avatar instanceof \Statamic\Assets\Asset) {
+                // If it's a string (asset ID), find it
+                $avatar = Asset::find($avatar);
+            }
+            if ($avatar) {
                 return [
                     'type' => 'Image',
                     'mediaType' => $avatar->mimeType(),
