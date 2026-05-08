@@ -605,7 +605,7 @@ class InboxController extends CpController
             $query->whereIn('collection', array_merge(['activities'], $inboxCollections));
             $query->where(function ($q) {
                 $q->whereNotIn('collection', ['activities'])
-                  ->orWhereIn('type', ['Arrive', 'Travel', 'Offer', 'Listen', 'Question']);
+                  ->orWhereIn('type', ['Arrive', 'Travel', 'Offer', 'Listen', 'Question', 'Follow', 'Like', 'Announce']);
             });
         } else {
             // Default: include all relevant collections

@@ -20,15 +20,6 @@ class RecalculateActivityPubCountsJobTest extends TestCase
     {
         parent::setUp();
 
-        // Ensure queue tables exist (only create if they don't exist)
-        if (!DB::getSchemaBuilder()->hasTable('jobs')) {
-            $this->artisan('queue:table');
-            $this->artisan('migrate', ['--force' => true]);
-        }
-        if (!DB::getSchemaBuilder()->hasTable('failed_jobs')) {
-            $this->artisan('queue:failed-table');
-            $this->artisan('migrate', ['--force' => true]);
-        }
 
         // Clear jobs
         DB::table('jobs')->delete();

@@ -19,10 +19,6 @@ class CleanOldActivityPubDataJobTest extends TestCase
     {
         parent::setUp();
 
-        // Migrate queue tables for in-memory SQLite
-        $this->artisan('queue:table');
-        $this->artisan('queue:failed-table');
-        $this->artisan('migrate', ['--force' => true]);
 
         // Ensure collections exist in sandbox
         foreach (['actors', 'activities', 'notes'] as $col) {

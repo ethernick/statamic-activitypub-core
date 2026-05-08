@@ -16,10 +16,6 @@ class QueueDashboardTest extends TestCase
     {
         parent::setUp();
 
-        // Ensure tables exist for testing
-        Artisan::call('queue:table');
-        Artisan::call('queue:failed-table');
-        Artisan::call('migrate');
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

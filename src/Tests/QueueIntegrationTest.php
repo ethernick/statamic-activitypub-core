@@ -29,9 +29,6 @@ class QueueIntegrationTest extends TestCase
         // Clear static caches to avoid state leakage
         \Ethernick\ActivityPubCore\Listeners\ActivityPubListener::clearCaches();
 
-        $this->artisan('queue:table');
-        $this->artisan('queue:failed-table');
-        $this->artisan('migrate', ['--force' => true]);
 
         // Ensure collections exist in sandbox
         foreach (['actors', 'activities', 'notes'] as $col) {

@@ -15,11 +15,6 @@ class RetryFailedActivityPubTest extends TestCase
     {
         parent::setUp();
 
-        // Ensure failed_jobs table exists
-        if (!\Illuminate\Support\Facades\Schema::hasTable('failed_jobs')) {
-            Artisan::call('queue:failed-table');
-            Artisan::call('migrate');
-        }
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

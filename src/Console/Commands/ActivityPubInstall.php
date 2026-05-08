@@ -23,7 +23,7 @@ class ActivityPubInstall extends Command
         $this->info('Installing ActivityPub...');
 
         // Step 1: Set up database queue infrastructure
-        $this->setupQueueTables();
+        // $this->setupQueueTables();
 
         // Step 2: Run ActivityPub-specific migrations
         $this->runActivityPubMigrations();

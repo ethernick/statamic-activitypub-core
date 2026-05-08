@@ -23,7 +23,7 @@ trait ProvidesSandbox
         // Clear ActivityPubListener caches
         if (class_exists(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class)) {
             \Ethernick\ActivityPubCore\Listeners\ActivityPubListener::clearSettingsCache();
-            
+
             // Also clear actor cache if possible (it was static)
             $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
             $actorCache = $reflection->getProperty('actorCache');
@@ -45,8 +45,9 @@ trait ProvidesSandbox
 
         // Override application paths
         $this->overrideAppPaths();
-        
+
         // Inject sandbox paths into Addon config for absolute isolation
+        config(['statamic.system.version' => '6.13.0']);
         config(['activitypub.settings_path' => $this->sandboxPath . '/resources/settings/activitypub.yaml']);
         config(['activitypub.blueprints_path' => $this->sandboxPath . '/resources/blueprints']);
 
@@ -59,7 +60,7 @@ trait ProvidesSandbox
 
         // Robust isolation: Flush all possible state/caches
         $this->flushState();
-        
+
         $this->sandboxInitialized = true;
     }
 
@@ -73,7 +74,7 @@ trait ProvidesSandbox
         Stache::clear();
         \Statamic\Facades\Blink::flush();
         \Illuminate\Support\Facades\Cache::flush();
-        
+
         // Reset singleton-like caches in the listener if they exist
         if (class_exists(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class)) {
             $reflection = new \ReflectionClass(\Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class);
@@ -127,7 +128,7 @@ trait ProvidesSandbox
             $prop->setAccessible(true);
             $prop->setValue($this->app, $this->sandboxPath . '/resources');
         }
-        
+
         $this->app->instance('path.resources', $this->sandboxPath . '/resources');
 
         // Override base path for content/taxonomies in config (for future store initializations)
@@ -135,7 +136,7 @@ trait ProvidesSandbox
         $this->app['config']->set('statamic.stache.stores.taxonomies.directory', $this->sandboxPath . '/content/taxonomies');
         $this->app['config']->set('statamic.stache.stores.navigation.directory', $this->sandboxPath . '/content/navigation');
         $this->app['config']->set('statamic.stache.stores.globals.directory', $this->sandboxPath . '/content/globals');
-        
+
         // Storage path for Stache indexes
         $this->app->useStoragePath($this->sandboxPath . '/storage');
 
@@ -152,7 +153,7 @@ trait ProvidesSandbox
             $stache = \Statamic\Facades\Stache::instance();
             $stache->stores()->each(function ($store) {
                 $key = $store->key();
-                $sandboxPath = match($key) {
+                $sandboxPath = match ($key) {
                     'collections' => $this->sandboxPath . '/content/collections',
                     'entries' => $this->sandboxPath . '/content/collections',
                     'taxonomies' => $this->sandboxPath . '/content/taxonomies',
@@ -186,7 +187,7 @@ trait ProvidesSandbox
         // but it's safer to wipe it or at least ensure it's clean next time.
         // File::deleteDirectory($this->sandboxPath);
     }
-    
+
     /**
      * Helper to "seed" the sandbox with a specific file from production if needed.
      */
@@ -194,13 +195,13 @@ trait ProvidesSandbox
     {
         $source = base_path($relativePath);
         $target = $this->sandboxPath . '/' . $relativePath;
-        
+
         if (File::exists($source)) {
             $targetDir = dirname($target);
             if (!File::exists($targetDir)) {
                 File::makeDirectory($targetDir, 0755, true);
             }
-            
+
             if (File::isDirectory($source)) {
                 File::copyDirectory($source, $target);
             } else {
@@ -233,14 +234,14 @@ trait ProvidesSandbox
         if (File::exists(base_path('resources/users'))) {
             $this->seedSandboxFile('resources/users');
         }
-        
+
         // Seed specific addon templates to the sandbox blueprints if needed
         // This ensures tests run against the structural source of truth.
         $coreTemplates = base_path('addons/ethernick/ActivityPubCore/resources/blueprints/templates/collections');
         if (File::exists($coreTemplates)) {
             $targetDir = $this->sandboxPath . '/resources/blueprints/collections';
             File::ensureDirectoryExists($targetDir);
-            
+
             foreach (File::files($coreTemplates) as $file) {
                 $name = $file->getFilenameWithoutExtension();
                 $dest = "{$targetDir}/{$name}";
@@ -248,7 +249,7 @@ trait ProvidesSandbox
                 File::copy($file->getPathname(), "{$dest}/{$name}.yaml");
             }
         }
-        
+
         $this->flushState();
     }
 
@@ -259,7 +260,7 @@ trait ProvidesSandbox
     {
         foreach ($handles as $handle) {
             $collection = \Statamic\Facades\Collection::find($handle) ?? \Statamic\Facades\Collection::make($handle);
-            
+
             // Actors is usually not dated, others are in ActivityPub
             if (!in_array($handle, ['actors', 'users'])) {
                 $collection->dated(true);
@@ -282,5 +283,7 @@ trait ProvidesSandbox
 
             $collection->save();
         }
+
+        \Statamic\Facades\Stache::warm();
     }
 }
