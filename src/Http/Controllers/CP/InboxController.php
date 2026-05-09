@@ -736,7 +736,7 @@ class InboxController extends CpController
     public function thread(Request $request, string $id): mixed
     {
         $rootNote = Entry::find($id);
-        if (!$rootNote || in_array($rootNote->collection()->handle(), ['activities', 'actors'])) {
+        if (!$rootNote || $rootNote->collection()->handle() === 'actors') {
             return response()->json(['error' => 'Entry not found or invalid type'], 404);
         }
 
@@ -751,7 +751,7 @@ class InboxController extends CpController
         // Cache valid collections once for this request
         $validCollections = Collection::all()
             ->map->handle()
-            ->reject(fn($h) => in_array($h, ['activities', 'actors']))
+            ->reject(fn($h) => in_array($h, ['actors']))
             ->values()
             ->all();
 
@@ -794,6 +794,10 @@ class InboxController extends CpController
         $rootIds = [$rootNote->id()];
         if ($aid = $rootNote->get('activitypub_id')) {
             $rootIds[] = $aid;
+        }
+        if ($rootNote->collection()->handle() === 'activities' && $obj = $rootNote->get('object')) {
+             if (is_string($obj)) $rootIds[] = $obj;
+             elseif (is_array($obj) && isset($obj['id'])) $rootIds[] = $obj['id'];
         }
         if ($absUrl = $rootNote->absoluteUrl()) {
             $rootIds[] = $absUrl;
@@ -934,6 +938,15 @@ class InboxController extends CpController
             }
 
             $cleanContent = strip_tags(\Statamic\Facades\Markdown::parse((string) $note->get('content')), '<p><br><a><strong><em><u><i><b><blockquote><ul><ol><li><code><pre><img><span><div><h1><h2><h3><h4><h5><h6><del><s><strike>');
+
+            // Filter out items with no content and no attachments, unless it's a boost or a Poll
+            if (empty(trim(strip_tags($cleanContent))) && empty($note->get('attachment', [])) && !$isBoost) {
+                // If it's a Note/Article, ensure it has some reason to exist in the feed
+                // Polls usually have votersCount or options in the payload
+                if (!isset($payload['votersCount']) && !isset($payload['oneOf']) && !isset($payload['anyOf'])) {
+                    return null;
+                }
+            }
 
             // Attachments
             $attachments = [];
@@ -1109,6 +1122,10 @@ class InboxController extends CpController
                 }
                 
                 if ($localEntry) {
+                    $localActorId = $localEntry->get('actor');
+                    if (is_array($localActorId)) $localActorId = $localActorId[0] ?? null;
+                    $objectActorId = $localActorId;
+
                     $handle = $localEntry->collection()->handle();
                     $objectType = ($handle === 'notes') ? 'Note' : (($handle === 'places') ? 'Place' : ucfirst(\Illuminate\Support\Str::singular($handle)));
                     $objectSummary = $localEntry->get('title') ?? $localEntry->get('name');
@@ -1181,6 +1198,7 @@ class InboxController extends CpController
                 'object_type' => $objectType,
                 'object_summary' => $objectSummary,
                 'object_url' => $objectUrl,
+                'object_actor_id' => $objectActorId ?? (is_array($object) ? ($object['attributedTo'] ?? $object['actor'] ?? null) : null),
             ];
 
             // Execute addon transform hooks (e.g. for Arrive activities)

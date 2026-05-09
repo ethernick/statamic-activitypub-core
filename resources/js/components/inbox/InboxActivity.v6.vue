@@ -62,7 +62,9 @@
                     <!-- Activity Actions Bar -->
                     <div class="mt-4 flex items-center gap-4 text-gray-500 border-t border-gray-100 dark:border-neutral-800 pt-3">
                         <button class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('reply', activity)" title="Reply">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
                         </button>
                         <button class="flex items-center gap-1 transition-colors" :class="activity.boosted_by_user ? 'text-green-600' : 'hover:text-gray-900 dark:hover:text-white'" @click="$emit('boost', activity)" title="Boost">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -73,10 +75,24 @@
                         <button class="flex items-center gap-1 transition-colors" :class="activity.liked_by_user ? 'text-yellow-500' : 'hover:text-gray-900 dark:hover:text-white'" @click="$emit('like', activity)" title="Like">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :fill="activity.liked_by_user ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                         </button>
+                        <button v-if="activity.related_activity_count > 0 || activity.related_activity_count" class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('history', activity)" title="View History">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                        <button class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('thread', activity)" title="View Thread">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 492.43313 470.25731">
+                             <g transform="matrix(0.75674108,0,0,0.70536422,57.817645,55.147289)">
+                                <path d="m 16.695312,-2.5546875 c -10.7064892,0 -19.2499995,8.5435103 -19.2499995,19.2499995 v 38.957032 c 0,29.137041 23.5058235,52.640626 52.6425785,52.640626 H 64.228516 v 295.421874 H 50.087891 c -29.136755,0 -52.6425785,23.50358 -52.6425785,52.64063 v 38.95703 c 0,10.7065 8.5434901,19.25 19.2499995,19.25 H 384 c 10.71306,0 19.25,-8.53506 19.25,-19.25 v -38.95703 c 0,-29.13649 -23.50414,-52.64063 -52.64063,-52.64063 H 336.4668 v -28.2832 h 30.83789 c 38.29372,10e-6 69.33789,-31.04205 69.33789,-69.33594 v -66.7832 c 0,-17.11722 13.71869,-30.83789 30.83594,-30.83789 h 27.82617 c 10.71308,0 19.25,-8.53502 19.25,-19.25 0,-10.7065 -8.54352,-19.25 -19.25,-19.25 h -27.82617 c -38.29404,0 -69.33789,31.04386 -69.3379,69.33789 v 66.7832 c 0,17.11687 -13.71907,30.83594 -30.83593,30.83594 H 336.4668 V 108.29297 h 14.14257 c 29.13649,0 52.64063,-23.504139 52.64063,-52.640626 V 16.695312 C 403.25,5.9803688 394.71306,-2.5546875 384,-2.5546875 Z m 19.25,38.4999995 H 364.75 v 19.707032 c 0,7.961761 -6.18114,14.140625 -14.14258,14.140625 H 50.087891 c -7.961438,0 -14.142579,-6.178863 -14.142579,-14.140625 z M 102.72852,108.29297 H 297.9668 v 28.2832 H 102.72852 Z m 0,66.7832 H 297.9668 v 28.28125 H 102.72852 Z m 0,66.7832 H 297.9668 v 28.28125 H 102.72852 Z m 0,66.78321 H 297.9668 v 28.28125 H 102.72852 Z m 0,66.78125 H 297.9668 v 28.2832 H 102.72852 Z m -52.640629,66.7832 H 350.60937 c 7.96039,0 14.14063,6.18025 14.14063,14.14063 v 19.70703 H 35.945312 v -19.70703 c 0,-7.96177 6.181139,-14.14063 14.142579,-14.14063 z" />
+                             </g>
+                        </svg>
+                        </button>
                         <button v-if="activity.activitypub_json" class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('json', activity)" title="View JSON">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
                         </button>
                     </div>
+
+                    <slot name="reply-editor"></slot>
                 </div>
 
             </div>
@@ -106,6 +122,18 @@ export default {
         actors: {
             type: Array,
             default: () => []
+        },
+        activeReplyId: {
+            type: [String, Number],
+            default: null
+        },
+        replyForm: {
+            type: Object,
+            default: () => ({})
+        },
+        sendingReply: {
+            type: Boolean,
+            default: false
         }
     },
     computed: {
@@ -115,10 +143,20 @@ export default {
         },
         activityVerb() {
             const type = this.activity.object_type ? this.activity.object_type.toLowerCase() : 'post';
+            
+            // Check if the object belongs to one of our local actors
+            const isLocalObject = this.actors.some(actor => {
+                return actor.id === this.activity.object_actor_id || 
+                       actor.activitypub_id === this.activity.object_actor_id ||
+                       actor.url === this.activity.object_actor_id;
+            });
+            
+            const possessive = isLocalObject ? 'your' : 'an';
+
             const verbs = {
-                'Like': `liked your ${type}`,
+                'Like': `liked ${possessive} ${type}`,
                 'Follow': 'followed you',
-                'Announce': `boosted your ${type}`,
+                'Announce': `boosted ${possessive} ${type}`,
                 'Undo': 'undid an action',
                 'Delete': `deleted a ${type}`,
                 'Update': `updated their ${type}`,

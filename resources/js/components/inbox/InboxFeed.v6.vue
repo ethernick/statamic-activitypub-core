@@ -16,10 +16,39 @@
                         :activity="item"
                         :permissions="permissions"
                         :actors="actors"
+                        :active-reply-id="activeReplyId"
+                        :reply-form="replyForm"
+                        :sending-reply="sendingReply"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @quote="$emit('quote', $event)"
+                        @like="$emit('like', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
                         @json="$emit('json', $event)"
                         @delete="$emit('delete', $event)"
                         @vote="$emit('vote', $event)"
-                    />
+                    >
+                        <template #reply-editor>
+                            <inbox-reply-form
+                                v-if="activeReplyId === item.id"
+                                :actors="actors"
+                                :actor-id="replyForm.actor_id"
+                                :content="replyForm.content"
+                                :content-warning="replyForm.content_warning"
+                                :loading="sendingReply"
+                                :hashtag-enabled="hashtagEnabled"
+                                :hashtag-taxonomy="hashtagTaxonomy"
+                                :search-terms-url="searchTermsUrl"
+                                @update:actorId="val => $emit('update:replyForm', { ...replyForm, actor_id: val })"
+                                @update:content="val => $emit('update:replyForm', { ...replyForm, content: val })"
+                                @update:contentWarning="val => $emit('update:replyForm', { ...replyForm, content_warning: val })"
+                                @update:tags="val => $emit('update:replyForm', { ...replyForm, tags: val })"
+                                @submit="$emit('submit-reply', item)"
+                                @cancel="$emit('update:activeReplyId', null)"
+                            />
+                        </template>
+                    </inbox-activity>
 
                     <!-- Content (Note, Article, Poll) Presentation -->
                     <inbox-note

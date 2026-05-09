@@ -16,12 +16,52 @@
                      :style="{ 'left': (item.depth * 1.5) + 'rem' }"></div>
 
                 <div class="p-4 border-b dark:border-dark-800" :style="{ 'margin-left': (item.depth * 1.5) + 'rem' }">
+                    <inbox-activity
+                        v-if="item.type === 'activity' || item.type === 'question' || item.type === 'polls' || item.type === 'activities'"
+                        :activity="item"
+                        :permissions="permissions"
+                        :actors="actors"
+                        :active-reply-id="activeReplyId"
+                        :reply-form="replyForm"
+                        :sending-reply="sendingReply"
+                        @reply="$emit('reply', item)"
+                        @boost="$emit('boost', item)"
+                        @quote="$emit('quote', item)"
+                        @like="$emit('like', item)"
+                        @history="$emit('history', item)"
+                        @thread="$emit('thread', item)"
+                        @json="$emit('json', item)"
+                        @delete="$emit('delete', item)"
+                        @vote="$emit('vote', $event)"
+                    >
+                        <template #reply-editor>
+                            <inbox-reply-form
+                                v-if="activeReplyId === item.id"
+                                :actors="actors"
+                                :actor-id="replyForm.actor_id"
+                                :content="replyForm.content"
+                                :content-warning="replyForm.content_warning"
+                                :loading="sendingReply"
+                                :hashtag-enabled="hashtagEnabled"
+                                :hashtag-taxonomy="hashtagTaxonomy"
+                                :search-terms-url="searchTermsUrl"
+                                @update:actorId="val => $emit('update:replyForm', { ...replyForm, actor_id: val })"
+                                @update:content="val => $emit('update:replyForm', { ...replyForm, content: val })"
+                                @update:contentWarning="val => $emit('update:replyForm', { ...replyForm, content_warning: val })"
+                                @update:tags="val => $emit('update:replyForm', { ...replyForm, tags: val })"
+                                @submit="$emit('submit-reply', item)"
+                                @cancel="$emit('update:activeReplyId', null)"
+                            />
+                        </template>
+                    </inbox-activity>
                     <inbox-note
+                        v-else
                         :note="item"
                         :permissions="permissions"
                         :actors="actors"
                         @reply="$emit('reply', item)"
                         @boost="$emit('boost', item)"
+                        @quote="$emit('quote', item)"
                         @like="$emit('like', item)"
                         @history="$emit('history', item)"
                         @thread="$emit('thread', item)"
@@ -29,6 +69,7 @@
                         @lightbox="$emit('lightbox', { attachments: $event.attachments, index: $event.index })"
                         @delete="$emit('delete', item)"
                         @edit="$emit('edit', item)"
+                        @vote="$emit('vote', $event)"
                     >
                         <template #reply-editor>
                             <inbox-reply-form
@@ -59,6 +100,7 @@
 <script>
 import InboxStack from './InboxStack.vue';
 import InboxNote from './InboxNote.vue';
+import InboxActivity from './InboxActivity.v6.vue';
 import InboxReplyForm from './InboxReplyForm.v6.vue';
 
 export default {
