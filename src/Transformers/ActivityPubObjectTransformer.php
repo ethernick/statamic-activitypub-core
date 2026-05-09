@@ -178,6 +178,28 @@ class ActivityPubObjectTransformer
             $data['name'] = $entry->get('title');
         }
 
+        // Handle inReplyTo
+        $inReplyTo = $entry->get('in_reply_to');
+        if ($inReplyTo) {
+            if (is_array($inReplyTo)) $inReplyTo = $inReplyTo[0] ?? null;
+            if ($inReplyTo) {
+                $parentEntry = \Statamic\Facades\Entry::find($inReplyTo);
+                if ($parentEntry) {
+                    $parentId = $parentEntry->get('activitypub_id');
+                    // If parent is an activity, reply to its object (the actual Note/Question)
+                    if ($parentEntry->collection()->handle() === 'activities') {
+                        $obj = $parentEntry->get('object');
+                        if (is_array($obj)) $obj = $obj['id'] ?? $obj[0] ?? null;
+                        if (is_array($obj)) $obj = $obj['id'] ?? null;
+                        $parentId = $obj ?: $parentId;
+                    }
+                    $data['inReplyTo'] = $parentId ?: $parentEntry->absoluteUrl();
+                } else {
+                    $data['inReplyTo'] = $inReplyTo;
+                }
+            }
+        }
+
         return $data;
     }
 
@@ -231,6 +253,34 @@ class ActivityPubObjectTransformer
                 'rel' => 'https://w3id.org/fep/044f#quoteAuthorization',
                 'name' => 'Quote authorization',
             ];
+        }
+
+        // Handle reply addressing
+        $inReplyTo = $entry->get('in_reply_to');
+        if ($inReplyTo) {
+            if (is_array($inReplyTo)) $inReplyTo = $inReplyTo[0] ?? null;
+            if ($inReplyTo) {
+                $parentEntry = \Statamic\Facades\Entry::find($inReplyTo);
+                if ($parentEntry) {
+                    $parentActorId = $parentEntry->get('actor');
+                    if (is_array($parentActorId)) $parentActorId = $parentActorId[0] ?? null;
+                    
+                    if ($parentActorId) {
+                        $parentActor = \Statamic\Facades\Entry::find($parentActorId);
+                        if ($parentActor) {
+                            $parentActorUrl = url('@' . $parentActor->slug());
+                            $cc[] = $parentActorUrl;
+                            
+                            // Add parent actor as a Mention tag
+                            $tags[] = [
+                                'type' => 'Mention',
+                                'href' => $parentActorUrl,
+                                'name' => '@' . $parentActor->slug(),
+                            ];
+                        }
+                    }
+                }
+            }
         }
 
         $data['tag'] = $tags;
