@@ -79,7 +79,7 @@ class OutboxJsonValidationTest extends TestCase
         // Reload to get generated fields
         $note = Entry::find($note->id());
 
-        $apJson = $note->get('activitypub_json');
+        $apJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
         $this->assertNotNull($apJson, 'Note should have activitypub_json after save');
 
         $data = json_decode($apJson, true);
@@ -114,7 +114,7 @@ class OutboxJsonValidationTest extends TestCase
         $note->save();
 
         $note = Entry::find($note->id());
-        $data = json_decode($note->get('activitypub_json'), true);
+        $data = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->toArray();
 
         // @context must be an array starting with the AS namespace
         $this->assertIsArray($data['@context'], '@context should be an array');
@@ -180,7 +180,7 @@ class OutboxJsonValidationTest extends TestCase
 
         $this->assertNotNull($activity, 'A Create activity should be auto-generated for the note');
 
-        $apJson = $activity->get('activitypub_json');
+        $apJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($activity)->raw();
         $this->assertNotNull($apJson, 'Activity should have activitypub_json');
 
         $data = json_decode($apJson, true);
@@ -254,7 +254,7 @@ class OutboxJsonValidationTest extends TestCase
 
         $this->assertNotNull($activity, 'An Update activity should be generated for the edit');
 
-        $apJson = $activity->get('activitypub_json');
+        $apJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($activity)->raw();
         $data = json_decode($apJson, true);
 
         // Verify actor is present on the Update Activity
@@ -291,7 +291,7 @@ class OutboxJsonValidationTest extends TestCase
         $note->save();
 
         $note = Entry::find($note->id());
-        $data = json_decode($note->get('activitypub_json'), true);
+        $data = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->toArray();
 
         // Content should be rendered as HTML (ActivityPub spec requires HTML content)
         $this->assertNotNull($data['content']);
@@ -318,7 +318,7 @@ class OutboxJsonValidationTest extends TestCase
         $note->save();
 
         $note = Entry::find($note->id());
-        $apJson = $note->get('activitypub_json');
+        $apJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
 
         // Must still produce valid JSON even with empty content
         $data = json_decode($apJson, true);
@@ -348,7 +348,7 @@ class OutboxJsonValidationTest extends TestCase
         $note->save();
 
         $note = Entry::find($note->id());
-        $data = json_decode($note->get('activitypub_json'), true);
+        $data = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->toArray();
 
         $this->assertArrayHasKey('cc', $data, 'AP JSON must include cc');
         $this->assertIsArray($data['cc']);
@@ -385,7 +385,7 @@ class OutboxJsonValidationTest extends TestCase
         $note->save();
 
         $note = Entry::find($note->id());
-        $apJson = $note->get('activitypub_json');
+        $apJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
 
         // Must be parseable
         $data = json_decode($apJson, true);

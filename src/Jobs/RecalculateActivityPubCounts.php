@@ -16,8 +16,8 @@ class RecalculateActivityPubCounts implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries;
-    public int $timeout;
+    public int $tries = 2;
+    public int $timeout = 600;
 
     /**
      * Create a new job instance.
@@ -36,6 +36,7 @@ class RecalculateActivityPubCounts implements ShouldQueue
      */
     public function handle(): void
     {
+        @set_time_limit($this->timeout);
         Log::info('RecalculateActivityPubCounts: Starting count recalculation...');
 
         $notes = Entry::query()->where('collection', 'notes')->get();

@@ -1,7 +1,37 @@
 {
     "name": "ethernick/statamic-activitypub-core",
-    "description": "ActivityPub functionality for Statamic",
-    "license": "MIT",
+    "description": "ActivityPub federation addon for Statamic 5.x and 6.x",
+    "license": "proprietary",
+    "type": "statamic-addon",
+    "keywords": [
+        "statamic",
+        "statamic-addon",
+        "activitypub",
+        "fediverse",
+        "mastodon",
+        "cms"
+    ],
+    "homepage": "https://github.com/ethernick/statamic-activitypub-core",
+    "authors": [
+        {
+            "name": "Nick Kempinski",
+            "homepage": "https://github.com/ethernick",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/ethernick/statamic-activitypub-core/issues",
+        "source": "https://github.com/ethernick/statamic-activitypub-core",
+        "docs": "https://github.com/ethernick/statamic-activitypub-core/docs"
+    },
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0 | ^12.0",
+        "illuminate/support": "^11.0 | ^12.0",
+        "landrok/activitypub": "^0.8.1",
+        "embed/embed": "^4.4",
+        "statamic/cms": "^5.0 | ^6.0"
+    },
     "autoload": {
         "psr-4": {
             "Ethernick\\ActivityPubCore\\": "src"
@@ -10,12 +40,14 @@
     "extra": {
         "statamic": {
             "name": "ActivityPub Core",
-            "description": "ActivityPub Functionality for Statamic"
+            "description": "ActivityPub for Statamic"
         },
         "laravel": {
             "providers": [
                 "Ethernick\\ActivityPubCore\\ActivityPubServiceProvider"
             ]
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

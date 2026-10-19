@@ -69,6 +69,10 @@ class ReplyJsonTest extends TestCase
         $this->assertArrayHasKey('tag', $data);
         $mentions = collect($data['tag'])->where('type', 'Mention')->pluck('href')->toArray();
         $this->assertContains($actorAUrl, $mentions);
+
+        // Assert language contentMap
+        $this->assertArrayHasKey('contentMap', $data);
+        $this->assertArrayHasKey('en', $data['contentMap']);
     }
 
     public function test_reply_to_activity_resolves_to_object_id(): void

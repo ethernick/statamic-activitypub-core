@@ -122,5 +122,30 @@ class FixActivityDatesTest extends TestCase
         $expectedNestedTimestamp = Carbon::parse($nestedPublishedDate)->timestamp;
 
         $this->assertEquals($expectedNestedTimestamp, $fixedActivity->date()->timestamp);
+
+        // --- Verify Note with Both Published and Updated Preserves Published ---
+        $originalNoteDate = now()->subDays(2)->startOfSecond()->toIso8601String();
+        $editNoteDate = now()->subDay()->startOfSecond()->toIso8601String();
+
+        $editedNote = Entry::make()
+            ->collection('notes')
+            ->slug('test-edited-note')
+            ->date(Carbon::parse($originalNoteDate))
+            ->data([
+                'is_internal' => false,
+                'activitypub_json' => json_encode([
+                    'type' => 'Note',
+                    'published' => $originalNoteDate,
+                    'updated' => $editNoteDate,
+                ])
+            ]);
+        $editedNote->save();
+
+        \Illuminate\Support\Facades\Artisan::call('activitypub:maintenance');
+
+        $reloadedEditedNote = Entry::find($editedNote->id());
+        $this->assertNotNull($reloadedEditedNote, 'Edited note should exist');
+        $this->assertEquals(Carbon::parse($originalNoteDate)->timestamp, $reloadedEditedNote->date()->timestamp, 'Maintenance must never overwrite published date with updated date');
+        $this->assertEquals(Carbon::parse($editNoteDate)->toIso8601String(), $reloadedEditedNote->get('updated'), 'Maintenance must preserve updated field');
     }
 }

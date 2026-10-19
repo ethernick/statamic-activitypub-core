@@ -7,9 +7,17 @@ Route::post('activitypub/settings', 'Ethernick\ActivityPubCore\Http\Controllers\
 Route::get('activitypub/logs', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@logs')->name('activitypub.logs');
 Route::post('activitypub/logs/clear', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@clearLogs')->name('activitypub.logs.clear');
 
+// Blocklist Management
+Route::get('activitypub/blocklist', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@blocklistEntries')->name('activitypub.blocklist.index');
+Route::post('activitypub/blocklist/domain', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@blockDomain')->name('activitypub.blocklist.domain');
+Route::post('activitypub/blocklist/user', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@blockUser')->name('activitypub.blocklist.user');
+Route::delete('activitypub/blocklist/{id}', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@deleteBlock')->name('activitypub.blocklist.delete');
+
+// Auto-blocks & Maintenance
 Route::get('activitypub/auto-blocks/logs', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@autoBlockLogs')->name('activitypub.auto-blocks.logs');
 Route::post('activitypub/auto-blocks/clear', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@clearAutoBlockLogs')->name('activitypub.auto-blocks.clear');
 Route::post('activitypub/auto-blocks/resolve', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@resolveHandle')->name('activitypub.auto-blocks.resolve');
+Route::post('activitypub/maintenance/run', 'Ethernick\ActivityPubCore\Http\Controllers\ActivityPubSettingsController@runMaintenance')->name('activitypub.maintenance.run');
 
 
 Route::get('activitypub/actor-lookup', 'Ethernick\ActivityPubCore\Http\Controllers\CP\ActorLookupController@index')->name('activitypub.actor-lookup.index');

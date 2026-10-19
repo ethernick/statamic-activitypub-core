@@ -612,15 +612,6 @@ class InboxHandler
             return;
         }
 
-        // UPDATE Logic
-        $publishedStr = $payload['published'] ?? null;
-        $publishedDate = $publishedStr ? \Illuminate\Support\Carbon::parse($publishedStr) : now();
-
-        // Update updated_at/date to bump in timeline
-        // Use Carbon to compare - only bump if newer? Usually boost is newer.
-        $originalNote->date($publishedDate);
-        $originalNote->set('date', $publishedDate->toIso8601String());
-
         // Add to boosted_by
         $boostedBy = $originalNote->get('boosted_by', []);
         if (!is_array($boostedBy))
@@ -784,7 +775,8 @@ class InboxHandler
         $id = $object['id'] ?? null;
         $type = $object['type'] ?? 'Note';
 
-        if ($type === 'Person' || $type === 'Service') {
+        $actorTypes = ['Person', 'Organization', 'Service', 'Application', 'Group'];
+        if (in_array($type, $actorTypes)) {
             if ($id !== $externalActor->get('activitypub_id')) {
                 return;
             }
@@ -809,13 +801,24 @@ class InboxHandler
             $note->set('content', $content);
             $note->set('activitypub_json', json_encode($object));
             $note->set('is_internal', false);
-            if (isset($object['published'])) {
+            // Record updated timestamp if present on the Update activity object
+            if (isset($object['updated'])) {
+                try {
+                    $updatedDate = \Illuminate\Support\Carbon::parse($object['updated']);
+                    $note->set('updated', $updatedDate->toIso8601String());
+                } catch (\Exception $e) {
+                    // Invalid date, ignore
+                }
+            }
+
+            // Only initialize or preserve creation date if missing or explicit
+            if (isset($object['published']) && !$note->date()) {
                 try {
                     $date = \Illuminate\Support\Carbon::parse($object['published']);
                     $note->set('date', $date->toIso8601String());
-                    $note->date($date); // Also update the Entry's date attribute for sorting
+                    $note->date($date);
                 } catch (\Exception $e) {
-                    // Invalid date, ignore or keep existing
+                    // Invalid date, ignore
                 }
             }
 

@@ -595,7 +595,7 @@ class ActivityPubTest extends TestCase
         // 3. Trigger JSON generation (handled by listener on save)
         // Retrieve the entry to check activitypub_json
         $note = \Statamic\Facades\Entry::find($note->id());
-        $json = json_decode($note->get('activitypub_json'), true);
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->toArray();
 
         // 4. Assertions
         $this->assertArrayHasKey('tag', $json);
@@ -676,7 +676,7 @@ class ActivityPubTest extends TestCase
         \Statamic\Facades\Blink::flush();
         $activity = \Statamic\Facades\Entry::find($activity->id());
 
-        $json = json_decode($activity->get('activitypub_json'), true);
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($activity)->toArray();
 
         $this->assertContains('https://example.com/u/recipient', $json['cc'] ?? []);
 

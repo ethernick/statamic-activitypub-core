@@ -61,7 +61,66 @@ class CleanOldActivityPubData implements ShouldQueue
         // 3. Cleanup Auto-Block Logs
         $this->cleanupAutoBlockLogs();
 
+        // 4. Cleanup Log Files
+        $logRetention = (int) ($settings['retention_logs'] ?? config('activitypub.retention.logs', 7));
+        $this->cleanupLogFiles($logRetention);
+
+        // 5. Cleanup Stale Failed Queue Jobs (>14 days)
+        $this->cleanupFailedJobs();
+
+        // 6. Cleanup Orphaned Sidecar JSON files
+        $this->cleanupOrphanedPayloads($settings);
+
+        // Clear and immediately warm Stache cache to reflect bulk filesystem updates
+        \Statamic\Facades\Stache::clear();
+        try {
+            \Statamic\Facades\Stache::warm();
+        } catch (\Throwable $e) {
+            Log::warning('CleanOldActivityPubData: Stache warm issue: ' . $e->getMessage());
+        }
+
         Log::info('CleanOldActivityPubData: Cleanup completed.');
+    }
+
+    protected function cleanupFailedJobs(): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('failed_jobs')) {
+                $cutoff = Carbon::now()->subDays(14);
+                $deleted = \Illuminate\Support\Facades\DB::table('failed_jobs')
+                    ->where('failed_at', '<', $cutoff)
+                    ->delete();
+                Log::info("CleanOldActivityPubData: Pruned {$deleted} stale records from failed_jobs.");
+            }
+        } catch (\Exception $e) {
+            Log::warning('CleanOldActivityPubData: Failed to prune failed_jobs: ' . $e->getMessage());
+        }
+    }
+
+    protected function cleanupOrphanedPayloads(array $settings): void
+    {
+        // Scan collections for .json sidecars that no longer have a companion .md or .yaml entry
+        $contentPath = base_path('content/collections');
+        if (!\Illuminate\Support\Facades\File::isDirectory($contentPath)) {
+            return;
+        }
+
+        $deletedCount = 0;
+        $files = \Illuminate\Support\Facades\File::allFiles($contentPath);
+
+        foreach ($files as $file) {
+            if ($file->getExtension() === 'json') {
+                $base = substr($file->getPathname(), 0, -5);
+                if (!\Illuminate\Support\Facades\File::exists($base . '.md') && !\Illuminate\Support\Facades\File::exists($base . '.yaml')) {
+                    \Illuminate\Support\Facades\File::delete($file->getPathname());
+                    $deletedCount++;
+                }
+            }
+        }
+
+        if ($deletedCount > 0) {
+            Log::info("CleanOldActivityPubData: Deleted {$deletedCount} orphaned sidecar payload files.");
+        }
     }
 
     protected function cleanupAutoBlockLogs(): void
@@ -71,6 +130,29 @@ class CleanOldActivityPubData implements ShouldQueue
         Log::info("CleanOldActivityPubData: Pruned {$count} auto-block log entries.");
     }
 
+    protected function cleanupLogFiles(int $days): void
+    {
+        $logDir = storage_path('logs');
+        if (!\Illuminate\Support\Facades\File::isDirectory($logDir)) {
+            return;
+        }
+
+        $cutoff = Carbon::now()->subDays($days);
+        $deleted = 0;
+        $files = \Illuminate\Support\Facades\File::glob($logDir . '/activitypub*.log');
+
+        foreach ($files as $file) {
+            $mtime = \Illuminate\Support\Facades\File::lastModified($file);
+            if ($mtime && Carbon::createFromTimestamp($mtime)->lessThan($cutoff)) {
+                @unlink($file);
+                $deleted++;
+            }
+        }
+
+        if ($deleted > 0) {
+            Log::info("CleanOldActivityPubData: Deleted {$deleted} old ActivityPub log file(s) (> {$days} days old).");
+        }
+    }
 
     protected function cleanupActivities(int $days): void
     {
@@ -79,20 +161,40 @@ class CleanOldActivityPubData implements ShouldQueue
 
         $query = Entry::query()
             ->where('collection', 'activities')
-            ->where('is_internal', false)
+            ->where('is_internal', '!=', true)
             ->where('date', '<', $cutoff);
 
         $entries = $query->get();
         $count = $entries->count();
 
         if ($count > 0) {
-            Log::info("CleanOldActivityPubData: Deleting {$count} activities");
+            Log::info("CleanOldActivityPubData: Deleting {$count} activities in chunks");
 
+            $targets = [];
             foreach ($entries as $entry) {
-                $entry->delete();
+                $path = $entry->path();
+                if ($path) {
+                    $targets[] = $path;
+                }
             }
 
-            Log::info("CleanOldActivityPubData: Deleted {$count} activities");
+            unset($entries);
+
+            $deletedCount = 0;
+            foreach (array_chunk($targets, 500) as $chunk) {
+                foreach ($chunk as $path) {
+                    $jsonPath = preg_replace('/\.(md|yaml)$/', '.json', $path);
+                    if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+                        @unlink($jsonPath);
+                    }
+                    if (\Illuminate\Support\Facades\File::exists($path)) {
+                        @unlink($path);
+                    }
+                    $deletedCount++;
+                }
+            }
+
+            Log::info("CleanOldActivityPubData: Deleted {$deletedCount} activities");
         } else {
             Log::info("CleanOldActivityPubData: No old activities to delete");
         }
@@ -115,20 +217,40 @@ class CleanOldActivityPubData implements ShouldQueue
         foreach ($collections as $collection) {
             $query = Entry::query()
                 ->where('collection', $collection)
-                ->where('is_internal', false)
+                ->where('is_internal', '!=', true)
                 ->where('date', '<', $cutoff);
 
             $entries = $query->get();
             $count = $entries->count();
 
             if ($count > 0) {
-                Log::info("CleanOldActivityPubData: Deleting {$count} entries from {$collection}");
+                Log::info("CleanOldActivityPubData: Deleting {$count} entries from {$collection} in chunks");
 
+                $targets = [];
                 foreach ($entries as $entry) {
-                    $entry->delete();
+                    $path = $entry->path();
+                    if ($path) {
+                        $targets[] = $path;
+                    }
                 }
 
-                Log::info("CleanOldActivityPubData: Deleted {$count} entries from {$collection}");
+                unset($entries);
+
+                $deletedCount = 0;
+                foreach (array_chunk($targets, 500) as $chunk) {
+                    foreach ($chunk as $path) {
+                        $jsonPath = preg_replace('/\.(md|yaml)$/', '.json', $path);
+                        if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+                            @unlink($jsonPath);
+                        }
+                        if (\Illuminate\Support\Facades\File::exists($path)) {
+                            @unlink($path);
+                        }
+                        $deletedCount++;
+                    }
+                }
+
+                Log::info("CleanOldActivityPubData: Deleted {$deletedCount} entries from {$collection}");
             } else {
                 Log::info("CleanOldActivityPubData: No old entries in {$collection}");
             }

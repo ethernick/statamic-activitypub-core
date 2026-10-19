@@ -1,11 +1,12 @@
 <template>
-    <div class="activitypub-hooks">
+    <div v-if="registeredHooks.length" class="activitypub-hooks">
         <component 
             v-for="(hook, idx) in registeredHooks" 
             :key="idx"
             :is="hook.component"
             v-bind="{ ...hook.props, ...props }"
             @submit-success="$emit('submit-success')"
+            @vote="$emit('vote', $event)"
         />
     </div>
 </template>
@@ -23,7 +24,7 @@ export default {
             default: () => ({})
         }
     },
-    emits: ['submit-success'],
+    emits: ['submit-success', 'vote'],
     computed: {
         registeredHooks() {
             if (typeof Statamic === 'undefined' || !Statamic.$activitypub) return [];

@@ -9,7 +9,7 @@
 
     <div class="card p-0">
         <div class="flex justify-between items-center p-4 border-b">
-            <h2 class="font-bold">Log File: storage/logs/activitypub.log</h2>
+            <h2 class="font-bold">Log File: storage/logs/{{ $logFile ?? 'activitypub.log' }} <span class="text-xs text-gray-400 font-normal">(tail preview up to 512 KB)</span></h2>
             <form action="{{ cp_route('activitypub.logs.clear') }}" method="POST">
                 @csrf
                 <button type="submit" class="btn btn-danger btn-sm">Clear Logs</button>

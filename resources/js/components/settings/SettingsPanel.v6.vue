@@ -1,9 +1,14 @@
 <template>
     <div class="@container/panel relative bg-gray-150 dark:bg-gray-950/35 dark:inset-shadow-2xs dark:inset-shadow-black w-full rounded-2xl mb-8 max-[600px]:p-1.25 p-1.75 [&:has(>[data-ui-panel-header])]:pt-0 focus-none starting-style-transition">
-        <div v-if="$slots.header || title">
-        <header class="py-2 px-4">
-            <span class="font-bold settings-panel-title" v-if="title">{{ title }}</span>
-            <span class="text-xs text-gray-500 settings-panel-description" v-if="description">{{ description }}</span>
+        <div v-if="$slots.header || title || $slots.actions">
+        <header class="py-2 px-4 flex items-center justify-between gap-4">
+            <div>
+                <span class="font-bold settings-panel-title" v-if="title">{{ title }}</span>
+                <span class="text-xs text-gray-500 settings-panel-description" v-if="description">{{ description }}</span>
+            </div>
+            <div v-if="$slots.actions" class="flex items-center gap-2">
+                <slot name="actions"></slot>
+            </div>
             <slot name="header"></slot>
         </header>
         </div>

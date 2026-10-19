@@ -108,6 +108,8 @@ class ActorResolver
             $safeHost = str_replace('.', '-dot-', $host);
             $slug = Str::slug($username) . '-at-' . $safeHost;
 
+            $avatarUrl = $this->extractAvatarUrl($data['icon'] ?? null);
+
             $entry = Entry::make()
                 ->collection('actors')
                 ->slug($slug)
@@ -121,13 +123,19 @@ class ActorResolver
                     'shared_inbox_url' => $data['endpoints']['sharedInbox'] ?? null,
                     'public_key' => $data['publicKey']['publicKeyPem'] ?? null,
                     'is_internal' => false,
-                    'avatar' => $this->downloadAvatar($data['icon'] ?? null),
+                    'actor_type' => $data['type'] ?? 'Person',
+                    'avatar' => $avatarUrl,
                 ]);
 
             if ($save) {
                 $entry->save();
                 // Clear the resolution cache once persisted to DB
                 \Illuminate\Support\Facades\Cache::forget($cacheKey);
+
+                // Asynchronously dispatch avatar download in the background
+                if ($avatarUrl) {
+                    \Ethernick\ActivityPubCore\Jobs\DownloadActorAvatar::dispatch($entry->id(), $avatarUrl);
+                }
             }
 
             return $entry;
@@ -139,20 +147,51 @@ class ActorResolver
 
     }
 
-    protected function downloadAvatar(mixed $iconData): ?string
+    protected function extractAvatarUrl(mixed $iconData): ?string
     {
-        if (!$iconData)
+        if (!$iconData) {
             return null;
-
-        $url = null;
-        if (is_array($iconData) && isset($iconData['url'])) {
-            $url = $iconData['url'];
-        } elseif (is_string($iconData)) {
-            $url = $iconData;
         }
 
-        if (!$url)
+        if (is_array($iconData) && isset($iconData['url'])) {
+            return (string) $iconData['url'];
+        }
+
+        if (is_string($iconData)) {
+            return $iconData;
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve an actor by their handle (@username@domain).
+     *
+     * @param string $handle
+     * @param bool $save
+     * @return \Statamic\Contracts\Entries\Entry|null
+     */
+    public function resolveByHandle(string $handle, bool $save = true): ?\Statamic\Contracts\Entries\Entry
+    {
+        $webfingerService = app(\Ethernick\ActivityPubCore\Services\WebfingerService::class);
+        $result = $webfingerService->resolve($handle);
+
+        if (!empty($result['actor_url'])) {
+            return $this->resolve($result['actor_url'], $save);
+        }
+
+        return null;
+    }
+
+    /**
+     * @deprecated Use DownloadActorAvatar job instead. Kept for backwards compatibility.
+     */
+    protected function downloadAvatar(mixed $iconData): ?string
+    {
+        $url = $this->extractAvatarUrl($iconData);
+        if (!$url) {
             return null;
+        }
 
         try {
             // Simplified fetch without redundant checks for now (or copy strictly if needed)

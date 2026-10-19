@@ -13,12 +13,20 @@
                     <input type="number" v-model.number="form.outbox_batch_size" class="input-text w-full" min="1">
                 </div>
             </div>
-             <div class="border-t dark:border-dark-800 pt-4">
+             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <label class="font-bold text-sm block mb-1">Schedule Interval (minutes)</label>
-                <p class="text-xs text-gray-500 mb-2">How often the scheduled job executes (default: 1 min).</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">How often the scheduled job executes (default: 1 min).</p>
                  <div class="flex items-center gap-4">
                     <input type="range" v-model.number="form.schedule_interval" class="w-full max-w-sm h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" min="1" max="60">
-                    <span class="font-mono bg-gray-100 dark:bg-dark-600 px-2 py-1 rounded text-sm w-12 text-center">{{ form.schedule_interval }}m</span>
+                    <span class="font-mono bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-300 dark:border-gray-700 px-2 py-1 rounded text-sm w-12 text-center">{{ form.schedule_interval }}m</span>
+                </div>
+            </div>
+             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <label class="font-bold text-sm block mb-1">Raw File Sync Interval (hours)</label>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Scan collections for new/updated Markdown files uploaded via SFTP or Git (0 = disabled, CLI only).</p>
+                 <div class="flex items-center gap-4">
+                    <input type="range" v-model.number="form.sync_interval_hours" class="w-full max-w-sm h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" min="0" max="24">
+                    <span class="font-mono bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-300 dark:border-gray-700 px-2 py-1 rounded text-sm w-16 text-center">{{ form.sync_interval_hours === 0 ? 'Off' : form.sync_interval_hours + 'h' }}</span>
                 </div>
             </div>
         </settings-panel>

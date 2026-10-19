@@ -13,6 +13,7 @@ use Statamic\Facades\Entry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class SendActivityPubPost implements ShouldQueue
 {
@@ -54,7 +55,7 @@ class SendActivityPubPost implements ShouldQueue
             return;
         }
 
-        $apJson = $entry->get('activitypub_json');
+        $apJson = ActivityPubPayload::for($entry)->raw();
         if (!$apJson) {
             Log::warning("SendActivityPubPost: No ActivityPub JSON for entry: {$this->entryId}");
             return;
@@ -251,11 +252,12 @@ class SendActivityPubPost implements ShouldQueue
                 // Process responses
                 foreach ($responses as $targetUrl => $response) {
                     try {
-                        if ($response->successful()) {
+                        if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
                             Log::info("SendActivityPubPost: Successfully sent to $targetUrl (status: {$response->status()})");
                             $successCount++;
                         } else {
-                            Log::warning("SendActivityPubPost: Failed to send to $targetUrl (status: {$response->status()})");
+                            $status = $response instanceof \Illuminate\Http\Client\Response ? (string)$response->status() : 'exception';
+                            Log::warning("SendActivityPubPost: Failed to send to $targetUrl (status: {$status})");
                             $failureCount++;
                         }
                     } catch (\Exception $e) {

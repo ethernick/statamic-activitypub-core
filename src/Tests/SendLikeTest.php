@@ -75,7 +75,7 @@ class SendLikeTest extends TestCase
         $this->assertNotNull($activity);
         $this->assertEquals('Like', $activity->get('type'));
 
-        $json = json_decode($activity->get('activitypub_json'), true);
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($activity)->toArray();
         $this->assertNotNull($json);
         $this->assertEquals('Like', $json['type']);
         $this->assertEquals($url, $json['object']);
@@ -129,7 +129,7 @@ class SendLikeTest extends TestCase
         $this->assertEquals([$like->id()], $undo->get('object'));
 
         // Verify Undo JSON
-        $json = json_decode($undo->get('activitypub_json'), true);
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($undo)->toArray();
         $this->assertNotNull($json);
         $this->assertEquals('Undo', $json['type']);
 

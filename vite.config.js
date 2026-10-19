@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import vue2 from '@vitejs/plugin-vue2';
 import vue3 from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 
 // Detect Vue version from environment variable (defaults to Vue 2 for backwards compatibility)
@@ -32,11 +33,13 @@ const versionResolverPlugin = () => ({
 export default defineConfig({
     plugins: [
         versionResolverPlugin(),
+        tailwindcss(),
 
         // Use appropriate Vue plugin based on version
         isVue2 ? vue2() : vue3(),
     ],
     build: {
+        cssCodeSplit: true,
         outDir: `dist/${distSubdir}`,
         emptyOutDir: true,
         manifest: true,

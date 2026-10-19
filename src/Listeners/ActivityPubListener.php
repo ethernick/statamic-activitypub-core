@@ -6,6 +6,7 @@ namespace Ethernick\ActivityPubCore\Listeners;
 use Statamic\Events\EntryBlueprintFound;
 use Statamic\Events\EntrySaving;
 use Statamic\Events\EntrySaved;
+use Statamic\Events\EntryDeleted;
 use Statamic\Events\TermBlueprintFound;
 use Statamic\Events\TermSaving;
 use Ethernick\ActivityPubCore\Jobs\SendActivityPubPost;
@@ -17,6 +18,7 @@ use Ethernick\ActivityPubCore\Services\ActivityPubTypes;
 use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
 use Ethernick\ActivityPubCore\Contracts\OutboxHandlerInterface;
 use Ethernick\ActivityPubCore\Transformers\ActivityPubObjectTransformer;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 use Statamic\Entries\Entry;
 
 class ActivityPubListener
@@ -27,6 +29,23 @@ class ActivityPubListener
      * Cache actors in memory to avoid repeated Entry::find() calls
      */
     protected static $actorCache = [];
+
+    /**
+     * Track entry IDs currently being saved to prevent infinite loops / blueprint re-injection
+     */
+    protected static array $savingEntries = [];
+
+    public static function setSaving(?string $id, bool $saving): void
+    {
+        if (!$id) {
+            return;
+        }
+        if ($saving) {
+            static::$savingEntries[$id] = true;
+        } else {
+            unset(static::$savingEntries[$id]);
+        }
+    }
 
     /**
      * Cache settings in memory
@@ -76,6 +95,10 @@ class ActivityPubListener
 
         if ($event instanceof EntrySaved) {
             $this->handleEntrySaved($event);
+        }
+
+        if ($event instanceof EntryDeleted) {
+            $this->handleEntryDeleted($event);
         }
 
         if ($event instanceof TermSaving) {
@@ -218,6 +241,24 @@ class ActivityPubListener
             ]);
         }
 
+        // Inject actor_type field into actors collection if not present
+        if ($handle === 'actors' && !$blueprint->hasField('actor_type')) {
+            $blueprint->ensureField('actor_type', [
+                'type' => 'select',
+                'display' => 'Actor Type',
+                'instructions' => 'The ActivityPub Actor type for this profile.',
+                'default' => 'Person',
+                'options' => [
+                    'Person' => 'Person (Individual human)',
+                    'Organization' => 'Organization (Company, Team, Publication)',
+                    'Service' => 'Service (Bot, Automated publishing agent)',
+                    'Application' => 'Application (Software client)',
+                    'Group' => 'Group (Community collective)',
+                ],
+                'validate' => ['required'],
+            ]);
+        }
+
         // Hashtag field injection
         $settings = $this->getSettings();
         $hashtagSettings = $settings['hashtags'] ?? [];
@@ -305,11 +346,23 @@ class ActivityPubListener
 
         $contents['tabs'] = $tabs;
         $blueprint->setContents($contents);
+
+        if ($event instanceof EntryBlueprintFound && $event->entry) {
+            $entryId = $event->entry->id();
+            if ($entryId && isset(static::$savingEntries[$entryId])) {
+                return;
+            }
+            $json = ActivityPubPayload::for($event->entry)->raw();
+            if ($json) {
+                $event->entry->set('activitypub_json', $json);
+            }
+        }
     }
 
     public function handleEntrySaving(EntrySaving $event): void
     {
         $entry = $event->entry;
+        static::setSaving($entry->id(), true);
         $handle = $entry->collection()->handle();
 
         // Allow plugins to extend saving logic
@@ -321,33 +374,109 @@ class ActivityPubListener
             return;
         }
 
+        // Grab any activitypub_json currently set on the entry
+        $incomingJson = $entry->get('activitypub_json');
+        if (is_array($incomingJson) && isset($incomingJson['code'])) {
+            $incomingJson = $incomingJson['code'];
+        }
+        if ($incomingJson) {
+            $entry->setSupplement('activitypub_json', $incomingJson);
+            $entry->remove('activitypub_json');
+        }
+
         // Check for manual override early
         if ($entry->get('activitypub_json_manual')) {
-            $manualJson = $entry->get('activitypub_json');
-
-            // Flatten if it comes from a code field (array structure)
-            if (is_array($manualJson) && isset($manualJson['code'])) {
-                $entry->set('activitypub_json', $manualJson['code']);
+            if (!$entry->getSupplement('activitypub_json')) {
+                $existing = ActivityPubPayload::for($entry)->raw();
+                if ($existing) {
+                    $entry->setSupplement('activitypub_json', $existing);
+                }
             }
-
             \Illuminate\Support\Facades\Log::info("ActivityPubListener: Skipping JSON generation due to manual override for {$entry->id()}");
             return;
         }
 
-        // Track old quote_of value to detect if it's being added during edit
+        // Track existing entry data from disk to ensure date immutability and content diffing
+        $oldData = null;
+        $contentChanged = true;
         if ($entry->id() && File::exists($entry->path())) {
-            $oldData = YAML::parse(File::get($entry->path()));
+            try {
+                $oldData = YAML::parse(File::get($entry->path()));
+            } catch (\Throwable $e) {
+                $oldData = null;
+            }
+        }
+
+        if (is_array($oldData)) {
+            // 1. IMMUTABILITY: published creation date can NEVER be altered on existing entries
+            $existingPublished = $oldData['date'] ?? null;
+            if ($existingPublished) {
+                try {
+                    $origCarbon = \Illuminate\Support\Carbon::parse($existingPublished);
+                    $entry->date($origCarbon);
+                    $entry->set('date', $origCarbon->toIso8601String());
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            }
+
+            // 2. CONTENT CHANGE DETECTION: Check if genuine content, title, summary, or attachments changed
+            $oldContent = (string) ($oldData['content'] ?? '');
+            $newContent = (string) ($entry->get('content') ?? '');
+            $oldTitle = (string) ($oldData['title'] ?? '');
+            $newTitle = (string) ($entry->get('title') ?? '');
+            $oldSummary = (string) ($oldData['summary'] ?? '');
+            $newSummary = (string) ($entry->get('summary') ?? '');
+            $oldSensitive = (bool) ($oldData['sensitive'] ?? false);
+            $newSensitive = (bool) ($entry->get('sensitive') ?? false);
+            $oldAttachments = $oldData['attachments'] ?? [];
+            $newAttachments = $entry->get('attachments', []);
+
+            $contentChanged = ($oldContent !== $newContent)
+                || ($oldTitle !== $newTitle)
+                || ($oldSummary !== $newSummary)
+                || ($oldSensitive !== $newSensitive)
+                || (json_encode($oldAttachments) !== json_encode($newAttachments));
+
+            // Check registered type-specific substantive fields (e.g. Poll options/counts, Event dates/venues)
+            if (!$contentChanged) {
+                $substantiveFields = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getSubstantiveFields($handle);
+                foreach ($substantiveFields as $field) {
+                    if (json_encode($oldData[$field] ?? null) !== json_encode($entry->get($field))) {
+                        $contentChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($contentChanged) {
+                // Legitimate edit: update timestamp to now
+                $entry->set('updated', now()->toIso8601String());
+            } else {
+                // Background touch: preserve existing updated date (or leave unset)
+                if (isset($oldData['updated'])) {
+                    $entry->set('updated', $oldData['updated']);
+                } else {
+                    $entry->remove('updated');
+                }
+            }
+
             $oldQuoteOf = $oldData['quote_of'] ?? null;
             $entry->setSupplement('_old_quote_of', $oldQuoteOf);
         } else {
             $entry->setSupplement('_old_quote_of', null);
+            // Brand new entry: do NOT set updated yet
+            $entry->remove('updated');
         }
+
+        $entry->setSupplement('_content_changed', $contentChanged);
 
         \Illuminate\Support\Facades\Log::info("ActivityPubListener: handleEntrySaving for {$entry->id()}", [
             'is_internal' => $entry->get('is_internal'),
             'actor' => $entry->get('actor'),
             'handle' => $handle,
             'enabled' => $this->isEnabled($handle),
+            'content_changed' => $contentChanged,
         ]);
 
         // 1. Ensure Actor is set
@@ -430,14 +559,33 @@ class ActivityPubListener
                 // 1.7.b Parse Hashtags from content and add them to the entry
                 $this->parseHashtags($entry->get('content', '') . ' ' . $entry->get('summary', ''), $entry);
 
+                // 1.7.c Parse Mentions from content and persist mentioned_urls for fast index querying
+                $this->parseMentions($entry);
+
+                // 1.7.d Extract normalized search tokens for fast Stache keyword index matching
+                $tokens = \Ethernick\ActivityPubCore\Search\SearchTokenExtractor::extractFromEntry($entry);
+                if (!empty($tokens)) {
+                    $entry->set('search_tokens', $tokens);
+                }
+
                 $type = $this->getType($handle);
                 $json = $this->generateActivityPubJson($entry, $actorId, $type);
-                $entry->set('activitypub_json', $json);
+                $entry->setSupplement('activitypub_json', $json);
 
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error("ActivityPubListener: Error generating JSON: " . $e->getMessage(), [
                     'trace' => $e->getTraceAsString()
                 ]);
+            }
+        } else {
+            // Also index search tokens for external incoming entries to accelerate inbox searches
+            try {
+                $tokens = \Ethernick\ActivityPubCore\Search\SearchTokenExtractor::extractFromEntry($entry);
+                if (!empty($tokens)) {
+                    $entry->set('search_tokens', $tokens);
+                }
+            } catch (\Throwable $e) {
+                // Non-critical, continue
             }
         }
     }
@@ -515,11 +663,98 @@ class ActivityPubListener
         $entry->set($field, array_values(array_filter(array_unique($currentTags))));
     }
 
+    protected function parseMentions(\Statamic\Entries\Entry $entry): void
+    {
+        $rawContent = (string) ($entry->get('content') ?? '');
+        $summary = (string) ($entry->get('summary') ?? '');
+        $combined = $rawContent . ' ' . $summary;
 
+        if (trim($combined) === '') {
+            return;
+        }
+
+        $mentionedUrls = [];
+
+        // 1. Check existing mentioned_urls if already set
+        $existing = $entry->get('mentioned_urls', []);
+        if (is_array($existing)) {
+            $mentionedUrls = array_values(array_filter($existing));
+        }
+
+        // 2. Parse HTML links with mention class or href format: <a ... href="..." ...>@user...</a>
+        $html = (string) \Statamic\Facades\Markdown::parse($combined);
+        if (preg_match_all('/<a[^>]+href="([^"]+)"[^>]*>(?:@|\w)/i', $html, $matches)) {
+            foreach ($matches[1] as $href) {
+                if (filter_var($href, FILTER_VALIDATE_URL) && !in_array($href, $mentionedUrls)) {
+                    $mentionedUrls[] = $href;
+                }
+            }
+        }
+
+        // 3. Parse explicit @handle mentions (@user@domain or @user)
+        if (preg_match_all('/(?<![a-zA-Z0-9_])@([a-zA-Z0-9._-]+)(?:@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))?/u', $combined, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $username = $match[1];
+                $domain = $match[2] ?? null;
+
+                if ($domain) {
+                    $fullHandle = "@{$username}@{$domain}";
+                    // Resolve via ActorResolver/Webfinger
+                    try {
+                        $actorResolver = app(\Ethernick\ActivityPubCore\Services\ActorResolver::class);
+                        $resolvedActor = $actorResolver->resolveByHandle($fullHandle, true);
+                        if ($resolvedActor) {
+                            $apId = $resolvedActor->get('activitypub_id') ?: $resolvedActor->absoluteUrl();
+                            if ($apId && !in_array($apId, $mentionedUrls)) {
+                                $mentionedUrls[] = $apId;
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("ActivityPubListener: Could not resolve mention {$fullHandle}: " . $e->getMessage());
+                    }
+                } else {
+                    // Local actor lookup by username or slug
+                    $localActor = \Statamic\Facades\Entry::query()
+                        ->where('collection', 'actors')
+                        ->where(function ($q) use ($username) {
+                            $q->where('slug', $username)
+                              ->orWhere('username', $username);
+                        })
+                        ->first();
+
+                    if ($localActor) {
+                        $apId = $localActor->get('activitypub_id') ?: $localActor->absoluteUrl();
+                        if ($apId && !in_array($apId, $mentionedUrls)) {
+                            $mentionedUrls[] = $apId;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!empty($mentionedUrls)) {
+            $entry->set('mentioned_urls', array_values(array_unique($mentionedUrls)));
+        }
+    }
 
     protected function handleEntrySaved(mixed $event): void
     {
         $entry = $event->entry;
+        static::setSaving($entry->id(), false);
+
+        // Write the sidecar JSON if the supplement is set
+        $json = $entry->getSupplement('activitypub_json');
+        if ($json) {
+            ActivityPubPayload::for($entry)->save($json);
+        }
+
+        // Invalidate card shell cache on content updates
+        \Illuminate\Support\Facades\Cache::forget("ap:card_shell:{$entry->id()}");
+
+        // Invalidate actor fast lookup map if an actor was saved
+        if ($entry->collection()->handle() === 'actors') {
+            \Ethernick\ActivityPubCore\Search\ActorSearchIndex::clear();
+        }
 
         // Only trigger for Internal items
         if ($entry->get('is_internal') === false) {
@@ -547,14 +782,6 @@ class ActivityPubListener
                 \Ethernick\ActivityPubCore\Jobs\SendQuoteRequest::dispatch($entry->id())->onQueue('activitypub-outbox');
             }
         }
-
-        // Only trigger for activities? OR notes as well?
-        // "When people are making an item in a colleciton that is flagged that an activity is created, when the activity is created"
-        // This implies we send the ACTIVITY.
-        // So we should verify if this is an 'activities' entry or if we send the note itself?
-        // AP usually wraps objects in Create activities.
-        // Statamic's AutoGenerateActivityListener creates an 'activities' entry.
-        // So we should probably listen for 'activities' entries being saved.
 
         if ($entry->collection()->handle() === 'activities') {
             // Dispatch to queue instead of running immediately
@@ -594,7 +821,7 @@ class ActivityPubListener
                     $type = $this->getType($handle);
                     try {
                         $json = $this->generateActivityPubJson($entry, $actorId, $type);
-                        $entry->set('activitypub_json', $json);
+                        ActivityPubPayload::for($entry)->save($json);
                     } catch (\Throwable $e) {
                         \Illuminate\Support\Facades\Log::error("ActivityPubListener: Failed to regenerate JSON post-save: " . $e->getMessage());
                     }
@@ -602,6 +829,17 @@ class ActivityPubListener
                     $entry->saveQuietly();
                 }
             }
+        }
+    }
+
+    protected function handleEntryDeleted(EntryDeleted $event): void
+    {
+        $entry = $event->entry;
+        ActivityPubPayload::for($entry)->delete();
+
+        \Illuminate\Support\Facades\Cache::forget("ap:card_shell:{$entry->id()}");
+        if ($entry->collection()->handle() === 'actors') {
+            \Ethernick\ActivityPubCore\Search\ActorSearchIndex::clear();
         }
     }
 }
