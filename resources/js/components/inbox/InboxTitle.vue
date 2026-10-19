@@ -4,9 +4,12 @@
         
         <inbox-filter-bar
             :current-filter="currentFilter"
+            :search="search"
+            :loading="loading"
             :can-create-note="canCreateNote"
             :show-new-dropdown="showNewDropdown"
             @filter-change="$emit('filter-change', $event)"
+            @search-change="$emit('search-change', $event)"
             @create-note="$emit('create-note')"
             @toggle-dropdown="$emit('toggle-dropdown')"
             @create-poll="$emit('create-poll')"
@@ -25,6 +28,14 @@ export default {
         currentFilter: {
             type: String,
             default: 'all'
+        },
+        search: {
+            type: String,
+            default: ''
+        },
+        loading: {
+            type: Boolean,
+            default: false
         },
         canCreateNote: {
             type: Boolean,

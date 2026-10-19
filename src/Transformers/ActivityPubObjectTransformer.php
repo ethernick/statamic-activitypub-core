@@ -109,7 +109,7 @@ class ActivityPubObjectTransformer
                 ],
             ],
             'id' => $url,
-            'type' => 'Person',
+            'type' => (string) ($entry->get('actor_type') ?: 'Person'),
             'preferredUsername' => $handle,
             'name' => $entry->get('title'),
             'summary' => (string) \Statamic\Facades\Markdown::parse((string) ($entry->get('content') ?? '')),
@@ -159,16 +159,20 @@ class ActivityPubObjectTransformer
     protected function buildBaseInfo(Entry $entry, string $url, ?string $actorUrl, ?string $type): array
     {
         $published = $entry->date() ? $entry->date()->toIso8601String() : $entry->lastModified()->toIso8601String();
-        $updated = $entry->lastModified()->toIso8601String();
+        $updated = $entry->get('updated');
 
         $data = [
             '@context' => $this->getContext(),
             'type' => $type ?? 'Note',
             'id' => $url,
             'published' => $published,
-            'updated' => $updated,
             'url' => $url,
         ];
+
+        // Only include updated timestamp in ActivityPub payload if the entry was actually updated/edited
+        if ($updated) {
+            $data['updated'] = \Illuminate\Support\Carbon::parse($updated)->toIso8601String();
+        }
 
         if ($actorUrl) {
             $data['attributedTo'] = $actorUrl;
@@ -210,13 +214,30 @@ class ActivityPubObjectTransformer
         
         // Hashtag parsing and linking logic
         $apHashtags = $this->getTags($entry, (string) $htmlContent);
-        $data['content'] = $this->linkifyHashtags((string) $htmlContent, $apHashtags);
+        $formattedContent = $this->linkifyHashtags((string) $htmlContent, $apHashtags);
+        $data['content'] = $formattedContent;
+
+        // Resolve ISO 639-1 / BCP 47 language code from entry site or app locale
+        $rawLocale = $entry->site()?->locale() ?? app()->getLocale() ?? 'en';
+        $lang = strtolower(substr((string) $rawLocale, 0, 2));
+
+        if (!empty($formattedContent)) {
+            $data['contentMap'] = [
+                $lang => $formattedContent,
+            ];
+        }
 
         // Summary / CW
         if ($entry->has('summary')) {
             $data['summary'] = $entry->get('summary');
         } elseif ($entry->has('cw')) {
             $data['summary'] = $entry->get('cw');
+        }
+
+        if (isset($data['summary']) && !empty($data['summary'])) {
+            $data['summaryMap'] = [
+                $lang => (string) $data['summary'],
+            ];
         }
 
         // Sensitive
@@ -452,18 +473,13 @@ class ActivityPubObjectTransformer
         } elseif ($objectId) {
             $objectEntry = \Statamic\Facades\Entry::find($objectId);
             if ($objectEntry) {
-                $objectJson = $objectEntry->get('activitypub_json');
+                $objectData = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($objectEntry)->toArray();
 
-                if (!$objectJson) {
+                if (empty($objectData)) {
                     // Recursive call to self for nested objects
                     $objectCollectionHandle = $objectEntry->collection()->handle();
                     $objectType = ActivityPubTypes::getCollections($objectCollectionHandle)[0] ?? 'Note'; // Approximate
                     $objectData = $this->transform($objectEntry, null, $objectType);
-                } else {
-                    if (is_array($objectJson) && isset($objectJson['code'])) {
-                        $objectJson = $objectJson['code'];
-                    }
-                    $objectData = json_decode((string) $objectJson, true);
                 }
 
                 if ($objectData && isset($objectData['@context'])) {
@@ -485,7 +501,14 @@ class ActivityPubObjectTransformer
                 if (isset($objectData['cc'])) {
                     $data['cc'] = array_values(array_unique(array_merge($data['cc'], (array) $objectData['cc'])));
                 }
+                if ($activityType === 'Update') {
+                    $data['updated'] = $objectData['updated'] ?? $entry->lastModified()?->toIso8601String() ?? now()->toIso8601String();
+                }
+            } elseif ($activityType === 'Update') {
+                $data['updated'] = $entry->lastModified()?->toIso8601String() ?? now()->toIso8601String();
             }
+        } elseif ($activityType === 'Update') {
+            $data['updated'] = $entry->lastModified()?->toIso8601String() ?? now()->toIso8601String();
         }
 
         return $data;
@@ -630,6 +653,12 @@ class ActivityPubObjectTransformer
     protected function getActorIcon(Entry $entry): ?array
     {
         $staticPath = 'activitypub/avatars/' . $entry->slug() . '.jpg';
+        
+        // Try to generate the static avatar on-the-fly if it doesn't exist
+        if (!file_exists(public_path($staticPath))) {
+            \Ethernick\ActivityPubCore\Listeners\GenerateActorAvatar::generate($entry);
+        }
+
         if (file_exists(public_path($staticPath))) {
             return [
                 'type' => 'Image',
@@ -638,11 +667,16 @@ class ActivityPubObjectTransformer
             ];
         }
 
-        $avatar = $entry->get('avatar');
-        if ($avatar) {
-            if (! $avatar instanceof \Statamic\Assets\Asset) {
-                // If it's a string (asset ID), find it
-                $avatar = Asset::find($avatar);
+        $avatarPath = $entry->get('avatar');
+        if ($avatarPath) {
+            if ($avatarPath instanceof \Statamic\Assets\Asset) {
+                $avatar = $avatarPath;
+            } else {
+                $avatar = Asset::find($avatarPath);
+                // Try looking up with container prefix if not found
+                if (!$avatar && !str_contains((string) $avatarPath, '::')) {
+                    $avatar = Asset::find('assets::' . $avatarPath);
+                }
             }
             if ($avatar) {
                 return [

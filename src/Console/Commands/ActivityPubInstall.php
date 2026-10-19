@@ -23,12 +23,15 @@ class ActivityPubInstall extends Command
         $this->info('Installing ActivityPub...');
 
         // Step 1: Set up database queue infrastructure
-        // $this->setupQueueTables();
+        $this->setupQueueTables();
 
-        // Step 2: Run ActivityPub-specific migrations
+        // Step 2: Publish configuration file
+        $this->publishConfig();
+
+        // Step 3: Run ActivityPub-specific migrations
         $this->runActivityPubMigrations();
 
-        // Step 3: Publish frontend assets
+        // Step 4: Publish frontend assets
         $this->publishAssets();
 
         $settingsPath = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
@@ -497,5 +500,29 @@ class ActivityPubInstall extends Command
 
         $this->line('');
         $this->info('✓ Frontend assets published!');
+    }
+
+    protected function publishConfig(): void
+    {
+        $targetConfig = config_path('activitypub.php');
+
+        if (File::exists($targetConfig)) {
+            $this->comment('✓ Configuration file already exists at config/activitypub.php, skipping.');
+            return;
+        }
+
+        $this->line('');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->info('  Publishing Configuration File');
+        $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        $this->line('');
+
+        $this->info('Publishing config/activitypub.php...');
+        $this->call('vendor:publish', [
+            '--tag' => 'activitypub-config',
+        ]);
+
+        $this->line('');
+        $this->info('✓ Configuration file published!');
     }
 }

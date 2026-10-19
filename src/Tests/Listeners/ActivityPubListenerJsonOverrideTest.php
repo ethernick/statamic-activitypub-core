@@ -63,7 +63,7 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
         // This should NOT overwrite activitypub_json
         $note->save();
 
-        $this->assertEquals($manualJson, $note->get('activitypub_json'));
+        $this->assertEquals($manualJson, \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw());
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -88,7 +88,7 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
         // This should generate activitypub_json
         $note->save();
 
-        $json = $note->get('activitypub_json');
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
         $this->assertNotNull($json);
         $decoded = json_decode((string) $json, true);
         $this->assertEquals('Note', $decoded['type']);
@@ -134,7 +134,7 @@ class ActivityPubListenerJsonOverrideTest extends TestCase
             ]);
         $activity->save();
 
-        $activityJson = $activity->get('activitypub_json');
+        $activityJson = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($activity)->raw();
         $this->assertNotNull($activityJson);
         $decoded = json_decode((string) $activityJson, true);
 

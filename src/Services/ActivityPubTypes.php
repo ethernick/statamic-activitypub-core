@@ -19,6 +19,10 @@ class ActivityPubTypes
 
     protected static array $outboxHooks = [];
 
+    protected static array $broadcastPolicies = [];
+
+    protected static array $substantiveFields = [];
+
     /**
      * Register a new ActivityPub type from an addon.
      *
@@ -30,6 +34,7 @@ class ActivityPubTypes
      * @param string|null $storeHandler The class name of the CP store handler (saving entries).
      * @param string|null $outboxHandler The class name of the payload formatter (outbox JSON).
      * @param string|null $inboxHandler The class name of the inbox activity handler.
+     * @param array $substantiveFields Field handles that trigger substantive object updates (e.g. ['options', 'voters_count']).
      */
     public static function register(
         string $key, 
@@ -39,7 +44,8 @@ class ActivityPubTypes
         array $collections = [], 
         ?string $storeHandler = null,
         ?string $outboxHandler = null,
-        ?string $inboxHandler = null
+        ?string $inboxHandler = null,
+        array $substantiveFields = []
     ): void
     {
         self::$types[$key] = [
@@ -50,7 +56,15 @@ class ActivityPubTypes
             'store_handler' => $storeHandler,
             'outbox_handler' => $outboxHandler,
             'inbox_handler' => $inboxHandler,
+            'substantive_fields' => $substantiveFields,
         ];
+
+        if (!empty($substantiveFields)) {
+            self::$substantiveFields[$key] = $substantiveFields;
+            foreach ($collections as $col) {
+                self::$substantiveFields[$col] = $substantiveFields;
+            }
+        }
 
         // Automatically register collections for Inbox if provided
         foreach ($collections as $collection) {
@@ -163,6 +177,33 @@ class ActivityPubTypes
     public static function getStoreHandler(string $key): ?string
     {
         return self::$types[$key]['store_handler'] ?? null;
+    }
+
+    public static function getSubstantiveFields(string $keyOrCollection): array
+    {
+        return self::$substantiveFields[$keyOrCollection] ?? [];
+    }
+
+    public static function registerBroadcastPolicy(callable $policy): void
+    {
+        self::$broadcastPolicies[] = $policy;
+    }
+
+    public static function shouldBroadcast(string $type, mixed $entry): bool
+    {
+        // 1. Check entry-level contextual suppression supplement
+        if (method_exists($entry, 'getSupplement') && $entry->getSupplement('activitypub_suppress_broadcast')) {
+            return false;
+        }
+
+        // 2. Evaluate all registered addon broadcast policies
+        foreach (self::$broadcastPolicies as $policy) {
+            if ($policy($type, $entry) === false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function getConfig(): array

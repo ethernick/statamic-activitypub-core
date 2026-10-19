@@ -9,6 +9,7 @@ use Statamic\Facades\Entry;
 use Statamic\Facades\Term;
 use Statamic\Facades\YAML;
 use Statamic\Facades\File;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class ActorController extends BaseObjectController
 {
@@ -243,11 +244,10 @@ class ActorController extends BaseObjectController
                     $items[] = $entry->absoluteUrl();
                 }
             } else {
-                // For content collections (outbox, articles, etc), return the object
-                $json = $entry->get('activitypub_json');
+                $json = ActivityPubPayload::for($entry)->toArray();
 
-                if ($json) {
-                    $items[] = json_decode($json);
+                if (!empty($json)) {
+                    $items[] = $json;
                 }
             }
         }

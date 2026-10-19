@@ -10,7 +10,9 @@ use Ethernick\ActivityPubCore\Services\LinkPreview;
 
 class TestOEmbed extends Command
 {
-    protected $signature = 'activitypub:test-oembed {url : The URL to test}';
+    protected $signature = 'activitypub:test:oembed {url : The URL to test}';
+
+    protected $aliases = ['activitypub:test-oembed'];
 
     protected $description = 'Test OEmbed resolution for a specific URL';
 

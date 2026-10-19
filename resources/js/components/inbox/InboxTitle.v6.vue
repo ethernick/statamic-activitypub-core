@@ -4,9 +4,11 @@
         
         <inbox-filter-bar
             :current-filter="currentFilter"
+            :search="search"
             :can-create-note="canCreateNote"
             :show-new-dropdown="showNewDropdown"
             @filter-change="$emit('filter-change', $event)"
+            @search-change="$emit('search-change', $event)"
             @create-note="$emit('create-note')"
             @toggle-dropdown="$emit('toggle-dropdown')"
             @create-poll="$emit('create-poll')"
@@ -26,6 +28,10 @@ export default {
             type: String,
             default: 'all'
         },
+        search: {
+            type: String,
+            default: ''
+        },
         canCreateNote: {
             type: Boolean,
             default: false
@@ -34,6 +40,7 @@ export default {
             type: Boolean,
             default: false
         }
-    }
+    },
+    emits: ['filter-change', 'search-change', 'create-note', 'toggle-dropdown', 'create-poll']
 }
 </script>

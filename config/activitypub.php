@@ -61,15 +61,15 @@ return [
 
     'http' => [
         // Timeout for HTTP requests to remote servers (seconds)
-        'timeout' => env('ACTIVITYPUB_HTTP_TIMEOUT', 30),
+        'timeout' => env('ACTIVITYPUB_HTTP_TIMEOUT', 15),
 
         // User agent string for outbound requests
         'user_agent' => env('ACTIVITYPUB_USER_AGENT', 'StatamicActivityPub/0.1'),
 
         // Maximum number of concurrent HTTP requests when sending to multiple inboxes
+        // Lower default (3) is tuned for low-resource VPSs (1-2 vCPU, 1-2 GB RAM)
         // Higher values = faster delivery but more server resources
-        // Lower values = slower but more conservative
-        'max_concurrent' => env('ACTIVITYPUB_HTTP_MAX_CONCURRENT', 10),
+        'max_concurrent' => env('ACTIVITYPUB_HTTP_MAX_CONCURRENT', 3),
     ],
 
     /*
@@ -108,6 +108,12 @@ return [
 
         // Days to keep external entries (Notes, Articles, etc. from remote servers)
         'entries' => env('ACTIVITYPUB_RETENTION_ENTRIES', 30),
+
+        // Days to keep filesystem log files (activitypub-YYYY-MM-DD.log)
+        'logs' => env('ACTIVITYPUB_RETENTION_LOGS', 7),
+
+        // Days to keep auto-block audit records (HTTP 410 / suspended actors)
+        'auto_blocks' => env('ACTIVITYPUB_RETENTION_AUTO_BLOCKS', 7),
     ],
 
     /*
@@ -122,6 +128,9 @@ return [
     'schedule' => [
         // Interval in minutes between queue processing runs (1-60)
         'interval' => env('ACTIVITYPUB_SCHEDULE_INTERVAL', 1),
+
+        // Interval in hours between raw file upload sync scans (0 to disable)
+        'sync_interval_hours' => env('ACTIVITYPUB_SCHEDULE_SYNC_HOURS', 1),
 
         // Time of day to run maintenance tasks (HH:MM format)
         'maintenance_time' => env('ACTIVITYPUB_SCHEDULE_MAINTENANCE', '02:00'),

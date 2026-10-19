@@ -28,10 +28,11 @@ class ActivityPubLog
         // Also log to default channel for safety/monitoring
         Log::$level('[ActivityPub] ' . $message, $context);
 
-        // Write to specific log file
+        // Write to specific log file using daily rotation (7 days retention) to prevent runaway disk usage
         Log::build([
-                    'driver' => 'single',
-                    'path' => storage_path('logs/activitypub.log'),
-                ])->$level($message, $context);
+            'driver' => 'daily',
+            'path' => storage_path('logs/activitypub.log'),
+            'days' => 7,
+        ])->$level($message, $context);
     }
 }

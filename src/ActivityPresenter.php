@@ -6,6 +6,7 @@ namespace Ethernick\ActivityPubCore;
 
 use Statamic\Entries\Entry;
 use Illuminate\Support\Str;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class ActivityPresenter
 {
@@ -15,7 +16,7 @@ class ActivityPresenter
     public function __construct(Entry $activity)
     {
         $this->activity = $activity;
-        $this->data = json_decode($activity->get('activitypub_json'), true) ?? [];
+        $this->data = ActivityPubPayload::for($activity)->toArray();
     }
 
     public function getSentence(): string

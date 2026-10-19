@@ -54,19 +54,33 @@ class LinkPreview
 
     public static function fetch(string $url): ?array
     {
+        $cacheKey = 'ap_link_preview_' . md5($url);
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($url) {
+            try {
+                // Fetch content with a strict timeout
+                $response = Http::timeout(4)->get($url);
+
+                if ($response->failed()) {
+                    return null;
+                }
+
+                $html = $response->body();
+                return self::parseHtml($html, $url);
+            } catch (\Exception $e) {
+                Log::error('LinkPreview fetch failed: ' . $e->getMessage());
+                return null;
+            }
+        });
+    }
+
+    public static function parseHtml(?string $html, string $url): ?array
+    {
+        if (empty($html)) {
+            return null;
+        }
+
         try {
-            // Fetch content with a timeout
-            $response = Http::timeout(5)->get($url);
-
-            if ($response->failed()) {
-                return null;
-            }
-
-            $html = $response->body();
-            if (empty($html)) {
-                return null;
-            }
-
             // Extract Meta Tags
             $data = [];
 

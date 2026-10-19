@@ -14,28 +14,37 @@ class GenerateActorAvatar
 {
     public function handle(EntrySaving $event): void
     {
-        /** @var Entry $entry */
-        $entry = $event->entry;
+        self::generate($event->entry);
+    }
 
+    /**
+     * Generate the ActivityPub actor avatar image dynamically.
+     */
+    public static function generate(Entry $entry): bool
+    {
         if ($entry->collectionHandle() !== 'actors') {
-            return;
+            return false;
         }
 
         $avatarPath = $entry->get('avatar');
 
         if (!$avatarPath) {
-            return;
+            return false;
         }
 
-        $asset = Asset::find($avatarPath);
+        if ($avatarPath instanceof \Statamic\Assets\Asset) {
+            $asset = $avatarPath;
+        } else {
+            $asset = Asset::find($avatarPath);
 
-        // Try looking up with container prefix if not found
-        if (!$asset && !str_contains($avatarPath, '::')) {
-            $asset = Asset::find('assets::' . $avatarPath);
+            // Try looking up with container prefix if not found
+            if (!$asset && !str_contains((string) $avatarPath, '::')) {
+                $asset = Asset::find('assets::' . $avatarPath);
+            }
         }
 
         if (!$asset || !$asset->exists()) {
-            return;
+            return false;
         }
 
         $sourcePath = $asset->resolvedPath();
@@ -47,30 +56,43 @@ class GenerateActorAvatar
         }
 
         try {
+            $instance = new self();
             // Use Intervention Image v3 API if available, fallback to GD directly
             if (class_exists(\Intervention\Image\ImageManager::class)) {
-                $this->resizeWithIntervention($sourcePath, $destPath);
+                $instance->resizeWithIntervention($sourcePath, $destPath);
             } else {
-                $this->resizeWithGd($sourcePath, $destPath);
+                $instance->resizeWithGd($sourcePath, $destPath);
             }
+            return true;
         } catch (\Exception $e) {
             // Log error but don't stop saving
             Log::error('Failed to generate ActivityPub avatar: ' . $e->getMessage());
+            return false;
         }
     }
 
     /**
-     * Resize using Intervention Image v3 API
+     * Resize using Intervention Image (supports v3 and v4 APIs)
      */
     protected function resizeWithIntervention(string $sourcePath, string $destPath): void
     {
-        $manager = new \Intervention\Image\ImageManager(
-            \Intervention\Image\Drivers\Gd\Driver::class
-        );
+        $driver = class_exists(\Intervention\Image\Drivers\Gd\Driver::class)
+            ? new \Intervention\Image\Drivers\Gd\Driver()
+            : \Intervention\Image\Drivers\Gd\Driver::class;
 
-        $image = $manager->read($sourcePath);
+        $manager = new \Intervention\Image\ImageManager($driver);
+
+        $image = method_exists($manager, 'read')
+            ? $manager->read($sourcePath)
+            : $manager->decodePath($sourcePath);
+
         $image->cover(256, 256);
-        $image->toJpeg(85)->save($destPath);
+
+        if (method_exists($image, 'toJpeg')) {
+            $image->toJpeg(85)->save($destPath);
+        } else {
+            $image->save($destPath);
+        }
     }
 
     /**

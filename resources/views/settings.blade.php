@@ -6,6 +6,9 @@
         :taxonomies='@json($taxonomies)' :types='@json($types)' save-url="{{ cp_route('activitypub.settings.update') }}"
         logs-url="{{ $logsUrl }}" auto-block-logs-url="{{ $autoBlockLogsUrl }}" 
         clear-auto-block-logs-url="{{ $clearAutoBlockLogsUrl }}" resolve-handle-url="{{ $resolveHandleUrl }}"
+        blocklist-url="{{ $blocklistUrl }}" block-domain-url="{{ $blockDomainUrl }}"
+        block-user-url="{{ $blockUserUrl }}" delete-block-url="{{ $deleteBlockUrl }}"
+        run-maintenance-url="{{ $runMaintenanceUrl }}"
         :extra-tabs='@json($extraTabs)'>
     </activity-pub-settings>
 

@@ -1,3 +1,13 @@
+@layer addon-theme, addon-utilities;
+@import "tailwindcss/theme.css" layer(addon-theme) source(none);
+@import "tailwindcss/utilities.css" layer(addon-utilities) source(none);
+
+@source "/private/srv/statamic/addons/ethernick/ActivityPubCore/resources/js/**/*.vue";
+@source "/private/srv/statamic/addons/ethernick/ActivityPubPlaces/resources/js/**/*.vue";
+@source "/private/srv/statamic/addons/ethernick/ActivityPubEvents/resources/js/**/*.vue";
+@source "/private/srv/statamic/addons/ethernick/ActivityPubQuestions/resources/js/**/*.vue";
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ActivityPub Settings Layout */
 .ap-grid {
     display: grid;
@@ -22,8 +32,6 @@
 .ap-grid p {
     margin-top: 0;
     font-size: 0.75rem;
-    /* text-xs */
     line-height: 1rem;
     color: #6b7280;
-    /* text-gray-500 */
 }
