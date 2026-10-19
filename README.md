@@ -5,14 +5,14 @@
 </p>
 
 [![Statamic 5 & 6](https://img.shields.io/badge/Statamic-5.x%20%7C%206.x-FF269A?style=for-the-badge&logo=statamic&logoColor=white)](https://statamic.com)
-[![Version](https://img.shields.io/badge/Version-0.9.0-orange?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-0.2.0-orange?style=for-the-badge)](CHANGELOG.md)
 [![PHP 8.2+](https://img.shields.io/badge/PHP-%5E8.2-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![ActivityPub Protocol](https://img.shields.io/badge/Fediverse-ActivityPub-2B90D9?style=for-the-badge&logo=mastodon&logoColor=white)](https://w3.org/TR/activitypub/)
 [![Commercial License](https://img.shields.io/badge/License-Source--Available-blue?style=for-the-badge)](LICENSE.md)
 
 > [!NOTE]  
-> **Pre-Release Milestone (v0.9.0):**  
-> ActivityPub Core is feature-complete and undergoing final release gating ahead of official listing on the Statamic Marketplace. Free for local development and non-production testing under our [Commercial Source-Available License](LICENSE.md). Production commercial licensing is **$0 for Single-Actor** sites and **$79 for Multi-Actor / Teams** editions upon official Marketplace launch (includes free upgrade to v1.0.0).
+> **Pre-Release:**  
+> ActivityPub Core is feature-complete and ready to share and debate ahead of official marketplace listing. Free for local development and non-production testing under our [Commercial Source-Available License](https://worktree.ca/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md).
 
 Turn your Statamic site into a fully federated **ActivityPub actor**. Seamlessly syndicate content to Mastodon, Pixelfed, Threads, and the broader Fediverse while receiving follows, likes, replies, and boosts directly inside your Statamic Control Panel.
 
@@ -133,7 +133,7 @@ Looking to build your own custom type? Check out the **[Extension Developer Guid
 
 ## 📄 License
 
-ActivityPub Core for Statamic is source-available software provided under the **[Statamic Commercial License](LICENSE.md)** (free for local development and non-production testing; production usage is **$0 for Single-Actor** and **$79 for Multi-Actor / Teams** editions via the Statamic Marketplace).
+ActivityPub Core for Statamic is source-available software provided under the **[Statamic Commercial License](https://worktree.ca/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md)** (free for local development and non-production testing; requires a commercial license for production deployments).
 
 ## 🦾 AI Disclosure
 
