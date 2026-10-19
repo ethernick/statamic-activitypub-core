@@ -12,7 +12,7 @@
 
 > [!NOTE]  
 > **Pre-Release:**  
-> ActivityPub Core is feature-complete and ready to share and debate ahead of official marketplace listing. Free for local development and non-production testing under our [Commercial Source-Available License](https://worktree.ca/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md).
+> ActivityPub Core is feature-complete and ready to share and debate ahead of official marketplace listing. Free for local development and non-production testing under our [Commercial Source-Available License](https://github.com/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md).
 
 Turn your Statamic site into a fully federated **ActivityPub actor**. Seamlessly syndicate content to Mastodon, Pixelfed, Threads, and the broader Fediverse while receiving follows, likes, replies, and boosts directly inside your Statamic Control Panel.
 
@@ -133,7 +133,7 @@ Looking to build your own custom type? Check out the **[Extension Developer Guid
 
 ## 📄 License
 
-ActivityPub Core for Statamic is source-available software provided under the **[Statamic Commercial License](https://worktree.ca/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md)** (free for local development and non-production testing; requires a commercial license for production deployments).
+ActivityPub Core for Statamic is source-available software provided under the **[Statamic Commercial License](https://github.com/ethernick/statamic-activitypub-core/src/branch/main/LICENSE.md)** (free for local development and non-production testing; requires a commercial license for production deployments).
 
 ## 🦾 AI Disclosure
 
