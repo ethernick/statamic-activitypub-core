@@ -40,16 +40,22 @@
 
             <!-- TAB: Maintenance -->
             <div v-if="currentTab === 'maintenance'">
-                <settings-maintenance :form="form" :logs-url="logsUrl" />
+                <settings-maintenance 
+                    :form="form" 
+                    :logs-url="logsUrl" 
+                    :run-maintenance-url="runMaintenanceUrl" 
+                />
             </div>
 
             <!-- TAB: Blocklist -->
             <div v-if="currentTab === 'blocklist'">
                 <settings-blocklist 
-                    :form="form" 
                     :auto-block-logs-url="autoBlockLogsUrl"
                     :clear-auto-block-logs-url="clearAutoBlockLogsUrl"
-                    :resolve-handle-url="resolveHandleUrl"
+                    :blocklist-url="blocklistUrl"
+                    :block-domain-url="blockDomainUrl"
+                    :block-user-url="blockUserUrl"
+                    :delete-block-url="deleteBlockUrl"
                 />
             </div>
 
@@ -113,6 +119,26 @@ export default {
         },
         resolveHandleUrl: {
             type: String,
+            default: ''
+        },
+        blocklistUrl: {
+            type: String,
+            required: true
+        },
+        blockDomainUrl: {
+            type: String,
+            required: true
+        },
+        blockUserUrl: {
+            type: String,
+            required: true
+        },
+        deleteBlockUrl: {
+            type: String,
+            required: true
+        },
+        runMaintenanceUrl: {
+            type: String,
             required: true
         },
         extraTabs: {
@@ -135,11 +161,11 @@ export default {
                 inbox_batch_size: 50,
                 outbox_batch_size: 50,
                 schedule_interval: 1,
+                sync_interval_hours: 1,
                 maintenance_time: '02:00',
                 retention_activities: 2,
                 retention_entries: 30,
                 retention_auto_blocks: 7,
-                blocklist: '',
                 collections: {},
                 federated: {},
                 types: {},
@@ -163,11 +189,11 @@ export default {
                 inbox_batch_size: this.initialSettings.inbox_batch_size || 50,
                 outbox_batch_size: this.initialSettings.outbox_batch_size || 50,
                 schedule_interval: this.initialSettings.schedule_interval || 1,
+                sync_interval_hours: this.initialSettings.sync_interval_hours ?? 1,
                 maintenance_time: this.initialSettings.maintenance_time || '02:00',
                 retention_activities: this.initialSettings.retention_activities || 2,
                 retention_entries: this.initialSettings.retention_entries || 30,
                 retention_auto_blocks: this.initialSettings.retention_auto_blocks || 7,
-                blocklist: this.initialSettings.blocklist || '',
                 collections: {},
                 federated: {},
                 types: {},
@@ -227,11 +253,11 @@ export default {
                 inbox_batch_size: this.form.inbox_batch_size,
                 outbox_batch_size: this.form.outbox_batch_size,
                 schedule_interval: this.form.schedule_interval,
+                sync_interval_hours: this.form.sync_interval_hours,
                 maintenance_time: this.form.maintenance_time,
                 retention_activities: this.form.retention_activities,
                 retention_entries: this.form.retention_entries,
                 retention_auto_blocks: this.form.retention_auto_blocks,
-                blocklist: this.form.blocklist,
                 hashtags: this.form.hashtags,
                 extra: this.form.extra
             };

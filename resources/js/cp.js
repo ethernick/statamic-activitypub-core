@@ -10,6 +10,8 @@ import ActorLookup from './components/tools/ActorLookup.vue';
 import InboxStack from './components/inbox/InboxStack.vue';
 import InboxNote from './components/inbox/InboxNote.vue';
 import InboxActivity from './components/inbox/InboxActivity.vue';
+import ActivityPubPostCard from './components/feed/ActivityPubPostCard.vue';
+import ActivityPubModals from './components/modal/ActivityPubModals.vue';
 import HookLoader from './components/HookLoader.vue';
 import hooks from './hooks';
 
@@ -48,17 +50,29 @@ const boot = () => {
 
         Statamic.booting(() => {
             Statamic.$components.register('inbox-stack', InboxStack);
-            Statamic.$components.register('activity-pub-hook-loader', HookLoader);
-            Statamic.$components.register('activity-pub-inbox', Inbox);
-            Statamic.$components.register('activity-pub-log', InboxLog);
             Statamic.$components.register('actor_selector-fieldtype', ActorSelector);
-            Statamic.$components.register('activity-pub-settings', Settings);
-            Statamic.$components.register('activity-pub-following', ActivityPubFollowing);
-            Statamic.$components.register('activity-pub-followers', ActivityPubFollowers);
             Statamic.$components.register('queue-status', QueueStatus);
-            Statamic.$components.register('activity-pub-inbox-note', InboxNote);
-            Statamic.$components.register('activity-pub-inbox-activity', InboxActivity);
-            Statamic.$components.register('activity-pub-actor-lookup', ActorLookup);
+
+            // Canonical activitypub-* components with backward-compatible activity-pub-* aliases
+            const registered = [
+                ['activitypub-hook-loader', 'activity-pub-hook-loader', HookLoader],
+                ['activitypub-post-card', 'activity-pub-post-card', ActivityPubPostCard],
+                ['activitypub-modals', 'activity-pub-modals', ActivityPubModals],
+                ['activitypub-modal-host', 'activity-pub-modal-host', ActivityPubModals],
+                ['activitypub-inbox', 'activity-pub-inbox', Inbox],
+                ['activitypub-log', 'activity-pub-log', InboxLog],
+                ['activitypub-settings', 'activity-pub-settings', Settings],
+                ['activitypub-following', 'activity-pub-following', ActivityPubFollowing],
+                ['activitypub-followers', 'activity-pub-followers', ActivityPubFollowers],
+                ['activitypub-inbox-note', 'activity-pub-inbox-note', InboxNote],
+                ['activitypub-inbox-activity', 'activity-pub-inbox-activity', InboxActivity],
+                ['activitypub-actor-lookup', 'activity-pub-actor-lookup', ActorLookup],
+            ];
+
+            registered.forEach(([canonical, alias, comp]) => {
+                Statamic.$components.register(canonical, comp);
+                Statamic.$components.register(alias, comp);
+            });
         });
     } else {
         setTimeout(boot, 10);

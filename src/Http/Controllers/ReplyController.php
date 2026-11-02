@@ -6,6 +6,7 @@ namespace Ethernick\ActivityPubCore\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Statamic\Facades\Entry;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class ReplyController extends BaseObjectController
 {
@@ -65,9 +66,10 @@ class ReplyController extends BaseObjectController
 
         // 4. Construct Collection
         $items = $replies->map(function ($reply) {
-            $json = $reply->get('activitypub_json');
-            if ($json)
-                return json_decode($json);
+            $json = ActivityPubPayload::for($reply)->toArray();
+            if (!empty($json)) {
+                return $json;
+            }
             // Fallback generated ID/Link
             // Ideally we should use a Transformer or safe getter
             $actorSlug = \Statamic\Facades\Entry::find($reply->get('actor'))->slug() ?? 'unknown';

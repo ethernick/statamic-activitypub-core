@@ -1,8 +1,15 @@
 <template>
     <div class="card p-0 h-full">
-        <div class="p-4 border-b dark:border-dark-800" v-if="$slots.header || title">
-            <h2 class="font-bold text-lg" v-if="title">{{ title }}</h2>
-            <p class="text-sm text-gray-500 mt-1" v-if="description">{{ description }}</p>
+        <div class="p-4 border-b dark:border-dark-800" v-if="$slots.header || title || $slots.actions">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-bold text-lg" v-if="title">{{ title }}</h2>
+                    <p class="text-sm text-gray-500 mt-1" v-if="description">{{ description }}</p>
+                </div>
+                <div v-if="$slots.actions" class="flex items-center gap-2">
+                    <slot name="actions"></slot>
+                </div>
+            </div>
             <slot name="header"></slot>
         </div>
         <div class="p-4 space-y-4">

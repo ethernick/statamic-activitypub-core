@@ -8,6 +8,7 @@ use Statamic\Http\Controllers\Controller;
 use Statamic\Facades\Entry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 abstract class BaseController extends Controller
 {
@@ -154,9 +155,10 @@ abstract class BaseController extends Controller
 
         $jsonItems = [];
         foreach ($paginated as $entry) {
-            $json = $entry->get('activitypub_json');
-            if ($json)
-                $jsonItems[] = json_decode($json);
+            $json = ActivityPubPayload::for($entry)->toArray();
+            if (!empty($json)) {
+                $jsonItems[] = $json;
+            }
         }
 
         return response()->json([
@@ -170,12 +172,10 @@ abstract class BaseController extends Controller
 
     protected function returnItemJson(\Statamic\Contracts\Entries\Entry $item): mixed
     {
-        $json = $item->get('activitypub_json');
-        if (is_string($json)) {
-            $json = json_decode($json, true);
-        }
-        if (!$json)
+        $json = ActivityPubPayload::for($item)->toArray();
+        if (empty($json)) {
             abort(404, 'JSON not found');
+        }
         return response()->json($json)->header('Content-Type', 'application/activity+json');
     }
 

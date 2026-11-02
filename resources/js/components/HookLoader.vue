@@ -1,5 +1,5 @@
 <template>
-    <div class="activitypub-hooks">
+    <div v-if="registeredHooks.length" class="activitypub-hooks">
         <component 
             v-for="(hook, idx) in registeredHooks" 
             :key="idx"

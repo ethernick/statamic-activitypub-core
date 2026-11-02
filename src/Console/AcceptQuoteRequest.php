@@ -52,7 +52,7 @@ class AcceptQuoteRequest extends Command
         $this->info("Found QuoteRequest: {$quoteRequest->get('activitypub_id')}");
 
         // Get the full JSON payload
-        $payload = json_decode($quoteRequest->get('activitypub_json'), true);
+        $payload = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($quoteRequest)->toArray();
 
         if (!$payload) {
             $this->error("Error: Could not decode activity JSON");

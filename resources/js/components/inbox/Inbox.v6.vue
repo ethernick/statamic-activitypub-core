@@ -2,9 +2,12 @@
     <div class="max-w-5xl mx-auto">
         <inbox-title
             :current-filter="filter"
+            :search="search"
+            :loading="loading"
             :can-create-note="!!createNoteUrl"
             :show-new-dropdown="showNewDropdown"
             @filter-change="setFilter"
+            @search-change="setSearch"
             @create-note="createNote"
             @toggle-dropdown="toggleNewDropdown"
         />
@@ -74,11 +77,10 @@
             @submit="submitNote"
         />
 
-        <!-- Modals Hook -->
-        <activity-pub-hook-loader 
-            name="inbox-modals" 
+        <!-- Universal Modals Host (e.g. New Poll Form, Event Details, Place & Check-in Stacks) -->
+        <activitypub-modals
+            :actors="localActors"
             :props="{ 
-                actors: localActors, 
                 storePollUrl: storePollUrl, 
                 hashtagEnabled: hashtagEnabled, 
                 hashtagTaxonomy: hashtagTaxonomy, 
@@ -353,6 +355,7 @@ export default {
             perPage: parseInt(localStorage.getItem('activitypub_per_page')) || 25,
             loading: false,
             filter: 'all',
+            search: '',
             error: null,
             localActors: parsedActors,
             activeReplyId: null,
@@ -403,6 +406,21 @@ export default {
     mounted() {
         document.title = 'Inbox ‹ ActivityPub ‹ Statamic';
         this.loadNotes();
+
+        if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus) {
+            this._onBusFilter = (payload) => {
+                const query = typeof payload === 'string' ? payload : (payload?.query || payload?.search || '');
+                if (query) {
+                    this.setSearch(query);
+                }
+            };
+            Statamic.$activitypub.bus.on('activitypub:inbox:filter', this._onBusFilter);
+        }
+    },
+    beforeUnmount() {
+        if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus && this._onBusFilter) {
+            Statamic.$activitypub.bus.off('activitypub:inbox:filter', this._onBusFilter);
+        }
     },
     methods: {
         parseActors(actorsVal) {
@@ -430,7 +448,8 @@ export default {
                 params: {
                     page: this.page,
                     per_page: this.perPage,
-                    filter: this.filter
+                    filter: this.filter,
+                    search: this.search || undefined
                 }
             })
             .then(response => {
@@ -499,6 +518,13 @@ export default {
         setFilter(f) {
             this.filter = f;
             this.page = 1;
+            this.notes = [];
+            this.loadNotes();
+        },
+        setSearch(query) {
+            this.search = query || '';
+            this.page = 1;
+            this.notes = [];
             this.loadNotes();
         },
         getInitialDate() {

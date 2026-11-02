@@ -2,9 +2,12 @@
     <div class="max-w-3xl mx-auto">
         <inbox-title
             :current-filter="filter"
+            :search="search"
+            :loading="loading"
             :can-create-note="!!createNoteUrl"
             :show-new-dropdown="showNewDropdown"
             @filter-change="setFilter"
+            @search-change="setSearch"
             @create-note="createNote"
             @toggle-dropdown="toggleNewDropdown"
         />
@@ -121,11 +124,10 @@
             @edit="editNote"
         />
 
-        <!-- Dynamic Modals Hook (e.g., New Poll Form, New Article Form) -->
-        <activity-pub-hook-loader 
-            name="inbox-modals" 
+        <!-- Universal Modals Host (e.g. New Poll Form, Event Details, Place & Check-in Stacks) -->
+        <activitypub-modals
+            :actors="localActors"
             :props="{ 
-                actors: localActors,
                 storePollUrl,
                 hashtagEnabled,
                 hashtagTaxonomy,
@@ -323,6 +325,7 @@ export default {
             perPage: parseInt(localStorage.getItem('activitypub_per_page')) || 25,
             loading: false,
             filter: 'all',
+            search: '',
             error: null,
             localActors: this.initialActors,
             activeReplyId: null,
@@ -373,6 +376,21 @@ export default {
     mounted() {
         document.title = 'Inbox ‹ ActivityPub ‹ Statamic';
         this.loadNotes();
+
+        if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus) {
+            this._onBusFilter = (payload) => {
+                const query = typeof payload === 'string' ? payload : (payload?.query || payload?.search || '');
+                if (query) {
+                    this.setSearch(query);
+                }
+            };
+            Statamic.$activitypub.bus.on('activitypub:inbox:filter', this._onBusFilter);
+        }
+    },
+    beforeDestroy() {
+        if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus && this._onBusFilter) {
+            Statamic.$activitypub.bus.off('activitypub:inbox:filter', this._onBusFilter);
+        }
     },
     methods: {
         updateReplyForm(newVal) {
@@ -388,7 +406,8 @@ export default {
                 params: {
                     page: this.page,
                     per_page: this.perPage,
-                    filter: this.filter
+                    filter: this.filter,
+                    search: this.search || undefined
                 }
             })
             .then(response => {
@@ -421,15 +440,26 @@ export default {
         fetchBatchPreviews(ids) {
             this.$axios.post(this.batchLinkPreviewUrl, { note_ids: ids })
             .then(response => {
-                 const data = response.data;
-                 this.notes = this.notes.map(note => {
-                     if (data[note.id]) {
-                         return { ...note, link_preview: data[note.id] };
-                     }
-                     return note;
-                 });
+                const payload = response.data;
+                const enrichments = payload.data || payload;
+                this.notes = this.notes.map(note => {
+                    if (enrichments && enrichments[note.id]) {
+                        const item = enrichments[note.id];
+                        return { 
+                            ...note, 
+                            link_preview: item.link_preview !== undefined ? item.link_preview : (item.url ? item : note.link_preview),
+                            oembed: item.oembed !== undefined ? item.oembed : note.oembed,
+                            needs_preview: false
+                        };
+                    }
+                    return { ...note, needs_preview: false };
+                });
             })
-            .catch(console.error);
+            .catch(err => {
+                console.error('Batch enrichment failed:', err);
+                // Clear needs_preview flag on failure to stop pulsing skeleton
+                this.notes = this.notes.map(note => ({ ...note, needs_preview: false }));
+            });
         },
         changePage(p) {
             if (p < 1 || p > this.lastPage) return;
@@ -447,6 +477,13 @@ export default {
         setFilter(f) {
             this.filter = f;
             this.page = 1;
+            this.notes = [];
+            this.loadNotes();
+        },
+        setSearch(query) {
+            this.search = query || '';
+            this.page = 1;
+            this.notes = [];
             this.loadNotes();
         },
         retry() {

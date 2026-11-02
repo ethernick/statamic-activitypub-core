@@ -81,6 +81,19 @@ class AutoGenerateActivityListener
             $type = 'Create';
         }
 
+        // Only emit Update activities if substantive content actually changed
+        // Background saves (e.g. reply counts, token indexing, booster tracking) must NOT blast Update activities
+        if ($type === 'Update' && $entry->getSupplement('_content_changed') === false) {
+            \Illuminate\Support\Facades\Log::info("AutoGenerateActivityListener: Skipping Update activity for {$entry->id()} because content did not change");
+            return;
+        }
+
+        // Evaluate registered broadcast policies and suppression supplements
+        if (! \Ethernick\ActivityPubCore\Services\ActivityPubTypes::shouldBroadcast($type, $entry)) {
+            \Illuminate\Support\Facades\Log::info("AutoGenerateActivityListener: Skipping {$type} activity for {$entry->id()} due to suppression policy");
+            return;
+        }
+
         // SAFETY: Only deduplicate Create activities (a note should only be "Created" once).
         // Update activities are NOT deduplicated — every edit should produce a new Update
         // so that followers receive the latest version of the content.

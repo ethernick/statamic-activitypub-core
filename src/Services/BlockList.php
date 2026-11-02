@@ -127,7 +127,7 @@ class BlockList
     {
         if ($days === null) {
             $settings = static::getSettings();
-            $days = (int) ($settings['retention_auto_blocks'] ?? 7);
+            $days = (int) ($settings['retention_auto_blocks'] ?? config('activitypub.retention.auto_blocks', 7));
         }
 
         $cutoff = \Carbon\Carbon::now()->subDays($days);
@@ -141,6 +141,11 @@ class BlockList
             return [];
         }
         return YAML::parse(File::get($path));
+    }
+
+    public static function reset(): void
+    {
+        static::$blocklist = null;
     }
 
     public static function getList(): array

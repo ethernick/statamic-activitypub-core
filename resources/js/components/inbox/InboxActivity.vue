@@ -1,31 +1,42 @@
 <template>
-    <div :class="isMajor ? 'hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors p-4' : 'px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors border-l-4 border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/10'">
-        <div class="flex gap-4 items-center" :class="{ 'items-start': isMajor }">
+    <div :class="isMajor ? 'hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors p-3 sm:p-4 min-w-0' : 'px-3 sm:px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors border-l-4 border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/10 min-w-0'">
+        <div class="flex gap-2.5 sm:gap-4 items-center" :class="{ 'items-start': isMajor }">
             <!-- Avatar for Major, Icon for Minor -->
             <div class="flex-shrink-0">
                 <template v-if="isMajor">
-                    <img :src="activity.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" loading="lazy" class="w-10 h-10 rounded-full bg-gray-200 object-cover">
+                    <img 
+                        :src="activity.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" 
+                        loading="lazy" 
+                        class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-gray-800 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        @click="filterByAuthor(activity.actor)"
+                        :title="activity.actor?.handle ? `Filter by ${activity.actor.handle}` : 'Filter by author'"
+                    >
                 </template>
-                <div v-else class="w-8 h-8 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500">
+                <div v-else class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500">
                     <div v-if="activity.activity_type === 'Like'" class="text-yellow-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                     </div>
                     <div v-else-if="activity.activity_type === 'Follow'" class="text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                     </div>
                     <div v-else-if="activity.activity_type === 'Announce'" class="text-green-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     </div>
                     <div v-else>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                 </div>
             </div>
 
             <div class="flex-1 min-w-0">
-                <div class="flex items-start justify-between gap-2">
-                    <div class="flex-1 min-w-0" :class="isMajor ? 'text-base' : 'text-xs'">
-                        <span class="font-bold mr-1" :class="isMajor ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'">{{ activity.actor.name }}</span>
+                <div class="flex items-start justify-between gap-1.5 sm:gap-2">
+                    <div class="flex-1 min-w-0" :class="isMajor ? 'text-xs sm:text-sm' : 'text-xs'">
+                        <span 
+                            class="font-bold mr-1 cursor-pointer hover:underline" 
+                            :class="isMajor ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'"
+                            @click="filterByAuthor(activity.actor)"
+                            :title="activity.actor?.handle ? `Filter by ${activity.actor.handle}` : 'Filter by author'"
+                        >{{ activity.actor.name }}</span>
                         
                         <template v-if="!isMajor">
                             <span class="text-gray-500 dark:text-gray-400 lowercase mr-1">{{ activityVerb }}</span>
@@ -34,7 +45,13 @@
                             </span>
                         </template>
 
-                        <span v-if="isMajor" class="text-sm text-gray-500 truncate" :title="activity.actor.handle">{{ activity.actor.handle }}</span>
+                        <span 
+                            v-if="isMajor" 
+                            class="text-sm text-gray-500 truncate cursor-pointer hover:underline" 
+                            :title="`Filter by ${activity.actor.handle}`"
+                            @click="filterByAuthor(activity.actor)"
+                        >{{ activity.actor.handle }}</span>
+                        <activitypub-hook-loader v-if="isMajor" name="post-card-badge" :props="{ item: activity, note: activity, activity, permissions, actors }" />
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <span class="text-xs text-gray-400 whitespace-nowrap" :title="activity.date">{{ activity.date_human }}</span>
@@ -46,21 +63,50 @@
                     </div>
                 </div>
 
+                <!-- Secondary Actions Hook (e.g. Event date/location/ticket actions) -->
+                <div v-if="isMajor" class="mt-1">
+                    <activitypub-hook-loader 
+                        name="inbox-secondary-actions" 
+                        :props="{ note: activity, activity, permissions, actors }"
+                        @edit="$emit('edit', $event)"
+                        @delete="$emit('delete', $event)"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @like="$emit('like', $event)"
+                        @quote="$emit('quote', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
+                        @json="$emit('json', $event)"
+                    />
+                </div>
+
                 <!-- Major Content -->
                 <div v-if="isMajor" class="mt-2">
                     <!-- Fallback if no specialized component -->
                     <div v-if="activity.content" class="mt-2 mb-3 prose dark:prose-invert text-sm max-w-none break-words" v-html="activity.content"></div>
 
+                    <!-- Rich Embed Hooks (e.g. Poll interactive widget, Article reader, Check-in card, Map preview) -->
+                    <activitypub-hook-loader 
+                        name="post-card-body-extra" 
+                        :props="{ note: activity, item: activity, activity, permissions, actors }"
+                        @vote="$emit('vote', $event)"
+                    />
+
                     <!-- Specialized Activity Presentation Hook (e.g. Poll UI) -->
-                    <activity-pub-hook-loader 
+                    <activitypub-hook-loader 
                         :name="`inbox-activity-${activity.activity_type}`" 
-                        :props="{ note: activity, activity, permissions, actors }"
+                        :props="{ note: activity, item: activity, activity, permissions, actors }"
                         @vote="$emit('vote', $event)"
                         @json="$emit('json', $event)"
                     />
                     
+                    <!-- Secondary Metadata Hook (e.g. Map directions, event schedule) -->
+                    <div class="mt-2">
+                        <activitypub-hook-loader name="post-card-meta" :props="{ note: activity, item: activity, permissions, actors }" />
+                    </div>
+
                     <!-- Activity Actions Bar -->
-                    <div class="mt-4 flex items-center gap-4 text-gray-500 border-t border-gray-100 dark:border-gray-800 pt-3">
+                    <div class="mt-3 flex items-center justify-between sm:justify-start sm:gap-6 text-sm text-gray-500 dark:text-gray-400 pt-1">
                         <button class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('reply', activity)" title="Reply">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -90,6 +136,18 @@
                         <button v-if="activity.activitypub_json" class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('json', activity)" title="View JSON">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
                         </button>
+                        <activitypub-hook-loader 
+                            name="post-card-actions" 
+                            :props="{ note: activity, item: activity, activity, permissions, actors }"
+                            @reply="$emit('reply', $event)"
+                            @boost="$emit('boost', $event)"
+                            @like="$emit('like', $event)"
+                            @quote="$emit('quote', $event)"
+                            @history="$emit('history', $event)"
+                            @thread="$emit('thread', $event)"
+                            @json="$emit('json', $event)"
+                            @vote="$emit('vote', $event)"
+                        />
                     </div>
                     
                     <slot name="reply-editor"></slot>
@@ -163,6 +221,16 @@ export default {
                 'Create': `created a ${type}`
             };
             return verbs[this.activity.activity_type] || `performed a ${this.activity.activity_type} activity`;
+        }
+    },
+    methods: {
+        filterByAuthor(actor) {
+            const handle = actor?.handle || actor?.username || actor?.name;
+            if (!handle) return;
+            const query = handle.startsWith('@') ? handle : `@${handle}`;
+            if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus) {
+                Statamic.$activitypub.bus.emit('activitypub:inbox:filter', query);
+            }
         }
     }
 }

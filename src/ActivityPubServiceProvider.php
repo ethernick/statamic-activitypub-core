@@ -36,6 +36,11 @@ class ActivityPubServiceProvider extends AddonServiceProvider
             return new \Ethernick\ActivityPubCore\Services\ActivityPubTypes();
         });
 
+        $this->app->bind(
+            \Statamic\Stache\Stores\CollectionEntriesStore::class,
+            \Ethernick\ActivityPubCore\Storage\CustomCollectionEntriesStore::class
+        );
+
         parent::register();
     }
 
@@ -44,11 +49,18 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         // Register custom ActivityPub types with the library
         // This allows the library to accept Mastodon-specific properties like 'featured'
         \ActivityPhp\Type::add('Person', \Ethernick\ActivityPubCore\Types\Person::class);
+        \ActivityPhp\Type::add('Organization', \Ethernick\ActivityPubCore\Types\Organization::class);
+        \ActivityPhp\Type::add('Service', \Ethernick\ActivityPubCore\Types\Service::class);
         \ActivityPhp\Type::add('Application', \Ethernick\ActivityPubCore\Types\Application::class);
         \ActivityPhp\Type::add('PropertyValue', \Ethernick\ActivityPubCore\Types\PropertyValue::class);
 
         // Load Addon Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        // Publish configuration file
+        $this->publishes([
+            __DIR__ . '/../config/activitypub.php' => config_path('activitypub.php'),
+        ], 'activitypub-config');
 
         // CRITICAL: Register event listeners BEFORE parent::boot()
         // The parent class defers bootEvents() inside Statamic::booted(), which runs
@@ -63,6 +75,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         }
 
         parent::boot();
+        $this->registerCommands();
         $this->registerAssets();
     }
 
@@ -127,9 +140,11 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         $maintenanceTimeout = config('activitypub.queue.maintenance.timeout', 600);
 
         // Allow settings file to override config values (for backwards compatibility)
+        $syncIntervalHours = config('activitypub.schedule.sync_interval_hours', 1);
         if (\Statamic\Facades\File::exists($settingsPath)) {
             $settings = \Statamic\Facades\YAML::parse(\Statamic\Facades\File::get($settingsPath));
             $interval = (int) ($settings['schedule_interval'] ?? $interval);
+            $syncIntervalHours = (int) ($settings['sync_interval_hours'] ?? $syncIntervalHours);
             $maintenanceTime = $settings['maintenance_time'] ?? $maintenanceTime;
             $inboxBatchSize = (int) ($settings['inbox_batch_size'] ?? $inboxBatchSize);
             $outboxBatchSize = (int) ($settings['outbox_batch_size'] ?? $outboxBatchSize);
@@ -165,6 +180,20 @@ class ActivityPubServiceProvider extends AddonServiceProvider
             ->withoutOverlapping()
             ->name('ActivityPub Inbox Processing');
 
+        // ===== DAILY MAINTENANCE (Cleanup & Recalculate) =====
+        $schedule->command('activitypub:maintenance')
+            ->dailyAt($maintenanceTime)
+            ->withoutOverlapping()
+            ->name('ActivityPub Daily Maintenance');
+
+        // ===== PERIODIC FILE SYNC (Ingest Raw File Uploads) =====
+        if ($syncIntervalHours > 0) {
+            $syncCron = ($syncIntervalHours === 1) ? '0 * * * *' : "0 */{$syncIntervalHours} * * *";
+            $schedule->command('activitypub:sync')
+                ->cron($syncCron)
+                ->withoutOverlapping()
+                ->name('ActivityPub File Sync');
+        }
     }
 
     protected function registerEvents(): void
@@ -218,6 +247,7 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         ],
         \Statamic\Events\EntryDeleted::class => [
             \Ethernick\ActivityPubCore\Listeners\AutoGenerateActivityListener::class,
+            \Ethernick\ActivityPubCore\Listeners\ActivityPubListener::class,
         ],
     ];
 
@@ -241,14 +271,16 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Ethernick\ActivityPubCore\Console\Commands\ActivityPubInstall::class,
         \Ethernick\ActivityPubCore\Console\Commands\TestOEmbed::class,
         \Ethernick\ActivityPubCore\Console\Commands\RetryFailedActivityPub::class,
+        \Ethernick\ActivityPubCore\Console\Commands\ActivityPubMigrateJson::class,
+        \Ethernick\ActivityPubCore\Console\Commands\ActivityPubSync::class,
+        \Ethernick\ActivityPubCore\Console\Commands\TestSearch::class,
+        \Ethernick\ActivityPubCore\Console\Commands\TestFuzz::class,
         // Migration commands are auto-discovered by activitypub:migrate
     ];
 
     protected function registerCommands(): void
     {
-        if ($this->app->runningInConsole()) {
-            $this->commands($this->commands);
-        }
+        $this->commands($this->commands);
     }
 
     protected $widgets = [
@@ -282,7 +314,8 @@ class ActivityPubServiceProvider extends AddonServiceProvider
         \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Note', 'Note', 'notes', \Ethernick\ActivityPubCore\Http\Controllers\NoteController::class, ['notes'], \Ethernick\ActivityPubCore\Http\Handlers\NoteStoreHandler::class, \Ethernick\ActivityPubCore\Http\Handlers\NoteOutboxHandler::class);
 
         \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Person', 'Person (Actor)', 'people');
-        //\Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Organization', 'Organization (Actor)', 'organizations');
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Organization', 'Organization (Actor)', 'organizations');
+        \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Service', 'Service / Bot (Actor)', 'services');
         \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('Activity', 'Activity', 'activities');
         \Ethernick\ActivityPubCore\Services\ActivityPubTypes::register('OrderedCollection', 'OrderedCollection', 'ordered-collections');
 

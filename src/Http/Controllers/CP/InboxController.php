@@ -20,6 +20,7 @@ use Statamic\Facades\File;
 use Statamic\Facades\Blink;
 use Illuminate\Support\Facades\Log;
 use Ethernick\ActivityPubCore\Services\ActivityPubUtils;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class InboxController extends CpController
 {
@@ -40,7 +41,7 @@ class InboxController extends CpController
         // Collect all actor IDs, quote IDs, and other data for hooks
         $actorIds = [];
         $quoteIds = [];
-        
+
         $inboxCollections = \Ethernick\ActivityPubCore\Services\ActivityPubTypes::getInboxCollections();
 
         foreach ($items as $item) {
@@ -163,20 +164,16 @@ class InboxController extends CpController
         $ids = $request->input('note_ids');
         $enrichments = [];
 
+        $notesToEnrich = [];
+        $linksToFetch = [];
+
         foreach ($ids as $id) {
             $note = Entry::find($id);
             if (!$note) {
                 continue;
             }
 
-            $enrichment = [];
-            $needsSave = false;
-
-            // Parse content once for both checks
             $content = $note->get('content');
-
-            // Check if content is already HTML (external notes) or Markdown (internal notes)
-            // External notes from ActivityPub are stored as HTML
             $isInternal = $note->get('is_internal', false);
             $htmlContent = $isInternal
                 ? \Statamic\Facades\Markdown::parse((string) $content)
@@ -187,58 +184,74 @@ class InboxController extends CpController
             $hasOembed = false;
 
             if ($existingOembed !== null) {
-                // Already processed
                 if ($existingOembed !== false) {
-                    // Has real oembed data
-                    $enrichment['oembed'] = $existingOembed;
+                    $enrichments[$id]['oembed'] = $existingOembed;
                     $hasOembed = true;
                 }
-                // If false, we already tried and failed - don't return null, just skip
             } else {
-                // Not yet processed - try to fetch
                 $oembedData = \Ethernick\ActivityPubCore\Services\OEmbed::resolve($htmlContent);
-
                 if ($oembedData) {
                     $note->set('oembed_data', $oembedData);
-                    $enrichment['oembed'] = $oembedData;
+                    $enrichments[$id]['oembed'] = $oembedData;
                     $hasOembed = true;
-                    $needsSave = true;
+                    $note->saveQuietly();
                 } else {
-                    // Store false to indicate "no oembed found" (prevents re-checking)
                     $note->set('oembed_data', false);
-                    $needsSave = true;
+                    $note->saveQuietly();
                 }
             }
 
             // 2. Link Preview enrichment (OpenGraph/Twitter cards)
-            // ONLY return link preview if no OEmbed was found
             if (!$hasOembed) {
                 $existingPreview = $note->get('link_preview');
                 if ($existingPreview && !empty($existingPreview)) {
-                    // Already has link preview
-                    $enrichment['link_preview'] = $existingPreview;
+                    $enrichments[$id]['link_preview'] = $existingPreview;
                 } else {
-                    // Try to fetch link preview
                     if ($url = LinkPreview::extractUrl($htmlContent)) {
-                        $previewData = LinkPreview::fetch($url);
-
-                        if ($previewData) {
-                            $note->set('link_preview', $previewData);
-                            $enrichment['link_preview'] = $previewData;
-                            $needsSave = true;
-                        }
+                        $notesToEnrich[$id] = ['note' => $note, 'url' => $url];
+                        $linksToFetch[$url] = true;
                     }
                 }
             }
+        }
 
-            // Save once if any changes
-            if ($needsSave) {
-                $note->saveQuietly();
+        // Concurrent Link Preview Pooling: Fetch all external targets simultaneously
+        if (!empty($linksToFetch)) {
+            $urls = array_keys($linksToFetch);
+            $responses = [];
+
+            try {
+                $responses = \Illuminate\Support\Facades\Http::pool(function ($pool) use ($urls) {
+                    return collect($urls)->mapWithKeys(function ($url) use ($pool) {
+                        return [$url => $pool->timeout(4)->get($url)];
+                    })->all();
+                });
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Batch link enrichment pool error: ' . $e->getMessage());
             }
 
-            // Return enrichment data for this note
-            if (!empty($enrichment)) {
-                $enrichments[$id] = $enrichment;
+            foreach ($notesToEnrich as $id => $item) {
+                $note = $item['note'];
+                $url = $item['url'];
+                $previewData = null;
+
+                if (isset($responses[$url])) {
+                    $res = $responses[$url];
+                    if ($res instanceof \Illuminate\Http\Client\Response && $res->successful()) {
+                        $previewData = LinkPreview::parseHtml($res->body(), $url);
+                    }
+                }
+
+                // If pool missed or failed, fall back to cached fetch
+                if (!$previewData) {
+                    $previewData = LinkPreview::fetch($url);
+                }
+
+                if ($previewData) {
+                    $note->set('link_preview', $previewData);
+                    $note->saveQuietly();
+                    $enrichments[$id]['link_preview'] = $previewData;
+                }
             }
         }
 
@@ -315,14 +328,20 @@ class InboxController extends CpController
         $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
         $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
+        $uuid = (string) \Illuminate\Support\Str::uuid();
+        $now = now();
+
         $entry = Entry::make()
             ->collection('notes')
+            ->id($uuid)
+            ->slug($uuid)
+            ->date($now)
             ->published(true)
             ->data([
                 'content' => $request->input('content'),
                 'actor' => [$actor->id()],
                 'in_reply_to' => $request->input('in_reply_to'),
-                'date' => now()->format('Y-m-d H:i'),
+                'date' => $now->format('Y-m-d H:i:s'),
                 'sensitive' => $request->filled('content_warning'),
                 'summary' => $request->input('content_warning'),
                 $hashtagField => $request->input('tags', []),
@@ -558,7 +577,8 @@ class InboxController extends CpController
                 $object = $activity->get('object');
                 if (is_array($object)) {
                     $objId = $object['id'] ?? $object[0] ?? null;
-                    if (is_array($objId)) $objId = $objId['id'] ?? null;
+                    if (is_array($objId))
+                        $objId = $objId['id'] ?? null;
                     $object = $objId;
                 }
                 return $object === $apId || $object === $entryUrl || $object === $id;
@@ -605,7 +625,7 @@ class InboxController extends CpController
             $query->whereIn('collection', array_merge(['activities'], $inboxCollections));
             $query->where(function ($q) {
                 $q->whereNotIn('collection', ['activities'])
-                  ->orWhereIn('type', ['Arrive', 'Travel', 'Offer', 'Listen', 'Question', 'Follow', 'Like', 'Announce']);
+                    ->orWhereIn('type', ['Arrive', 'Travel', 'Offer', 'Listen', 'Question', 'Follow', 'Like', 'Announce']);
             });
         } else {
             // Default: include all relevant collections
@@ -635,38 +655,131 @@ class InboxController extends CpController
 
         $query->orderBy('date', 'desc')->orderBy('id', 'desc');
 
-        // Handle mentions filtering manually (array field queries don't work in Statamic)
-        if ($filter === 'mentions' && !empty($mentionTargets)) {
-            $allItems = $query->get();
-            $filteredItems = $allItems->filter(function ($entry) use ($mentionTargets) {
-                $mentionedUrls = $entry->get('mentioned_urls', []);
-                if (!is_array($mentionedUrls)) {
-                    return false;
+        $search = trim((string) $request->input('search', $request->input('q', '')));
+
+        // 1. Mentions filter using indexed mentioned_urls
+        if ($filter === 'mentions') {
+            if (!empty($mentionTargets)) {
+                $query->where(function ($q) use ($mentionTargets) {
+                    $q->whereJsonOverlaps('mentioned_urls', $mentionTargets)
+                      ->orWhereIn('mentioned_urls', $mentionTargets);
+                });
+            } else {
+                $query->where('id', '___MATCH_FAIL___');
+            }
+        }
+
+        // 2. Search filter utilizing indexed fields directly on the query builder
+        if ($search !== '') {
+            $settings = Blink::once('activitypub-settings', function () {
+                $path = \Ethernick\ActivityPubCore\Services\ActivityPubUtils::settingsPath();
+                if (!File::exists($path)) {
+                    return [];
                 }
-                foreach ($mentionTargets as $target) {
-                    if (in_array($target, $mentionedUrls)) {
-                        return true;
+                return YAML::parse(File::get($path));
+            });
+            $hashtagField = $settings['hashtags']['field'] ?? 'tags';
+
+            if (str_starts_with($search, '@')) {
+                // Filter by author/actor handle, username, domain, or slug using fast cached map
+                $rawHandle = trim(ltrim($search, '@'));
+                if ($rawHandle === '') {
+                    // Empty '@' entered - match nothing rather than returning entire collection
+                    $query->where('id', '___MATCH_FAIL___');
+                } else {
+                    $handleLower = strtolower($rawHandle);
+                    $extractedUsername = explode('@', $handleLower)[0] ?? $handleLower;
+
+                    // Resolve matching actor IDs instantly from dedicated actor search index (sub-millisecond)
+                    $matchedActorIds = \Ethernick\ActivityPubCore\Search\ActorSearchIndex::findActorIds($rawHandle);
+
+                    if (!empty($matchedActorIds)) {
+                        // PURE INDEXED LOOKUP: Avoid linear disk scans across thousands of entries
+                        $query->where(function ($q) use ($matchedActorIds) {
+                            $q->whereJsonOverlaps('actor', $matchedActorIds)
+                              ->orWhereIn('actor', $matchedActorIds);
+                        });
+                    } else {
+                        // Fallback substring search ONLY if no actors resolved in index
+                        $query->where(function ($q) use ($handleLower, $extractedUsername) {
+                            $q->where('actor', 'like', "%{$handleLower}%")
+                              ->orWhere('actor_name', 'like', "%{$handleLower}%");
+
+                            if ($extractedUsername !== '' && $extractedUsername !== $handleLower) {
+                                $q->orWhere('actor', 'like', "%{$extractedUsername}%")
+                                  ->orWhere('actor_name', 'like', "%{$extractedUsername}%");
+                            }
+                        });
                     }
                 }
-                return false;
-            });
+            } elseif (str_starts_with($search, '#')) {
+                // Filter by hashtag using indexed tags field + content body search
+                $rawTag = trim(ltrim($search, '#'));
+                if ($rawTag === '') {
+                    // Empty '#' entered - match nothing rather than returning entire collection
+                    $query->where('id', '___MATCH_FAIL___');
+                } else {
+                    $tagLower = strtolower($rawTag);
+                    $tagUpper = strtoupper($rawTag);
 
-            // Manual pagination
-            $total = $filteredItems->count();
-            $offset = ($page - 1) * $perPage;
-            $items = $filteredItems->slice($offset, $perPage)->values();
+                    $query->where(function ($q) use ($tagLower, $tagUpper, $hashtagField) {
+                        $q->whereJsonOverlaps($hashtagField, [$tagLower, $tagUpper, ucfirst($tagLower)])
+                          ->orWhere($hashtagField, 'like', "%{$tagLower}%")
+                          ->orWhere('content', 'like', "%#{$tagLower}%");
+                    });
+                }
+            } else {
+                // Free-text search:
+                // Check if query matches an author/actor/user, or keywords in content/title
+                $tokens = \Ethernick\ActivityPubCore\Search\SearchTokenExtractor::extract($search);
+                $matchedActorIds = \Ethernick\ActivityPubCore\Search\ActorSearchIndex::findActorIds($search);
+                $needle = strtolower($search);
 
-            // Create a paginator instance manually
-            $inboxItems = new \Illuminate\Pagination\LengthAwarePaginator(
-                $items,
-                $total,
-                $perPage,
-                $page,
-                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
-            );
-        } else {
-            $inboxItems = $query->paginate($perPage);
+                $query->where(function ($q) use ($matchedActorIds, $tokens, $needle, $hashtagField) {
+                    // 1. Match author/actor if search matches an actor/user
+                    if (!empty($matchedActorIds)) {
+                        $q->whereJsonOverlaps('actor', $matchedActorIds)
+                          ->orWhereIn('actor', $matchedActorIds);
+                    }
+
+                    // 2. Match content tokens or fallback text fields
+                    if (!empty($tokens)) {
+                        $contentMatch = function ($sub) use ($tokens, $needle) {
+                            foreach ($tokens as $token) {
+                                $sub->whereJsonOverlaps('search_tokens', [$token]);
+                            }
+                            $sub->orWhere('actor', 'like', "%{$needle}%")
+                                ->orWhere('actor_name', 'like', "%{$needle}%");
+                        };
+
+                        if (!empty($matchedActorIds)) {
+                            $q->orWhere($contentMatch);
+                        } else {
+                            $contentMatch($q);
+                        }
+                    } else {
+                        // Fallback substring scan ONLY if query has zero extractable tokens (e.g. stop words)
+                        $fallback = function ($sub) use ($needle, $hashtagField) {
+                            $sub->where('title', 'like', "%{$needle}%")
+                                ->orWhere('content', 'like', "%{$needle}%")
+                                ->orWhere('summary', 'like', "%{$needle}%")
+                                ->orWhere('actor', 'like', "%{$needle}%")
+                                ->orWhere('actor_name', 'like', "%{$needle}%")
+                                ->orWhere($hashtagField, 'like', "%{$needle}%")
+                                ->orWhereJsonOverlaps($hashtagField, [$needle, strtoupper($needle), ucfirst($needle)]);
+                        };
+
+                        if (!empty($matchedActorIds)) {
+                            $q->orWhere($fallback);
+                        } else {
+                            $fallback($q);
+                        }
+                    }
+                });
+            }
         }
+
+        $inboxItems = $query->paginate($perPage);
 
         // --- BATCHING OPTIMIZATION ---
         // 1. Clear caches for fresh request
@@ -697,11 +810,15 @@ class InboxController extends CpController
         // We also wrap this in a TRY-CATCH to ensure the inbox NEVER crashes due to this optimization.
         if (!empty($objectIds) && !empty($userActors)) {
             try {
-                $userBoosts = Entry::query()
+                $userBoostsQuery = Entry::query()
                     ->where('collection', 'activities')
                     ->where('type', 'Announce')
-                    ->whereIn('actor', $userActors)
-                    ->get();
+                    ->whereIn('actor', $userActors);
+
+                // Scope to recent activities window to prevent full scan across long historical datasets
+                $userBoostsQuery->where('date', '>=', now()->subDays(60)->format('Y-m-d'));
+
+                $userBoosts = $userBoostsQuery->get();
 
                 // Filter in memory to match current page objects
                 foreach ($userBoosts as $boost) {
@@ -796,8 +913,10 @@ class InboxController extends CpController
             $rootIds[] = $aid;
         }
         if ($rootNote->collection()->handle() === 'activities' && $obj = $rootNote->get('object')) {
-             if (is_string($obj)) $rootIds[] = $obj;
-             elseif (is_array($obj) && isset($obj['id'])) $rootIds[] = $obj['id'];
+            if (is_string($obj))
+                $rootIds[] = $obj;
+            elseif (is_array($obj) && isset($obj['id']))
+                $rootIds[] = $obj['id'];
         }
         if ($absUrl = $rootNote->absoluteUrl()) {
             $rootIds[] = $absUrl;
@@ -873,165 +992,40 @@ class InboxController extends CpController
 
         // Shared properties
         $id = $entry->id();
-        $date = $entry->date();
-        $apJson = $entry->get('activitypub_json');
+        $apJson = ActivityPubPayload::for($entry)->raw();
         $payload = is_string($apJson) ? json_decode($apJson, true) : [];
 
-        if (!$date && !empty($payload['published'])) {
+        // Determine date: prioritize ActivityPub JSON updated timestamp first, then explicit entry date, published date, and fallback
+        if (!empty($payload['updated'])) {
+            $date = \Carbon\Carbon::parse($payload['updated']);
+        } elseif ($rawEntryDate = ($entry->get('date') ?? $entry->get('start_time'))) {
+            $date = \Carbon\Carbon::parse($rawEntryDate);
+        } elseif (!empty($payload['published'])) {
             $date = \Carbon\Carbon::parse($payload['published']);
+        } else {
+            $date = $entry->date();
         }
 
         // INBOX COLLECTIONS Processing
         if (in_array($collection, $inboxCollections)) {
             $note = $entry;
-            $actor = $this->resolveActor($note->get('actor'), $request);
-            if (!$actor) {
-                $actor = ['name' => 'Unknown', 'handle' => '@unknown', 'avatar' => null, 'url' => '#'];
+
+            // 1. Fetch or build the immutable Content Shell (Markdown, Attachments, Sidecar JSON, Actor)
+            $shell = $this->getOrBuildCardShell($note, $request, $includeParent, $userActors);
+            if (!$shell) {
+                return null;
             }
 
-            // Check for new Boost Logic (merged into note)
-            $boostedByArray = $note->get('boosted_by', []);
-            $lastBoosterId = null;
-            if (!empty($boostedByArray) && is_array($boostedByArray)) {
-                $lastBoosterId = end($boostedByArray);
-            }
-
-            $isBoost = $note->get('is_boost', false); // Legacy check
-            $boostedBy = null;
-
-            if ($lastBoosterId) {
-                $isBoost = true;
-                $boosterActor = $this->resolveActor($lastBoosterId, $request);
-                if ($boosterActor) {
-                    $boostedBy = [
-                        'name' => $boosterActor['name'],
-                        'handle' => $boosterActor['handle']
-                    ];
-                }
-            } elseif ($isBoost) {
-                // Legacy Boost Logic (separate entry)
-                $reblogOf = $note->get('reblog_of');
-                if (is_array($reblogOf))
-                    $reblogOf = $reblogOf[0] ?? null; // Statamic relation
-
-                $originalNote = null;
-                if ($reblogOf)
-                    $originalNote = Entry::find($reblogOf);
-
-                if ($originalNote) {
-                    $boosterActor = $this->resolveActor($note->get('actor'), $request);
-                    if ($boosterActor) {
-                        $boostedBy = [
-                            'name' => $boosterActor['name'],
-                            'handle' => $boosterActor['handle'] // Keep simplified for UI
-                        ];
-                    }
-                    $note = $originalNote;
-                    // Resolve original actor
-                    $actor = $this->resolveActor($note->get('actor'), $request);
-                }
-            }
-
-            // If actor is missing from original note (e.g. deleted), handle gracefully
-            if (!$actor) {
-                $actor = ['name' => 'Unknown', 'handle' => '@unknown', 'avatar' => null, 'url' => '#'];
-            }
-
-            $cleanContent = strip_tags(\Statamic\Facades\Markdown::parse((string) $note->get('content')), '<p><br><a><strong><em><u><i><b><blockquote><ul><ol><li><code><pre><img><span><div><h1><h2><h3><h4><h5><h6><del><s><strike>');
-
-            // Filter out items with no content and no attachments, unless it's a boost or a Poll
-            if (empty(trim(strip_tags($cleanContent))) && empty($note->get('attachment', [])) && !$isBoost) {
-                // If it's a Note/Article, ensure it has some reason to exist in the feed
-                // Polls usually have votersCount or options in the payload
-                if (!isset($payload['votersCount']) && !isset($payload['oneOf']) && !isset($payload['anyOf'])) {
-                    return null;
-                }
-            }
-
-            // Attachments
-            $attachments = [];
-            $oembed = null;
-
-            if (isset($payload['attachment']) && is_array($payload['attachment'])) {
-                foreach ($payload['attachment'] as $att) {
-                    $type = $att['type'] ?? '';
-                    if (in_array($type, ['Document', 'Image']) && str_starts_with($att['mediaType'] ?? '', 'image/')) {
-                        $attachments[] = [
-                            'type' => 'image',
-                            'url' => $att['url'] ?? '',
-                            'description' => $att['name'] ?? '',
-                            'aspect_ratio' => ($att['width'] ?? 0) && ($att['height'] ?? 0) ? ($att['width'] / $att['height']) : null
-                        ];
-                    }
-                }
-            }
-
-            // Use cached oembed data (fetched asynchronously via batchEnrichment endpoint)
-            $oembed = $note->get('oembed_data');
-            $linkPreview = $note->get('link_preview');
-            $needsPreview = false;
-
-            // Flag for enrichment if neither oembed nor link preview exists
-            if ($oembed === null && empty($linkPreview)) {
-                if (LinkPreview::extractUrl($cleanContent)) {
-                    $needsPreview = true;
-                }
-            }
-
-            $obsUrl = $note->get('activitypub_id');
-            if (!$obsUrl) {
-                $obsUrl = $note->absoluteUrl();
-            }
-
-            // Parent Context (Recursive but limited)
-            $parent = null;
-            if ($includeParent && $note->get('in_reply_to')) {
-                $parentId = $note->get('in_reply_to');
-                $parentEntry = Entry::find($parentId);
-                if (!$parentEntry) {
-                    $parentEntry = Entry::query()->where('collection', 'notes')->where('activitypub_id', $parentId)->first();
-                }
-
-                if ($parentEntry) {
-                    $parent = $this->transformEntry($parentEntry, $request, $userActors, false); // Don't recurse further for now
-                }
-            }
-
-            $data = [
-                'type' => $collection === 'notes' ? 'note' : $collection,
-                'id' => $note->id(),
-                'content' => $cleanContent,
-                'content_raw' => $note->get('content'), // Raw markdown for editing
-                'attachments' => $attachments,
-                'oembed' => $oembed,
-                'link_preview' => $linkPreview,
-                'needs_preview' => $needsPreview,
-                'date' => $date ? $date->format('M j, Y H:i') : null,
-                'date_human' => $date ? $date->diffForHumans() : null,
-                'actor' => $actor,
-                'counts' => [
-                    'replies' => (int) $note->get('reply_count', 0),
-                    'boosts' => (int) $note->get('boost_count', 0),
-                    'likes' => (int) $note->get('like_count', 0),
-                ],
-                'liked_by_user' => $this->checkIfLiked($note, $userActors),
-                'actions' => [
-                    'reply' => cp_route('collections.entries.create', ['collection' => 'notes', 'site' => \Statamic\Facades\Site::selected()->handle(), 'in_reply_to' => $note->id()]),
-                    'view' => $obsUrl,
-                    'thread' => cp_route('activitypub.thread', ['id' => $note->id()]),
-                ],
-                'activitypub_json' => $apJson,
-                'is_boost' => $isBoost ?? false,
-                'boosted_by' => $boostedBy,
-                'boosted_by_user' => $this->checkIfBoosted($note, $userActors),
-                'quote' => $this->resolveQuote($note),
-                'sensitive' => (bool) $note->get('sensitive', false),
-                'summary' => $note->get('summary'),
-                'is_internal' => (bool) $note->get('is_internal', false),
-                'related_activity_count' => (int) $note->get('related_activity_count', 0),
-                'parent' => $parent,
-                'tags' => $entry->get('tags', []),
+            // 2. Clone the shell and overlay volatile, dynamic interaction state & user status
+            $data = $shell;
+            $data['counts'] = [
+                'replies' => (int) $note->get('reply_count', 0),
+                'boosts'  => (int) $note->get('boost_count', 0),
+                'likes'   => (int) $note->get('like_count', 0),
             ];
+            $data['liked_by_user'] = $this->checkIfLiked($note, $userActors);
+            $data['boosted_by_user'] = $this->checkIfBoosted($note, $userActors);
+            $data['related_activity_count'] = (int) $note->get('related_activity_count', 0);
 
             // Execute addon transform hooks
             \Ethernick\ActivityPubCore\Services\ActivityPubTypes::executeTransformHooks($entry, $data);
@@ -1065,9 +1059,11 @@ class InboxController extends CpController
                 }
 
                 if ($objId) {
-                    // Optimized query to avoid Stache 'selectedQueryColumns on null' crash in nested loops
-                    $notes = \Statamic\Facades\Collection::find('notes');
-                    $exists = $notes ? $notes->queryEntries()->where('activitypub_id', $objId)->first() : null;
+                    // Direct indexed lookup against CustomCollectionEntriesStore (indexed activitypub_id: ~2ms vs ~25ms)
+                    $exists = Entry::query()
+                        ->where('collection', 'notes')
+                        ->where('activitypub_id', $objId)
+                        ->first();
 
                     // Fallback checks...
                     if (!$exists) {
@@ -1109,7 +1105,7 @@ class InboxController extends CpController
 
             $objectType = is_array($object) ? ($object['type'] ?? 'Object') : 'Object';
             $objectSummary = is_array($object) ? ($object['name'] ?? $object['summary'] ?? null) : null;
-            
+
             // If object is just a string URL, try to resolve its type/summary from local system
             if (is_string($object)) {
                 $localEntry = Entry::find($object);
@@ -1120,10 +1116,11 @@ class InboxController extends CpController
                         $localEntry = Entry::findByUri($uri);
                     }
                 }
-                
+
                 if ($localEntry) {
                     $localActorId = $localEntry->get('actor');
-                    if (is_array($localActorId)) $localActorId = $localActorId[0] ?? null;
+                    if (is_array($localActorId))
+                        $localActorId = $localActorId[0] ?? null;
                     $objectActorId = $localActorId;
 
                     $handle = $localEntry->collection()->handle();
@@ -1131,7 +1128,7 @@ class InboxController extends CpController
                     $objectSummary = $localEntry->get('title') ?? $localEntry->get('name');
 
                     // If summary is a UUID or empty, try content field
-                    if (!$objectSummary || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string)$objectSummary)) {
+                    if (!$objectSummary || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string) $objectSummary)) {
                         $entryContent = $localEntry->get('content');
                         if ($entryContent) {
                             $objectSummary = \Illuminate\Support\Str::limit(strip_tags($entryContent), 100);
@@ -1140,16 +1137,17 @@ class InboxController extends CpController
                 }
             }
 
-            if ($type === 'Follow') $objectType = 'Actor';
+            if ($type === 'Follow') {
+                $objectType = 'Actor';
+            }
 
             // Fallback: If we still have a generic 'Object' OR a UUID summary, try to peek into the activitypub_json
-            $isUuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string)$objectSummary);
+            $isUuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string) $objectSummary);
             if ($apJson && ($objectType === 'Object' || $isUuid)) {
-                $payload = is_string($apJson) ? json_decode($apJson, true) : $apJson;
-                $nestedObj = $payload['object'] ?? null;
+                $nestedObj = is_array($payload) ? ($payload['object'] ?? null) : null;
                 if (is_array($nestedObj) && isset($nestedObj['type'])) {
                     $objectType = $nestedObj['type'];
-                    
+
                     // If we had a UUID or nothing, try to get a better name/summary/content
                     if (!$objectSummary || $isUuid) {
                         $newSummary = $nestedObj['name'] ?? $nestedObj['summary'] ?? null;
@@ -1179,17 +1177,22 @@ class InboxController extends CpController
             }
 
             // Fix apJson variable scope if needed, assume it comes from entry
-            $apJson = $activity->get('activitypub_json');
+
+            $isMajor = in_array($type, ['Arrive', 'Travel', 'Offer', 'Listen', 'Question', 'Create', 'Event']);
 
             $data = [
                 'type' => 'activity',
+                'collection' => 'activities',
                 'activity_type' => $type,
+                'is_major' => $isMajor,
                 'id' => $activity->id(),
+                'title' => $activity->get('title'),
                 'content' => $summary,
                 'attachments' => [],
-                'date' => $activity->date() ? $activity->date()->format('M j, Y H:i') : null, // Use activity date
-                'date_human' => $activity->date() ? $activity->date()->diffForHumans() : null,
+                'date' => $date ? $date->format('M j, Y H:i') : ($activity->date() ? $activity->date()->format('M j, Y H:i') : null),
+                'date_human' => $date ? $date->diffForHumans() : ($activity->date() ? $activity->date()->diffForHumans() : null),
                 'actor' => $actor,
+                'actor_name' => $actor['name'] ?? ($activity->get('actor_name') ?? 'ActivityPub User'),
                 'actions' => [
                     'view' => $objectUrl,
                 ],
@@ -1199,6 +1202,7 @@ class InboxController extends CpController
                 'object_summary' => $objectSummary,
                 'object_url' => $objectUrl,
                 'object_actor_id' => $objectActorId ?? (is_array($object) ? ($object['attributedTo'] ?? $object['actor'] ?? null) : null),
+                'tags' => $activity->get('tags', []),
             ];
 
             // Execute addon transform hooks (e.g. for Arrive activities)
@@ -1208,6 +1212,173 @@ class InboxController extends CpController
         }
 
         return null;
+    }
+
+    /**
+     * Get or build the cached immutable Content Shell for a note.
+     * Caches CommonMark parsed HTML, sidecar JSON, attachments, and actor resolution.
+     * Volatile interaction state (counts, liked_by_user, boosted_by_user) is NEVER cached here.
+     */
+    protected function getOrBuildCardShell(mixed $note, Request $request, bool $includeParent, array $userActors): ?array
+    {
+        $id = $note->id();
+        $cacheKey = "ap:card_shell:{$id}";
+
+        return \Illuminate\Support\Facades\Cache::rememberForever($cacheKey, function () use ($note, $request, $includeParent, $userActors) {
+            $collection = $note->collection()->handle();
+
+            $apJson = ActivityPubPayload::for($note)->raw();
+            $payload = is_string($apJson) ? json_decode($apJson, true) : [];
+
+            // Determine date: prioritize ActivityPub JSON updated timestamp first, then explicit entry date, published date, and fallback
+            if (!empty($payload['updated'])) {
+                $date = \Carbon\Carbon::parse($payload['updated']);
+            } elseif ($rawEntryDate = ($note->get('date') ?? $note->get('start_time'))) {
+                $date = \Carbon\Carbon::parse($rawEntryDate);
+            } elseif (!empty($payload['published'])) {
+                $date = \Carbon\Carbon::parse($payload['published']);
+            } else {
+                $date = $note->date();
+            }
+
+            $actor = $this->resolveActor($note->get('actor'), $request);
+            if (!$actor) {
+                $actor = ['name' => 'Unknown', 'handle' => '@unknown', 'avatar' => null, 'url' => '#'];
+            }
+
+            // Check for new Boost Logic (merged into note)
+            $boostedByArray = $note->get('boosted_by', []);
+            $lastBoosterId = null;
+            if (!empty($boostedByArray) && is_array($boostedByArray)) {
+                $lastBoosterId = end($boostedByArray);
+            }
+
+            $isBoost = $note->get('is_boost', false);
+            $boostedBy = null;
+
+            if ($lastBoosterId) {
+                $isBoost = true;
+                $boosterActor = $this->resolveActor($lastBoosterId, $request);
+                if ($boosterActor) {
+                    $boostedBy = [
+                        'name' => $boosterActor['name'],
+                        'handle' => $boosterActor['handle']
+                    ];
+                }
+            } elseif ($isBoost) {
+                $reblogOf = $note->get('reblog_of');
+                if (is_array($reblogOf)) {
+                    $reblogOf = $reblogOf[0] ?? null;
+                }
+
+                $originalNote = null;
+                if ($reblogOf) {
+                    $originalNote = Entry::find($reblogOf);
+                }
+
+                if ($originalNote) {
+                    $boosterActor = $this->resolveActor($note->get('actor'), $request);
+                    if ($boosterActor) {
+                        $boostedBy = [
+                            'name' => $boosterActor['name'],
+                            'handle' => $boosterActor['handle']
+                        ];
+                    }
+                    $note = $originalNote;
+                    $actor = $this->resolveActor($note->get('actor'), $request);
+                }
+            }
+
+            if (!$actor) {
+                $actor = ['name' => 'Unknown', 'handle' => '@unknown', 'avatar' => null, 'url' => '#'];
+            }
+
+            $cleanContent = strip_tags(
+                \Statamic\Facades\Markdown::parse((string) $note->get('content')),
+                '<p><br><a><strong><em><u><i><b><blockquote><ul><ol><li><code><pre><img><span><div><h1><h2><h3><h4><h5><h6><del><s><strike>'
+            );
+
+            // Filter out items with no content and no attachments, unless it's a boost or a Poll
+            if (empty(trim(strip_tags($cleanContent))) && empty($note->get('attachment', [])) && !$isBoost) {
+                if (!isset($payload['votersCount']) && !isset($payload['oneOf']) && !isset($payload['anyOf'])) {
+                    return null;
+                }
+            }
+
+            // Attachments
+            $attachments = [];
+            if (isset($payload['attachment']) && is_array($payload['attachment'])) {
+                foreach ($payload['attachment'] as $att) {
+                    $type = $att['type'] ?? '';
+                    if (in_array($type, ['Document', 'Image']) && str_starts_with($att['mediaType'] ?? '', 'image/')) {
+                        $attachments[] = [
+                            'type' => 'image',
+                            'url' => $att['url'] ?? '',
+                            'description' => $att['name'] ?? '',
+                            'aspect_ratio' => ($att['width'] ?? 0) && ($att['height'] ?? 0) ? ($att['width'] / $att['height']) : null
+                        ];
+                    }
+                }
+            }
+
+            $oembed = $note->get('oembed_data');
+            $linkPreview = $note->get('link_preview');
+            $needsPreview = false;
+
+            if ($oembed === null && empty($linkPreview)) {
+                if (LinkPreview::extractUrl($cleanContent)) {
+                    $needsPreview = true;
+                }
+            }
+
+            $obsUrl = $note->get('activitypub_id') ?: $note->absoluteUrl();
+
+            // Parent Context
+            $parent = null;
+            if ($includeParent && $note->get('in_reply_to')) {
+                $parentId = $note->get('in_reply_to');
+                $parentEntry = Entry::find($parentId);
+                if (!$parentEntry) {
+                    $parentEntry = Entry::query()->where('collection', 'notes')->where('activitypub_id', $parentId)->first();
+                }
+
+                if ($parentEntry) {
+                    $parent = $this->transformEntry($parentEntry, $request, $userActors, false);
+                }
+            }
+
+            return [
+                'type' => $collection === 'notes' ? 'note' : $collection,
+                'collection' => $collection,
+                'is_major' => true,
+                'id' => $note->id(),
+                'title' => ($collection === 'notes') ? null : $note->get('title'),
+                'content' => $cleanContent,
+                'content_raw' => $note->get('content'),
+                'attachments' => $attachments,
+                'oembed' => $oembed,
+                'link_preview' => $linkPreview,
+                'needs_preview' => $needsPreview,
+                'date' => $date ? $date->format('M j, Y H:i') : null,
+                'date_human' => $date ? $date->diffForHumans() : null,
+                'actor' => $actor,
+                'actor_name' => $actor['name'] ?? ($note->get('actor_name') ?? 'ActivityPub User'),
+                'actions' => [
+                    'reply' => cp_route('collections.entries.create', ['collection' => 'notes', 'site' => \Statamic\Facades\Site::selected()->handle(), 'in_reply_to' => $note->id()]),
+                    'view' => $obsUrl,
+                    'thread' => cp_route('activitypub.thread', ['id' => $note->id()]),
+                ],
+                'activitypub_json' => $apJson,
+                'is_boost' => $isBoost ?? false,
+                'boosted_by' => $boostedBy,
+                'quote' => $this->resolveQuote($note),
+                'sensitive' => (bool) $note->get('sensitive', false),
+                'summary' => $note->get('summary'),
+                'is_internal' => (bool) $note->get('is_internal', false),
+                'parent' => $parent,
+                'tags' => $note->get('tags', []),
+            ];
+        });
     }
 
     protected function resolveQuote(mixed $note): ?array

@@ -4,7 +4,14 @@
         <img src="{{ avatar:url }}" class="w-20 h-20 rounded-full mr-6">
         {{ /if }}
         <div>
-            <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100 tracking-tight">{{ title }}</h1>
+            <div class="flex items-center gap-3">
+                <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100 tracking-tight">{{ title }}</h1>
+                {{ if actor_type && actor_type != 'Person' }}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 uppercase tracking-wider">
+                    {{ if actor_type == 'Service' }}🤖 Bot{{ elseif actor_type == 'Organization' }}🏢 Org{{ elseif actor_type == 'Group' }}👥 Group{{ else }}{{ actor_type }}{{ /if }}
+                </span>
+                {{ /if }}
+            </div>
             <p class="text-gray-500 dark:text-gray-400 font-mono mt-1">{{ handle }}</p>
         </div>
     </div>

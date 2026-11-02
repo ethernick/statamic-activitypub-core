@@ -124,7 +124,7 @@ class ActivityPubListenerHashtagTest extends TestCase
             ]);
         $note->save();
 
-        $json = $note->get('activitypub_json');
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
         $this->assertIsString($json);
 
         $data = json_decode($json, true);
@@ -176,7 +176,7 @@ class ActivityPubListenerHashtagTest extends TestCase
         $this->assertContains('another-comma-tag', $tags);
 
         // Verify they appear in JSON
-        $json = $note->get('activitypub_json');
+        $json = \Ethernick\ActivityPubCore\Storage\ActivityPubPayload::for($note)->raw();
         $data = json_decode($json, true);
 
         $this->assertArrayHasKey('tag', $data);

@@ -26,39 +26,44 @@ class WebfingerService
         $domain = $parts[1];
         $webfingerUrl = "https://{$domain}/.well-known/webfinger?resource=acct:{$handle}";
 
-        try {
-            $response = Http::withHeaders(['Accept' => 'application/jrd+json, application/json'])
-                ->get($webfingerUrl);
+        $cacheKey = "ap_webfinger_" . md5(strtolower($handle));
 
-            if (!$response->successful()) {
-                Log::warning("Webfinger lookup failed for {$handle} at {$webfingerUrl} with status: " . $response->status());
-                return ['actor_url' => null, 'aliases' => []];
-            }
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($handle, $webfingerUrl) {
+            try {
+                $response = Http::timeout(3)
+                    ->withHeaders(['Accept' => 'application/jrd+json, application/json'])
+                    ->get($webfingerUrl);
 
-            $data = $response->json();
-            $actorUrl = null;
-            $aliases = $data['aliases'] ?? [];
+                if (!$response->successful()) {
+                    Log::warning("Webfinger lookup failed for {$handle} at {$webfingerUrl} with status: " . $response->status());
+                    return ['actor_url' => null, 'aliases' => []];
+                }
 
-            // Extract Actor URL (rel="self" type="application/activity+json")
-            $links = $data['links'] ?? [];
-            foreach ($links as $link) {
-                if (($link['rel'] ?? '') === 'self' && ($link['type'] ?? '') === 'application/activity+json') {
-                    $actorUrl = $link['href'] ?? null;
-                    if ($actorUrl && !in_array($actorUrl, $aliases)) {
-                        $aliases[] = $actorUrl;
+                $data = $response->json();
+                $actorUrl = null;
+                $aliases = $data['aliases'] ?? [];
+
+                // Extract Actor URL (rel="self" type="application/activity+json")
+                $links = $data['links'] ?? [];
+                foreach ($links as $link) {
+                    if (($link['rel'] ?? '') === 'self' && ($link['type'] ?? '') === 'application/activity+json') {
+                        $actorUrl = $link['href'] ?? null;
+                        if ($actorUrl && !in_array($actorUrl, $aliases)) {
+                            $aliases[] = $actorUrl;
+                        }
                     }
                 }
+
+                return [
+                    'actor_url' => $actorUrl,
+                    'aliases' => $aliases,
+                    'data' => $data
+                ];
+
+            } catch (\Exception $e) {
+                Log::error('Error during Webfinger lookup for ' . $handle . ': ' . $e->getMessage());
+                return ['actor_url' => null, 'aliases' => []];
             }
-
-            return [
-                'actor_url' => $actorUrl,
-                'aliases' => $aliases,
-                'data' => $data
-            ];
-
-        } catch (\Exception $e) {
-            Log::error('Error during Webfinger lookup for ' . $handle . ': ' . $e->getMessage());
-            return ['actor_url' => null, 'aliases' => []];
-        }
+        });
     }
 }

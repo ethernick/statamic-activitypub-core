@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build:v5": "cross-env BUILD_ADDON=true VUE_VERSION=2 vite build && mkdir -p dist/v5/css && cp resources/css/cp.css dist/v5/css/cp.css",
+    "build:v5": "cross-env BUILD_ADDON=true VUE_VERSION=2 vite build && node bin/extract-css.js v5",
     "build": "./bin/build-v6.sh && npm run build:v5",
     "production": "npm run build"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vitejs/plugin-vue2": "^2.3.4",
     "cross-env": "^7.0.3",
+    "tailwindcss": "^4.3.3",
     "vite": "^6.0.0",
     "vite-plugin-externals": "^0.6.2"
   },

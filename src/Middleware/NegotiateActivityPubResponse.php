@@ -8,6 +8,7 @@ use Closure;
 use Statamic\Facades\Entry;
 use Statamic\Facades\URL;
 use Statamic\Facades\Site;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class NegotiateActivityPubResponse
 {
@@ -49,14 +50,18 @@ class NegotiateActivityPubResponse
 
             // Handle Generic Entries (Notes, Articles, Activities)
             // Statamic's default view often passes 'entry' or matches the collection
-            if (isset($data['id'])) { // Generic check if there's data
-                // Typically Statamic injects the entry data.
-                // Let's check for 'activitypub_json' directly in the data
-                if (isset($data['activitypub_json']) && !empty($data['activitypub_json'])) {
-                    $json = $data['activitypub_json'];
-                    if (is_string($json)) {
-                        $json = json_decode($json, true);
+            $entry = $data['entry'] ?? null;
+            if (!$entry) {
+                foreach ($data as $val) {
+                    if ($val instanceof \Statamic\Entries\Entry) {
+                        $entry = $val;
+                        break;
                     }
+                }
+            }
+            if ($entry instanceof \Statamic\Entries\Entry) {
+                $json = ActivityPubPayload::for($entry)->toArray();
+                if (!empty($json)) {
                     return response()->json($json)
                         ->header('Content-Type', 'application/activity+json');
                 }
@@ -76,11 +81,8 @@ class NegotiateActivityPubResponse
         }
 
         if ($entry && $entry instanceof \Statamic\Entries\Entry) {
-            $json = $entry->get('activitypub_json');
-            if ($json) {
-                if (is_string($json)) {
-                    $json = json_decode($json, true);
-                }
+            $json = ActivityPubPayload::for($entry)->toArray();
+            if (!empty($json)) {
                 return response()->json($json)
                     ->header('Content-Type', 'application/activity+json');
             }
@@ -88,12 +90,8 @@ class NegotiateActivityPubResponse
 
         // Original Entry check (redundant but kept for safety if above block didn't cover generic Entry return)
         if ($content instanceof \Statamic\Entries\Entry) {
-            // Sometimes response might be the Entry object directly if returned by a controller?
-            $json = $content->get('activitypub_json');
-            if ($json) {
-                if (is_string($json)) {
-                    $json = json_decode($json, true);
-                }
+            $json = ActivityPubPayload::for($content)->toArray();
+            if (!empty($json)) {
                 return response()->json($json)
                     ->header('Content-Type', 'application/activity+json');
             }

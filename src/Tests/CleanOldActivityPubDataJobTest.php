@@ -100,6 +100,7 @@ class CleanOldActivityPubDataJobTest extends TestCase
         $externalActivity = Entry::make()
             ->collection('activities')
             ->slug('test-activity-external')
+            ->date(Carbon::now()->subDays(5))
             ->data([
                 'type' => 'Create',
                 'actor' => [$this->actor->id()],
@@ -108,23 +109,46 @@ class CleanOldActivityPubDataJobTest extends TestCase
             ->published(true);
         $externalActivity->save();
 
-        // Run job (should query for old external activities)
-        // Note: Date filtering requires dated collections which aren't configured in tests
-        // This test verifies the job runs without errors
+        // Run job
         $job = new CleanOldActivityPubData();
         $job->handle();
 
-        // Job completed successfully
-        $this->assertTrue(true);
+        // Assert external activity is deleted
+        $this->assertNull(Entry::find($externalActivity->id()), 'External activity should be deleted');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_deletes_external_activities_where_is_internal_is_omitted()
+    {
+        // Create external activity with is_internal omitted
+        $externalActivity = Entry::make()
+            ->collection('activities')
+            ->slug('test-activity-omitted-is-internal')
+            ->date(Carbon::now()->subDays(5))
+            ->data([
+                'type' => 'Create',
+                'actor' => [$this->actor->id()],
+                // is_internal is omitted entirely
+            ])
+            ->published(true);
+        $externalActivity->save();
+
+        // Run job
+        $job = new CleanOldActivityPubData();
+        $job->handle();
+
+        // Assert external activity is deleted
+        $this->assertNull(Entry::find($externalActivity->id()), 'External activity with omitted is_internal should be deleted');
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function it_keeps_internal_activities()
     {
-        // Create old internal activity (3 days old)
+        // Create old internal activity (5 days old)
         $internalActivity = Entry::make()
             ->collection('activities')
             ->slug('test-activity-internal')
+            ->date(Carbon::now()->subDays(5))
             ->data([
                 'type' => 'Create',
                 'actor' => [$this->actor->id()],

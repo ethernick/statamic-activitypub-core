@@ -266,13 +266,13 @@ class InboxHandlerTest extends TestCase
         $handler = new InboxHandler();
         $handler->handle($payload, $localActor, $booster);
 
-        // Should update date
+        // Should preserve original note date (not overwrite with boost date)
         \Statamic\Facades\Stache::clear();
         $updatedNote = Entry::find($note->id());
 
-        // Should update date (check content data)
+        // Check content data and entry date preserve original creation date
         $savedDate = \Illuminate\Support\Carbon::parse($updatedNote->get('date'));
-        $this->assertTrue($savedDate->diffInSeconds($boostDate) < 5, 'Note date (in data) should be updated to boost time');
+        $this->assertEquals($originalDate->toIso8601String(), $savedDate->toIso8601String(), 'Original note creation date should be preserved on boost');
 
         // Should have boosted_by array
         $boostedBy = $updatedNote->get('boosted_by');
@@ -301,7 +301,7 @@ class InboxHandlerTest extends TestCase
         $this->assertCount(2, $boostedBy);
         $this->assertEquals($booster2->id(), $boostedBy[1]);
         $savedDate2 = \Illuminate\Support\Carbon::parse($updatedNote->get('date'));
-        $this->assertTrue($savedDate2->diffInSeconds($boostDate2) < 5, 'Note date should be updated to second boost time');
+        $this->assertEquals($originalDate->toIso8601String(), $savedDate2->toIso8601String(), 'Original note creation date should remain preserved after second boost');
 
         // 6. Test Idempotency (Same Boost Reprocessed - though Handler usually blocks by activity ID, let's verify logic doesn't dup if it slipped through or if we just want to ensure stability)
         // Actually, the handler logic usually checks `activities` collection for the activity ID first?
@@ -388,6 +388,64 @@ class InboxHandlerTest extends TestCase
         // Verify the note was created (meaning it passed the 'isMentioned' anti-spam gate)
         $note = Entry::query()->where('collection', 'notes')->where('activitypub_id', 'https://example.com/note/mention')->first();
         $this->assertNotNull($note, 'Note should be saved because it mentions the local actor via handle URL');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function it_preserves_published_date_and_records_updated_on_update_activity()
+    {
+        $this->actingAs(User::make()->id('admin')->makeSuper()->save());
+        $localActor = Entry::make()->collection('actors')->slug('nick')->data(['title' => 'Nick']);
+        $localActor->save();
+
+        $externalActor = Entry::make()->collection('actors')->slug('editor')->data(['title' => 'Editor', 'activitypub_id' => 'https://example.com/editor']);
+        $externalActor->save();
+
+        // 1. Create Initial Note (with past published date)
+        $initialPublished = now()->subDays(5)->startOfSecond();
+        $note = Entry::make()
+            ->collection('notes')
+            ->slug('editable-note')
+            ->date($initialPublished)
+            ->data([
+                'content' => 'Initial draft',
+                'activitypub_id' => 'https://example.com/note/editable-1',
+                'date' => $initialPublished->toIso8601String(),
+                'actor' => $externalActor->id()
+            ]);
+        $note->save();
+
+        // 2. Dispatch Update Activity with a new updated timestamp
+        $updateTimestamp = now()->startOfSecond();
+        $payload = [
+            'id' => 'https://example.com/update/1',
+            'type' => 'Update',
+            'actor' => 'https://example.com/editor',
+            'published' => $updateTimestamp->toIso8601String(),
+            'object' => [
+                'id' => 'https://example.com/note/editable-1',
+                'type' => 'Note',
+                'content' => 'Updated content here',
+                'published' => $initialPublished->toIso8601String(),
+                'updated' => $updateTimestamp->toIso8601String(),
+                'attributedTo' => 'https://example.com/editor',
+            ]
+        ];
+
+        $handler = new InboxHandler();
+        $handler->handle($payload, $localActor, $externalActor);
+
+        \Statamic\Facades\Stache::clear();
+        $reloadedNote = Entry::find($note->id());
+
+        // Assert: Content was updated
+        $this->assertEquals('Updated content here', $reloadedNote->get('content'));
+
+        // Assert: Creation date remains untouched
+        $this->assertEquals($initialPublished->toIso8601String(), \Illuminate\Support\Carbon::parse($reloadedNote->get('date'))->toIso8601String());
+        $this->assertEquals($initialPublished->toIso8601String(), $reloadedNote->date()->toIso8601String());
+
+        // Assert: Updated timestamp is properly recorded
+        $this->assertEquals($updateTimestamp->toIso8601String(), \Illuminate\Support\Carbon::parse($reloadedNote->get('updated'))->toIso8601String());
     }
 }
 

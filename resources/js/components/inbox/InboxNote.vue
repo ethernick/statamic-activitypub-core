@@ -10,19 +10,34 @@
         </div>
 
         <!-- Content -->
-         <div :class="{'px-4 pb-4 pt-1': note.is_boost, 'p-4': !note.is_boost}" class="flex gap-4">
+         <div :class="{'px-3 sm:px-4 pb-3 sm:pb-4 pt-1': note.is_boost, 'p-3 sm:p-4': !note.is_boost}" class="flex gap-2.5 sm:gap-3.5 min-w-0">
             <div class="flex-shrink-0">
-                <img :src="note.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" loading="lazy" class="w-12 h-12 rounded-full bg-gray-200 object-cover">
+                <img 
+                    :src="note.actor.avatar || 'https://www.gravatar.com/avatar/?d=mp'" 
+                    loading="lazy" 
+                    class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-200 dark:bg-gray-800 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    @click="filterByAuthor(note.actor)"
+                    :title="note.actor?.handle ? `Filter by ${note.actor.handle}` : 'Filter by author'"
+                >
             </div>
 
             <div class="flex-1 min-w-0">
-                <div class="flex items-baseline justify-between gap-2">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="font-bold truncate">{{ note.actor.name }}</span>
-                        <span class="text-sm text-gray-500 truncate" :title="note.actor.handle">{{ note.actor.handle }}</span>
+                <div class="flex items-baseline justify-between gap-1.5 sm:gap-2">
+                    <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <span 
+                            class="font-bold text-xs sm:text-sm truncate cursor-pointer hover:underline text-gray-900 dark:text-gray-100" 
+                            @click="filterByAuthor(note.actor)"
+                            :title="note.actor?.handle ? `Filter by ${note.actor.handle}` : 'Filter by author'"
+                        >{{ note.actor.name }}</span>
+                        <span 
+                            class="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate cursor-pointer hover:underline" 
+                            :title="`Filter by ${note.actor.handle}`"
+                            @click="filterByAuthor(note.actor)"
+                        >{{ note.actor.handle }}</span>
+                        <activitypub-hook-loader name="post-card-badge" :props="{ item: note, note, permissions, actors }" />
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <span class="text-xs text-gray-400 whitespace-nowrap" :title="note.date">{{ note.date_human }}</span>
+                    <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        <span class="text-[11px] sm:text-xs text-gray-400 whitespace-nowrap" :title="note.date">{{ note.date_human }}</span>
                         <button v-if="canEdit" class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('edit', note)" title="Edit">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -35,11 +50,28 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Secondary Actions Hook (e.g. Event date/location/ticket actions) -->
+                <div class="mt-1">
+                    <activitypub-hook-loader 
+                        name="inbox-secondary-actions" 
+                        :props="{ note, permissions, actors }"
+                        @edit="$emit('edit', $event)"
+                        @delete="$emit('delete', $event)"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @like="$emit('like', $event)"
+                        @quote="$emit('quote', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
+                        @json="$emit('json', $event)"
+                    />
+                </div>
                 
                 <!-- Content Warning -->
                 <div v-if="note.sensitive" 
                      @click="note.showContent = !note.showContent"
-                     class="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm flex items-center gap-2 text-yellow-800 dark:text-yellow-200 cursor-pointer select-none">
+                     class="mb-2 p-2 text-gray-300 dark:text-gray-500 rounded text-sm flex items-center gap-2 cursor-pointer select-none">
                     <span>⚠️</span>
                     <span>{{ note.summary || 'Sensitive Content' }}</span>
                 </div>
@@ -47,24 +79,44 @@
                 <div v-if="!note.sensitive || note.showContent" class="mt-2 mb-3 prose dark:prose-invert text-sm max-w-none break-words" v-html="note.content"></div>
 
                 <!-- Dynamic Content Hook (e.g., Poll UI, Article Preview) -->
-                <activity-pub-hook-loader 
+                <activitypub-hook-loader 
+                    name="post-card-body-extra" 
+                    :props="{ note, item: note, permissions, actors, storeNoteUrl }"
+                    @vote="$emit('vote', $event)"
+                />
+                <activitypub-hook-loader 
                     name="inbox-note-content" 
-                    :props="{ note, permissions, actors, storeNoteUrl }"
+                    :props="{ note, item: note, permissions, actors, storeNoteUrl }"
                     @vote="$emit('vote', $event)"
                 />
 
                 
-                <!-- Attachments -->
-                <div v-if="note.attachments && note.attachments.length > 0" class="mt-3 flex gap-2">
+                <!-- Attachments (Controlled aspect ratio and mobile-friendly grid) -->
+                <div v-if="note.attachments && note.attachments.length > 0" 
+                     class="mt-3 grid gap-2"
+                     :class="note.attachments.length === 1 ? 'grid-cols-1' : (note.attachments.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3')"
+                >
                     <div v-for="(att, idx) in note.attachments.slice(0, 3)" :key="idx" 
-                         class="relative flex-1 cursor-pointer group overflow-hidden rounded-lg"
+                         class="relative cursor-pointer group overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
+                         :class="note.attachments.length === 1 ? 'max-h-72 sm:max-h-96' : 'aspect-square sm:aspect-video max-h-48'"
                          @click="$emit('lightbox', { attachments: note.attachments, index: idx })">
                         <img :src="att.url" :alt="att.description" class="w-full h-full object-cover transition-transform group-hover:scale-[1.02]" loading="lazy">
                     </div>
                 </div>
 
+                <!-- Skeleton Loader for Async oEmbed / Link Preview -->
+                <div v-if="note.needs_preview && !note.oembed && !note.link_preview" 
+                     class="mt-3 rounded-lg border border-gray-200 dark:border-dark-700 p-4 animate-pulse flex flex-col sm:flex-row gap-4 bg-gray-50/50 dark:bg-dark-800/40">
+                    <div class="sm:w-1/3 h-28 rounded-md bg-gray-200 dark:bg-neutral-800"></div>
+                    <div class="flex-1 space-y-2.5 py-1">
+                        <div class="h-3.5 bg-gray-200 dark:bg-neutral-800 rounded w-3/4"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-neutral-800 rounded w-5/6"></div>
+                        <div class="h-2.5 bg-gray-200 dark:bg-neutral-800 rounded w-1/4 mt-4"></div>
+                    </div>
+                </div>
+
                 <!-- OEmbed -->
-                <div v-if="note.oembed && note.oembed.html" class="mt-3" v-html="note.oembed.html"></div>
+                <div v-if="note.oembed && note.oembed.html" class="mt-3 overflow-hidden" v-html="note.oembed.html"></div>
 
                 <!-- Link Preview -->
                 <a v-if="note.link_preview && !note.oembed" :href="note.link_preview.url" target="_blank" class="block mt-3 rounded-lg overflow-hidden transition-colors group no-underline ap-link-preview">
@@ -84,17 +136,28 @@
                 </a>
                 <!-- Tags Display -->
                 <div v-if="note.tags && note.tags.length > 0" class="mt-3 flex flex-wrap gap-1">
-                    <span v-for="(tag, idx) in note.tags" :key="idx" class="bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full inline-flex items-center">
-                        {{ typeof tag === 'object' ? (tag.title || tag.name || Object.values(tag)[0]) : tag }}
+                    <span 
+                        v-for="(tag, idx) in note.tags" 
+                        :key="idx" 
+                        @click="filterByTag(tag)"
+                        class="bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full inline-flex items-center cursor-pointer hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                        :title="`Filter by #${formatTag(tag)}`"
+                    >
+                        #{{ formatTag(tag) }}
                     </span>
                 </div>
 
+                <!-- Secondary Metadata Hook (e.g. Map directions, event schedule) -->
+                <div class="mt-2">
+                    <activitypub-hook-loader name="post-card-meta" :props="{ note, item: note, permissions, actors }" />
+                </div>
+
                 <!-- Actions -->
-                <div class="mt-3 flex items-center gap-6 text-sm text-gray-500">
+                <div class="mt-3 flex items-center justify-between sm:justify-start sm:gap-6 text-sm text-gray-500 dark:text-gray-400 pt-1">
                     <!-- Actions for standard objects (Notes, Articles, Questions, etc) -->
                     <template v-if="note.type && note.type !== 'activity'">
                         <!-- Content View Toggle (Sensitive only) -->
-                        <button v-if="note.sensitive" class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors" @click="note.showContent = !note.showContent" :title="note.showContent ? 'Hide Content' : 'Show Content'">
+                        <button v-if="note.sensitive" class="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors p-1 -m-1" @click="note.showContent = !note.showContent" :title="note.showContent ? 'Hide Content' : 'Show Content'">
                              <svg v-if="!note.showContent" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -103,33 +166,33 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                         </button>
-                        <button class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('reply', note)" title="Reply">
+                        <button class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors p-1 -m-1" @click="$emit('reply', note)" title="Reply">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                             </svg>
                         </button>
 
-                        <button class="flex items-center gap-1 transition-colors" :class="note.boosted_by_user ? 'text-green-600' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'" @click="$emit('boost', note)" title="Boost">
+                        <button class="flex items-center gap-1 transition-colors p-1 -m-1" :class="note.boosted_by_user ? 'text-green-600' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'" @click="$emit('boost', note)" title="Boost">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
 
                          <!-- Quote Button -->
-                         <button class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('quote', note)" title="Quote">
+                         <button class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors p-1 -m-1" @click="$emit('quote', note)" title="Quote">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                             </svg>
                          </button>
 
-                         <button class="flex items-center gap-1 transition-colors" :class="note.liked_by_user ? 'text-yellow-500' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'" @click="$emit('like', note)" title="Like">
+                         <button class="flex items-center gap-1 transition-colors p-1 -m-1" :class="note.liked_by_user ? 'text-yellow-500' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'" @click="$emit('like', note)" title="Like">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :fill="note.liked_by_user ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                             </svg>
-                            <span>{{ note.counts?.likes || 0 }}</span>
+                            <span class="text-xs">{{ note.counts?.likes || 0 }}</span>
                          </button>
                          
-                         <button v-if="note.related_activity_count > 0 || note.related_activity_count" class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors" @click="$emit('history', note)" title="View History">
+                         <button v-if="note.related_activity_count > 0 || note.related_activity_count" class="flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors p-1 -m-1" @click="$emit('history', note)" title="View History">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -159,10 +222,22 @@
                         </svg>
                      </button>
 
-                     <!-- Dynamic Actions Hook -->
-                     <activity-pub-hook-loader 
+                     <!-- Dynamic Actions Hooks -->
+                     <activitypub-hook-loader 
                         name="inbox-note-actions" 
-                        :props="{ note, permissions }"
+                        :props="{ note, item: note, permissions, actors }"
+                        @reply="$emit('reply', $event)"
+                        @boost="$emit('boost', $event)"
+                        @like="$emit('like', $event)"
+                        @quote="$emit('quote', $event)"
+                        @history="$emit('history', $event)"
+                        @thread="$emit('thread', $event)"
+                        @json="$emit('json', $event)"
+                        @vote="$emit('vote', $event)"
+                     />
+                     <activitypub-hook-loader 
+                        name="post-card-actions" 
+                        :props="{ note, item: note, permissions, actors }"
                         @reply="$emit('reply', $event)"
                         @boost="$emit('boost', $event)"
                         @like="$emit('like', $event)"
@@ -175,8 +250,8 @@
                 </div>
 
                 <!-- INDENTED PARENT NOTE -->
-                <div v-if="note.parent" class="mt-4 pt-4 pl-4 ml-2 rounded-r-lg ap-parent-note">
-                     <div class="text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
+                <div v-if="note.parent" class="mt-3 pt-3 pl-2 sm:pl-4 ml-0 sm:ml-2 rounded-r-lg ap-parent-note overflow-hidden min-w-0">
+                     <div class="text-[11px] sm:text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                         </svg>
@@ -200,8 +275,8 @@
                 </div>
 
                 <!-- QUOTED NOTE DISPLAY -->
-                <div v-if="note.quote" class="mt-4 pt-4 pl-4 ml-2 rounded-r-lg ap-quoted-note">
-                    <div class="text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
+                <div v-if="note.quote" class="mt-3 pt-3 pl-2 sm:pl-4 ml-0 sm:ml-2 rounded-r-lg ap-quoted-note overflow-hidden min-w-0">
+                    <div class="text-[11px] sm:text-xs text-gray-500 mb-2 flex items-center gap-1 font-semibold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                         </svg>
@@ -280,7 +355,27 @@ export default {
     },
 
     methods: {
-        // Core methods kept, type-specific ones removed
+        formatTag(tag) {
+            if (typeof tag === 'object' && tag !== null) {
+                return (tag.title || tag.name || tag.slug || Object.values(tag)[0] || '').toString().replace(/^#/, '');
+            }
+            return (tag || '').toString().replace(/^#/, '');
+        },
+        filterByTag(tag) {
+            const clean = this.formatTag(tag);
+            if (!clean) return;
+            if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus) {
+                Statamic.$activitypub.bus.emit('activitypub:inbox:filter', `#${clean}`);
+            }
+        },
+        filterByAuthor(actor) {
+            const handle = actor?.handle || actor?.username || actor?.name;
+            if (!handle) return;
+            const query = handle.startsWith('@') ? handle : `@${handle}`;
+            if (typeof Statamic !== 'undefined' && Statamic.$activitypub?.bus) {
+                Statamic.$activitypub.bus.emit('activitypub:inbox:filter', query);
+            }
+        }
     }
 
 }

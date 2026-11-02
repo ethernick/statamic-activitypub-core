@@ -68,4 +68,15 @@ class LinkPreviewExtractionTest extends TestCase
         $url = LinkPreview::extractUrl($html);
         $this->assertNull($url);
     }
+
+    public function test_parse_html_extracts_opengraph_data()
+    {
+        $html = '<html><head><meta property="og:title" content="Test Page"><meta property="og:description" content="Test Description"></head></html>';
+        $data = LinkPreview::parseHtml($html, 'https://example.com/page');
+
+        $this->assertNotNull($data);
+        $this->assertEquals('Test Page', $data['title']);
+        $this->assertEquals('Test Description', $data['description']);
+        $this->assertEquals('https://example.com/page', $data['url']);
+    }
 }

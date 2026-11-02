@@ -57,6 +57,21 @@ tabs:
               default: true
               instructions: 'Toggle on if this actor is internal to the site.'
           -
+            handle: actor_type
+            field:
+              type: select
+              display: 'Actor Type'
+              instructions: 'The ActivityPub Actor type for this profile.'
+              default: Person
+              options:
+                Person: 'Person (Individual human)'
+                Organization: 'Organization (Company, Team, Publication)'
+                Service: 'Service (Bot, Automated publishing agent)'
+                Application: 'Application (Software client)'
+                Group: 'Group (Community collective)'
+              validate:
+                - required
+          -
             handle: activitypub_id
             field:
               type: text

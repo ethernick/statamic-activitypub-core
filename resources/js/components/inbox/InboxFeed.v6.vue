@@ -8,11 +8,11 @@
 
             <!-- Feed -->
             <div class="flex flex-col ap-feed-list">
-                <template v-for="item in notes">
+                <template v-for="item in notes" :key="item.id">
                     <!-- Activity Presentation (including Questions/Polls) -->
                     <inbox-activity
                         v-if="item.type === 'activity' || item.type === 'question' || item.type === 'polls' || item.type === 'activities'"
-                        :key="item.id"
+                        :key="`activity-${item.id}`"
                         :activity="item"
                         :permissions="permissions"
                         :actors="actors"
@@ -53,7 +53,7 @@
                     <!-- Content (Note, Article, Poll) Presentation -->
                     <inbox-note
                         v-else
-                        :key="item.id"
+                        :key="`note-${item.id}`"
                         :note="item"
                         :permissions="permissions"
                         :actors="actors"
@@ -93,11 +93,11 @@
             </div>
 
             <!-- Pagination Controls -->
-            <div v-if="pagination.total > 0" class="py-6 px-4 sm:px-6 flex items-center justify-between">
-                <div class="text-sm text-gray-500">
+            <div v-if="pagination.total > 0" class="py-4 sm:py-6 px-3 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="text-xs sm:text-sm text-gray-500">
                     Showing {{ (pagination.page - 1) * pagination.perPage + 1 }} to {{ Math.min(pagination.page * pagination.perPage, pagination.total) }} of {{ pagination.total }} entries
                 </div>
-                <div class="flex gap-1 items-center">
+                <div class="flex gap-1 items-center flex-wrap sm:flex-nowrap">
                     <select :value="pagination.perPage" @change="$emit('per-page-change', parseInt($event.target.value))" class="btn btn-sm pr-8 mr-2">
                         <option :value="25">25 / page</option>
                         <option :value="50">50 / page</option>
@@ -106,20 +106,22 @@
                     <!-- Prev -->
                     <button class="btn btn-sm" :disabled="pagination.page <= 1 || loading" @click="$emit('page-change', pagination.page - 1)">&larr;</button>
                     
-                    <!-- Page Numbers -->
-                    <template v-for="(p, i) in paginationRange">
-                        <span v-if="p === '...'" :key="'dots'+i" class="px-2 py-1 text-gray-400">...</span>
-                        <button 
-                            v-else 
-                            :key="p" 
-                            @click="$emit('page-change', p)"
-                            class="btn btn-sm"
-                            :class="{ 'bg-blue-600 border-blue-600 font-bold': p === pagination.page }"
-                            :disabled="loading"
-                        >
-                            {{ p }}
-                        </button>
-                    </template>
+                    <!-- Page Numbers (hidden on mobile to prevent overflow) -->
+                    <div class="hidden sm:flex sm:items-center sm:gap-1">
+                        <template v-for="(p, i) in paginationRange">
+                            <span v-if="p === '...'" :key="'dots'+i" class="px-2 py-1 text-gray-400">...</span>
+                            <button 
+                                v-else 
+                                :key="p" 
+                                @click="$emit('page-change', p)"
+                                class="btn btn-sm"
+                                :class="{ 'bg-blue-600 border-blue-600 font-bold': p === pagination.page }"
+                                :disabled="loading"
+                            >
+                                {{ p }}
+                            </button>
+                        </template>
+                    </div>
 
                     <!-- Next -->
                     <button class="btn btn-sm" :disabled="pagination.page >= pagination.lastPage || loading" @click="$emit('page-change', pagination.page + 1)">&rarr;</button>
@@ -127,12 +129,12 @@
             </div>
 
             <!-- Loading State overlay or placeholder -->
-            <div v-if="loading" class="py-12 text-center text-gray-500">
-                <svg class="animate-spin h-8 w-8 mx-auto text-gray-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <div v-if="loading" class="py-12 text-center text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin h-9 w-9 mx-auto text-blue-500 dark:text-blue-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-20 text-gray-400 dark:text-gray-600" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span>Loading...</span>
+                <span class="text-sm font-medium tracking-wide">Loading...</span>
             </div>
         </div>
     </div>

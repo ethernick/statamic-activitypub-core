@@ -43,13 +43,18 @@ class NoteStoreHandler implements StoreHandlerInterface
         $settings = File::exists($path) ? YAML::parse(File::get($path)) : [];
         $hashtagField = $settings['hashtags']['field'] ?? 'tags';
 
+        $uuid = (string) \Illuminate\Support\Str::uuid();
+
         $entry = Entry::make()
             ->collection('notes')
+            ->id($uuid)
+            ->slug($uuid)
+            ->date($date)
             ->published(true)
             ->data([
                 'content' => $request->input('content'),
                 'actor' => [$actor->id()],
-                'date' => $date->format('Y-m-d H:i'),
+                'date' => $date->format('Y-m-d H:i:s'),
                 'sensitive' => $request->filled('content_warning'),
                 'summary' => $request->input('content_warning'),
                 'quote_of' => $quoteOf ? [$quoteOf] : null,

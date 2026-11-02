@@ -27,8 +27,7 @@ npm install --legacy-peer-deps vue@^3.5.13
 echo "🏗️  Building v6..."
 npx cross-env BUILD_ADDON=true VUE_VERSION=3 vite build
 
-# Copy CSS to dist (IIFE format inlines CSS into JS, but service provider expects a standalone file)
-mkdir -p dist/v6/css
-cp resources/css/cp.css dist/v6/css/cp.css
+# Extract compiled CSS from cp.js bundle into standalone file
+node bin/extract-css.js v6
 
 echo "✅ Vue 3 build complete: dist/v6/"

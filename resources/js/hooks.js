@@ -11,9 +11,17 @@ class HookRegistry {
     }
 
     /**
+     * Map of alias hooks to canonical hooks
+     */
+    static ALIASES = {
+        'inbox-modals': 'activitypub-modals',
+        'activitypub-modals': 'inbox-modals'
+    };
+
+    /**
      * Register a component to a hook
      * @param {string} hookName - Name of the hook (e.g., 'inbox-note-content')
-     * @param {string} componentName - Name of the Vue component
+     * @param {string|object} component - Vue component or config object
      * @param {object} props - Default props for the component
      * @param {number} priority - Lower numbers run first
      */
@@ -44,12 +52,29 @@ class HookRegistry {
     }
 
     /**
-     * Get all components registered for a hook
+     * Get all components registered for a hook (including registered aliases without duplicates)
      * @param {string} hookName 
      * @returns {Array}
      */
     get(hookName) {
-        return this.hooks[hookName] || [];
+        const direct = this.hooks[hookName] || [];
+        const alias = HookRegistry.ALIASES[hookName];
+        if (!alias || !this.hooks[alias]) {
+            return direct;
+        }
+
+        const combined = [...direct];
+        const registeredComps = new Set(direct.map(h => h.component));
+
+        for (const item of this.hooks[alias]) {
+            if (!registeredComps.has(item.component)) {
+                combined.push(item);
+                registeredComps.add(item.component);
+            }
+        }
+
+        combined.sort((a, b) => a.priority - b.priority);
+        return combined;
     }
 }
 

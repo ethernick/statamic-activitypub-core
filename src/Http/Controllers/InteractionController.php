@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Facades\Entry;
 use Statamic\Http\Controllers\Controller;
+use Ethernick\ActivityPubCore\Storage\ActivityPubPayload;
 
 class InteractionController extends Controller
 {
@@ -100,9 +101,9 @@ class InteractionController extends Controller
         // Actually, for 'likes', normally it returns the Like *activities*.
 
         $collectionItems = $items->map(function ($activity) {
-            $json = $activity->get('activitypub_json');
-            if ($json) {
-                return json_decode($json);
+            $json = ActivityPubPayload::for($activity)->toArray();
+            if (!empty($json)) {
+                return $json;
             }
             // Fallback
             return $activity->get('activitypub_id'); // Return the external ID of the Like/Announce
